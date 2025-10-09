@@ -1,0 +1,7 @@
+services:
+    sveltekit:
+        build: .
+        container_name: home-frontend
+        ports:
+            - "2002:3000"
+        restart: unless-stopped

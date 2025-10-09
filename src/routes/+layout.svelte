@@ -90,7 +90,7 @@
 	</nav>
 {/if}
 
-<FlexWrapper direction="column" height="calc(100vh - 48px);" width="100%;" justifycontent="center" alignitems="center">
+<FlexWrapper direction="column" height="calc(100vh - 48px);" width="100%;" justifycontent="flex-start" alignitems="center">
 	{#if fontsLoaded}
 		{@render children?.()}
 	{:else}

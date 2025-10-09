@@ -1,5 +1,8 @@
 import { getSessionInfo, refreshAccessToken } from "$lib/session";
 
+let lastRefreshTime: number | null = null;
+let refreshCacheDuration = 10 * 60 * 1000; // 10 minutes in ms
+
 export function formatDateWithUTCOffset(date: Date): string {
 	const pad = (n: number) => n.toString().padStart(2, "0");
 
@@ -11,7 +14,6 @@ export function formatDateWithUTCOffset(date: Date): string {
 	const minutes = pad(date.getMinutes());
 	const seconds = pad(date.getSeconds());
 
-	// timezone offset in minutes
 	const offsetMinutes = date.getTimezoneOffset();
 	const sign = offsetMinutes > 0 ? "-" : "+";
 	const absOffset = Math.abs(offsetMinutes);
@@ -22,21 +24,13 @@ export function formatDateWithUTCOffset(date: Date): string {
 }
 
 export async function formatDate_PREFERREDTIME(date: Date | string | undefined | null, correlationID: string): Promise<string> {
-	// Check if the input is valid
-	if (!date) {
-		console.warn("formatDate_PREFERREDTIME: Date is null or undefined");
-		return "Invalid date";
-	}
+	if (!date) return "Invalid date";
 
 	let d: Date;
 	try {
 		d = typeof date === "string" ? new Date(date) : date;
-		if (isNaN(d.getTime())) {
-			console.warn("formatDate_PREFERREDTIME: Invalid date object", date);
-			return "Invalid date";
-		}
-	} catch (err) {
-		console.error("formatDate_PREFERREDTIME: Error parsing date", err);
+		if (isNaN(d.getTime())) return "Invalid date";
+	} catch {
 		return "Invalid date";
 	}
 
@@ -44,21 +38,23 @@ export async function formatDate_PREFERREDTIME(date: Date | string | undefined |
 	let dateFormat = "DD-MM-YYYY HH:mm";
 
 	try {
-		// Silent refresh, no fresh DB data
-		await refreshAccessToken(correlationID, true, false);
+		const now = Date.now();
 
-		// Get session info
+		if (!lastRefreshTime || now - lastRefreshTime > refreshCacheDuration) {
+			await refreshAccessToken(correlationID, true, false);
+			lastRefreshTime = now;
+		}
+
 		const session = await getSessionInfo(correlationID, false);
 		if (session?.preferences) {
 			timezone = session.preferences.timezone || timezone;
 			dateFormat = session.preferences.dateFormat || dateFormat;
 		}
 	} catch (err) {
-		console.warn("formatDate_PREFERREDTIME: Failed to get session preferences, using defaults", err);
+		console.warn("Failed to get session preferences, using defaults", err);
 	}
 
 	try {
-		// Format the date using Intl API
 		const parts = new Intl.DateTimeFormat("en-US", {
 			timeZone: timezone,
 			day: "2-digit",
@@ -90,8 +86,7 @@ export async function formatDate_PREFERREDTIME(date: Date | string | undefined |
 			default:
 				return `${day}-${month}-${year} ${hour}:${minute}`;
 		}
-	} catch (err) {
-		console.error("formatDate_PREFERREDTIME: Error formatting date", err);
+	} catch {
 		return "Invalid date";
 	}
 }

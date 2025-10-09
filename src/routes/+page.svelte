@@ -1,2 +1,230 @@
-<h1>Welcome to SvelteKit</h1>
-<p>Visit <a href="https://svelte.dev/docs/kit">svelte.dev/docs/kit</a> to read the documentation</p>
+<script lang="ts">
+	import { goto } from "$app/navigation";
+	import Weather from "$lib/components/Weather.svelte";
+	import { getSessionInfo, isAuthenticated, refreshAccessToken } from "$lib/session";
+	import type { SessionInfo } from "$lib/types";
+	import { formatDate_PREFERREDTIME } from "$lib/utils/time";
+	import { FlexWrapper, Icon, LinkButton, Space } from "@davidnet/svelte-ui";
+	import { onMount } from "svelte";
+
+	let correlationID = crypto.randomUUID();
+	let sessionInfo: SessionInfo | null = $state(null);
+	let greeting = $state("");
+	let time = $state("Time is timing...");
+
+	let caninternal = $state(false);
+
+	function getGreeting(name: string | undefined) {
+		if (!name) return "";
+		const hour = new Date().getHours();
+		if (hour < 6) return `Good night, ${name}.`;
+		if (hour < 12) return `Good morning, ${name}.`;
+		if (hour < 18) return `Good afternoon, ${name}.`;
+		return `Good evening, ${name}.`;
+	}
+
+	function checkInternalDomain(): Promise<boolean> {
+		return new Promise((resolve) => {
+			const img = new Image();
+			img.onload = () => resolve(true); // domain exists and responded
+			img.onerror = () => resolve(false); // domain unreachable
+			img.src = "https://homeassistant.internal/static/icons/favicon.ico?" + Date.now();
+		});
+	}
+
+	onMount(async () => {
+		await refreshAccessToken(correlationID, true, true);
+
+		sessionInfo = await getSessionInfo(correlationID);
+		greeting = getGreeting(sessionInfo?.display_name ?? "");
+
+		if (sessionInfo?.internal) {
+			try {
+				caninternal = await checkInternalDomain();
+				console.log("Internal reachable?", caninternal);
+			} catch (err) {
+				return false;
+			}
+		}
+
+		setInterval(async () => {
+			time = await formatDate_PREFERREDTIME(new Date(), correlationID);
+		}, 1000);
+	});
+</script>
+
+<Space height="var(--token-space-6)" />
+<Space height="var(--token-space-3)" />
+
+<div class="welcomebox">
+	<FlexWrapper width="100%" direction="row" justifycontent="flex-start">
+		<FlexWrapper width="50%" alignitems="flex-start" direction="column" gap="0.6rem" justifycontent="flex-start">
+			<h1>{greeting}</h1>
+			<span style="margin-left: 5px;">{time} | <Weather /></span>
+		</FlexWrapper>
+	</FlexWrapper>
+</div>
+
+<Space height="var(--token-space-6)" />
+<FlexWrapper width="80%" direction="row" justifycontent="flex-start">
+	<LinkButton iconbefore="notifications" href="/notifications">Notifications</LinkButton>
+	<LinkButton iconbefore="tune" href="https://account.davidnet.net/account/settings/preferences">Preferences</LinkButton>
+	<LinkButton iconbefore="policy" href="https://davidnet.net/legal/">Policies</LinkButton>
+</FlexWrapper>
+<Space height="var(--token-space-3)" />
+<FlexWrapper alignitems="flex-start" width="80%">
+	<h2>Apps:</h2>
+	<FlexWrapper gap="var(--token-space-3)" justifycontent="space-between" direction="row">
+		<a class="option" href="https://kanban.davidnet.net">
+			<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+				<Icon size="4rem" icon="view_kanban" />
+				<p class="option-text">Kanban</p>
+			</FlexWrapper>
+		</a>
+		<a class="option" href="https://account.davidnet.net">
+			<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+				<Icon size="4rem" icon="identity_platform" />
+				<p class="option-text">Account</p>
+			</FlexWrapper>
+		</a>
+		<a class="option" href="https://files.davidnet.net">
+			<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+				<Icon size="4rem" icon="smb_share" />
+				<p class="option-text">Files</p>
+			</FlexWrapper>
+		</a>
+		<a class="option" href="https://chat.davidnet.net">
+			<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+				<Icon size="4rem" icon="chat" />
+				<p class="option-text">Chat</p>
+			</FlexWrapper>
+		</a>
+		<a class="option" href="https://whiteboard.davidnet.net">
+			<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+				<Icon size="4rem" icon="draw" />
+				<p class="option-text">Whiteboard</p>
+			</FlexWrapper>
+		</a>
+	</FlexWrapper>
+</FlexWrapper>
+
+{#if sessionInfo?.internal}
+	<FlexWrapper alignitems="flex-start" width="80%">
+		<h2>Internal:</h2>
+		<FlexWrapper gap="var(--token-space-3)" justifycontent="space-between" direction="row">
+			<a class="option" href="https://homeassistant.davidnet.net">
+				<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+					<Icon size="4rem" icon="home" />
+					<p class="option-text">HA (External)</p>
+				</FlexWrapper>
+			</a>
+			<a class="option" href="https://haqr.davidnet.net/manage">
+				<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+					<Icon size="4rem" icon="qr_code" />
+					<p class="option-text">HAQR</p>
+				</FlexWrapper>
+			</a>
+
+			{#if caninternal}
+				<a class="option" href="https://homeassistant.internal">
+					<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+						<Icon size="4rem" icon="home" />
+						<p class="option-text">HA (Internal)</p>
+					</FlexWrapper>
+				</a>
+				<a class="option" href="https://router.internal">
+					<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+						<Icon size="4rem" icon="router" />
+						<p class="option-text">Router</p>
+					</FlexWrapper>
+				</a>
+				<a class="option" href="https://glances.internal">
+					<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+						<Icon size="4rem" icon="monitor_heart" />
+						<p class="option-text">Glances</p>
+					</FlexWrapper>
+				</a>
+				<a class="option" href="https://pihole.internal">
+					<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+						<Icon size="4rem" icon="encrypted" />
+						<p class="option-text">Pi-hole</p>
+					</FlexWrapper>
+				</a>
+			{:else}
+				<div class="option" style="width: 16rem;">
+					<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+						<Icon size="4rem" icon="signal_disconnected" color="var(--token-color-text-danger);" />
+						<p class="option-text">Not connected to internal network</p>
+					</FlexWrapper>
+				</div>
+			{/if}
+		</FlexWrapper>
+	</FlexWrapper>
+{/if}
+
+<Space height="var(--token-space-4)" />
+
+<FlexWrapper alignitems="flex-start" width="80%">
+	<h2>Today:</h2>
+	<span style="color: var(--token-color-text-secondary); margin-left: var(--token-space-3);">No activity for today.</span>
+</FlexWrapper>
+
+<Space height="var(--token-space-4)" />
+
+<Space height="var(--token-space-6)" />
+<!--Temporary put this in the actual no activity header-->
+
+<FlexWrapper alignitems="flex-start" width="80%">
+	<h2>Recent activity:</h2>
+	<span style="color: var(--token-color-text-secondary); margin-left: var(--token-space-3);">No recent activity.</span>
+</FlexWrapper>
+
+<style>
+	.welcomebox {
+		height: 4rem;
+		width: 80%;
+		background-color: var(--token-color-background-primary-normal);
+		padding: 2rem;
+		border-radius: 1rem;
+		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+	}
+
+	.welcomebox h1 {
+		margin: 0px;
+	}
+
+	.option {
+		text-decoration: none;
+		color: var(--token-color-text-default-normal);
+		text-align: center;
+		border-radius: 2rem;
+		background-color: var(--token-color-surface-overlay-normal);
+		padding: 0.25rem;
+		transition:
+			transform 0.4s ease,
+			box-shadow 0.4s ease;
+		height: 8rem;
+		width: 8rem;
+	}
+
+	.option:hover {
+		background-color: var(--token-color-surface-overlay-hover);
+		transform: scale(1.01);
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	}
+
+	.option:active,
+	.option:focus {
+		background-color: var(--token-color-surface-overlay-pressed);
+	}
+
+	.option:focus {
+		outline: 2px solid var(--token-color-focusring);
+	}
+
+	.option-text {
+		line-height: 1.2;
+		margin: 0px;
+		font-size: larger;
+	}
+</style>

@@ -5,3 +5,4 @@ services:
         ports:
             - "2002:3000"
         restart: unless-stopped
+        dns: 192.168.1.141

@@ -105,6 +105,12 @@
 				<p class="option-text">Whiteboard</p>
 			</FlexWrapper>
 		</a>
+		<a class="option" href="https://status.davidnet.net/">
+			<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+				<Icon size="4rem" icon="bigtop_updates" />
+				<p class="option-text">Status</p>
+			</FlexWrapper>
+		</a>
 	</FlexWrapper>
 </FlexWrapper>
 
@@ -128,6 +134,12 @@
 				<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
 					<Icon size="4rem" icon="chat" />
 					<p class="option-text">Matrix - Element client</p>
+				</FlexWrapper>
+			</a>
+			<a class="option" href="https://uptimekuma.davidnet.net/">
+				<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+					<Icon size="4rem" icon="bigtop_updates" />
+					<p class="option-text">Uptimekuma</p>
 				</FlexWrapper>
 			</a>
 

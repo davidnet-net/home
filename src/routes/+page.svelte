@@ -133,7 +133,13 @@
 			<a class="option" href="https://chat.matrix.davidnet.net/">
 				<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
 					<Icon size="4rem" icon="chat" />
-					<p class="option-text">Matrix - Element client</p>
+					<p class="option-text">Matrix</p>
+				</FlexWrapper>
+			</a>
+			<a class="option" href="https://admin.matrix.davidnet.net/">
+				<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+					<Icon size="4rem" icon="shield" />
+					<p class="option-text">Matrix ADMIN</p>
 				</FlexWrapper>
 			</a>
 			<a class="option" href="https://uptimekuma.davidnet.net/">

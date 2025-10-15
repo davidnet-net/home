@@ -124,6 +124,12 @@
 					<p class="option-text">HAQR</p>
 				</FlexWrapper>
 			</a>
+			<a class="option" href="https://chat.matrix.davidnet.net/">
+				<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+					<Icon size="4rem" icon="chat" />
+					<p class="option-text">Matrix - Element client</p>
+				</FlexWrapper>
+			</a>
 
 			{#if caninternal}
 				<a class="option" href="https://homeassistant.internal">

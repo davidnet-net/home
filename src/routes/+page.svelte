@@ -54,7 +54,7 @@
 </script>
 
 <Space height="var(--token-space-6)" />
-<Space height="var(--token-space-3)" />
+<Space height="5rem" />
 
 <div class="welcomebox">
 	<FlexWrapper width="100%" direction="row" justifycontent="flex-start">

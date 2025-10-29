@@ -190,7 +190,7 @@
 
 <FlexWrapper alignitems="flex-start" width="80%">
 	<h2>Apps:</h2>
-	<FlexWrapper gap="var(--token-space-3)" justifycontent="space-between" direction="row" wrap="wrap">
+	<FlexWrapper gap="var(--token-space-3)" justifycontent="space-evenly" direction="row" wrap="wrap">
 		<a class="option" href="https://kanban.davidnet.net">
 			<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
 				<Icon size="4rem" icon="view_kanban" />
@@ -233,7 +233,7 @@
 {#if sessionInfo?.internal}
 	<FlexWrapper alignitems="flex-start" width="80%">
 		<h2>Internal:</h2>
-		<FlexWrapper gap="var(--token-space-3)" justifycontent="space-between" direction="row" wrap="wrap">
+		<FlexWrapper gap="var(--token-space-3)" justifycontent="space-evenly" direction="row" wrap="wrap">
 			<a class="option" href="https://homeassistant.davidnet.net">
 				<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
 					<Icon size="4rem" icon="home" />

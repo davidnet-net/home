@@ -7,7 +7,7 @@ interface CacheEntry {
 
 // Simple in-memory cache keyed by "lat,lon"
 const cache = new Map<string, CacheEntry>();
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 
 export const GET: RequestHandler = async ({ url }) => {
   const lat = url.searchParams.get('lat');

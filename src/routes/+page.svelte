@@ -80,7 +80,7 @@
 
 <div class="welcomebox">
 	<FlexWrapper width="100%" direction="row" justifycontent="space-between" alignitems="center" wrap="wrap">
-		<FlexWrapper direction="column" gap="0.3rem" flex="1 1 auto">
+		<FlexWrapper direction="column" gap="0.3rem" flex="0 1 auto">
 			<h1>{greeting}</h1>
 			<span class="time-weather">{time} | <Weather /></span>
 		</FlexWrapper>
@@ -102,7 +102,7 @@
 	<FlexWrapper gap="var(--token-space-3)" justifycontent="flex-start" direction="row" wrap="wrap">
 		{#each apps as app}
 			<a class="option" href={app.href}>
-				<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+				<FlexWrapper width="auto" height="100%" gap="var(--token-space-2)" flex="0 1 auto">
 					<Icon size="4rem" icon={app.icon} />
 					<p class="option-text">{app.label}</p>
 				</FlexWrapper>
@@ -117,7 +117,7 @@
 		<FlexWrapper gap="var(--token-space-3)" justifycontent="flex-start" direction="row" wrap="wrap">
 			{#each internalApps as app}
 				<a class="option" href={app.href}>
-					<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+					<FlexWrapper width="auto" height="100%" gap="var(--token-space-2)" flex="0 1 auto">
 						<Icon size="4rem" icon={app.icon} />
 						<p class="option-text">{app.label}</p>
 					</FlexWrapper>
@@ -126,25 +126,25 @@
 
 			{#if caninternal}
 				<a class="option" href="https://homeassistant.internal">
-					<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+					<FlexWrapper width="auto" height="100%" gap="var(--token-space-2)" flex="0 1 auto">
 						<Icon size="4rem" icon="home" />
 						<p class="option-text">HA (Internal)</p>
 					</FlexWrapper>
 				</a>
 				<a class="option" href="https://router.internal">
-					<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+					<FlexWrapper width="auto" height="100%" gap="var(--token-space-2)" flex="0 1 auto">
 						<Icon size="4rem" icon="router" />
 						<p class="option-text">Router</p>
 					</FlexWrapper>
 				</a>
 				<a class="option" href="https://glances.internal">
-					<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+					<FlexWrapper width="auto" height="100%" gap="var(--token-space-2)" flex="0 1 auto">
 						<Icon size="4rem" icon="monitor_heart" />
 						<p class="option-text">Glances</p>
 					</FlexWrapper>
 				</a>
 				<a class="option" href="https://pihole.internal">
-					<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+					<FlexWrapper width="auto" height="100%" gap="var(--token-space-2)" flex="0 1 auto">
 						<Icon size="4rem" icon="encrypted" />
 						<p class="option-text">Pi-hole</p>
 					</FlexWrapper>
@@ -186,9 +186,11 @@
 		border-radius: 1rem;
 		box-shadow: 0 4px 6px rgba(0,0,0,0.1);
 		display: flex;
-		flex-direction: column;
-		justify-content: center;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
 		margin-bottom: var(--token-space-6);
+		flex-wrap: wrap; /* only wrap if needed */
 	}
 
 	.time-weather {
@@ -205,7 +207,7 @@
 		padding: 0.25rem;
 		transition: transform 0.4s ease, box-shadow 0.4s ease;
 		height: 8rem;
-		flex: 1 1 8rem;
+		flex: 0 1 auto; /* shrink if needed, don’t grow unnecessarily */
 		max-width: 8rem;
 	}
 
@@ -242,8 +244,7 @@
 
 		.option {
 			height: 7rem;
-			flex: 1 1 45%;
-			max-width: 6rem;
+			max-width: 45%; /* allows two items per row on small screens */
 		}
 
 		.option-text {

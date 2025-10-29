@@ -84,7 +84,7 @@
 {:else}
 	<div class="welcomebox">
 		<FlexWrapper width="100%" direction="row" justifycontent="space-around">
-			<h1 style="margin-top: 1rem;">{greeting}</h1>
+			<h1 style="margin-bottom: 1rem;">{greeting}</h1>
 			<FlexWrapper justifycontent="column" gap="var(--token-space-2)">
 				<span>{time}</span>
 				<span><Weather /></span>

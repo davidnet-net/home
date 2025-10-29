@@ -36,8 +36,6 @@
 		try {
 			si = await getSessionInfo(correlationID, true);
 
-			const pathname = page.url.pathname;
-
 			if (!(await isAuthenticated(correlationID)) || !si) {
 				window.location.href = "https://account.davidnet.net/login?redirect=" + encodeURIComponent(page.url.toString());
 				return;

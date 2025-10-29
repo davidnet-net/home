@@ -49,6 +49,17 @@
 			time = await formatDate_PREFERREDTIME(new Date(), correlationID);
 		}, 1000);
 	});
+
+	let width = window.innerWidth;
+	const handleResize = () => {
+		width = window.innerWidth;
+	};
+	window.addEventListener('resize', handleResize);
+	import { onDestroy } from 'svelte';
+	onDestroy(() => {
+		window.removeEventListener('resize', handleResize);
+	});
+
 </script>
 
 <Space height="var(--token-space-6)" />
@@ -56,10 +67,17 @@
 
 <div class="welcomebox">
 	<FlexWrapper width="100%" direction="row" justifycontent="flex-start">
-		<FlexWrapper width="50%" alignitems="flex-start" direction="column" gap="0.6rem" justifycontent="flex-start" wrap="wrap">
-			<h1>{greeting}</h1>
-			<span style="margin-left: 5px;">{time} | <Weather /></span>
-		</FlexWrapper>
+		{#if width < 600}
+			<FlexWrapper width="50%" alignitems="flex-start" direction="row" gap="0.6rem" justifycontent="flex-start">
+				<h1>{greeting}</h1>
+				<span style="margin-left: 5px;">{time} | <Weather /></span>
+			</FlexWrapper>
+		{:else}
+			<FlexWrapper width="50%" alignitems="flex-start" direction="column" gap="0.6rem" justifycontent="flex-start">
+				<h1>{greeting}</h1>
+				<span style="margin-left: 5px;">{time} | <Weather /></span>
+			</FlexWrapper>
+		{/if}
 	</FlexWrapper>
 </div>
 

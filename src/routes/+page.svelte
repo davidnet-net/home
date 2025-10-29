@@ -135,9 +135,9 @@
 			</FlexWrapper>
 		</div>
 	{/if}
+	<Space height="var(--token-space-6)" />
 </FlexWrapper>
 
-<Space height="var(--token-space-6)" />
 
 <!-- 🆕 Dynamische blokken met publieke + interne statussen -->
 <FlexWrapper width="80%" justifycontent="flex-start" direction="row" gap="var(--token-space-4)" wrap="wrap">

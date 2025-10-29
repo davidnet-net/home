@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from "$app/navigation";
 	import Weather from "$lib/components/Weather.svelte";
 	import type { SessionInfo } from "$lib/types";
 	import {

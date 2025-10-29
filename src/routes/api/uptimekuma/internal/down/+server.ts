@@ -1,7 +1,7 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 
-const STATUS_PAGE_SLUG = 'davidnet';
+const STATUS_PAGE_SLUG = 'internal';
 const STATUS_PAGE_URL = 'https://uptimekuma.davidnet.net/api/status-page';
 
 export const GET: RequestHandler = async () => {
@@ -25,7 +25,6 @@ export const GET: RequestHandler = async () => {
 
     // 2️⃣ Fetch heartbeat data to get current statuses
     const resHeartbeat = await fetch(`${STATUS_PAGE_URL}/heartbeat/${STATUS_PAGE_SLUG}`);
-    console.log(resHeartbeat);
     if (!resHeartbeat.ok)
       return json({ error: 'Failed to fetch heartbeat data' }, { status: resHeartbeat.status });
 
@@ -52,6 +51,7 @@ export const GET: RequestHandler = async () => {
         msg: latest.msg
       };
     });
+
     return json(result);
   } catch (err) {
     console.error(err);

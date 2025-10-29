@@ -7,19 +7,21 @@
 		LinkButton,
 		Space,
 		getSessionInfo,
-		isAuthenticated,
 		refreshAccessToken,
 		formatDate_PREFERREDTIME,
 		BlockNote
 	} from "@davidnet/svelte-ui";
-	import { onMount } from "svelte";
+	import { onMount, onDestroy } from "svelte";
 
 	let correlationID = crypto.randomUUID();
 	let sessionInfo: SessionInfo | null = $state(null);
 	let greeting = $state("");
 	let time = $state("Time is timing...");
-
 	let caninternal = $state(false);
+
+	// 🆕 State for Uptime Kuma data
+	let downServices: string[] = $state([]);
+	let maintenanceServices: string[] = $state([]);
 
 	function getGreeting(name: string | undefined) {
 		if (!name) return "";
@@ -33,15 +35,54 @@
 	function checkInternalDomain(): Promise<boolean> {
 		return new Promise((resolve) => {
 			const img = new Image();
-			img.onload = () => resolve(true); // domain exists and responded
-			img.onerror = () => resolve(false); // domain unreachable
+			img.onload = () => resolve(true);
+			img.onerror = () => resolve(false);
 			img.src = "https://homeassistant.internal/static/icons/favicon.ico?" + Date.now();
 		});
 	}
 
+	async function fetchStatusData() {
+		try {
+			const endpoints = [
+				"/api/uptimekuma/down",
+				"/api/uptimekuma/maintenance",
+			];
+
+			// Als intern: voeg ook interne endpoints toe
+			if (sessionInfo?.internal) {
+				endpoints.push("/api/uptimekuma/internal/down");
+				endpoints.push("/api/uptimekuma/internal/maintenance");
+			}
+
+			const responses = await Promise.allSettled(endpoints.map((url) => fetch(url)));
+			const jsons = await Promise.all(
+				responses.map(async (res) => {
+					if (res.status === "fulfilled" && res.value.ok) return res.value.json();
+					return [];
+				})
+			);
+
+			// Combineer en dedupliceer de resultaten
+			const [downPublic, maintenancePublic, downInternal, maintenanceInternal] = jsons;
+			const mergeUnique = (a: string[], b: string[]) => [...new Set([...a, ...b])];
+
+			downServices = mergeUnique(
+				downPublic.map((s: any) => s.name),
+				(downInternal || []).map((s: any) => s.name)
+			);
+			maintenanceServices = mergeUnique(
+				maintenancePublic.map((s: any) => s.name),
+				(maintenanceInternal || []).map((s: any) => s.name)
+			);
+		} catch (err) {
+			console.error("Error fetching status info:", err);
+			downServices = [];
+			maintenanceServices = [];
+		}
+	}
+
 	onMount(async () => {
 		await refreshAccessToken(correlationID, true, true);
-
 		sessionInfo = await getSessionInfo(correlationID);
 		greeting = getGreeting(sessionInfo?.display_name ?? "");
 
@@ -49,10 +90,13 @@
 			try {
 				caninternal = await checkInternalDomain();
 				console.log("Internal reachable?", caninternal);
-			} catch (err) {
-				return false;
+			} catch {
+				caninternal = false;
 			}
 		}
+
+		await fetchStatusData();
+		setInterval(fetchStatusData, 5 * 60 * 1000); // elke 5 min
 
 		setInterval(async () => {
 			time = await formatDate_PREFERREDTIME(new Date(), correlationID);
@@ -64,7 +108,6 @@
 		width = window.innerWidth;
 	};
 	window.addEventListener("resize", handleResize);
-	import { onDestroy } from "svelte";
 	onDestroy(() => {
 		window.removeEventListener("resize", handleResize);
 	});
@@ -93,28 +136,58 @@
 		</div>
 	{/if}
 </FlexWrapper>
+
 <Space height="var(--token-space-6)" />
-<FlexWrapper width="80%" alignitems="flex-start">
-	<BlockNote
-		appearance="error"
-		title="Degraded services"
-		actions={[
-			{
-				appearance: "link",
-				content: "Status Page",
-				href: "https://status.davidnet.net",
-				onClick: () => {}
-			}
-		]}>Some services currently are down.</BlockNote
-	>
+
+<!-- 🆕 Dynamische blokken met publieke + interne statussen -->
+<FlexWrapper width="80%" justifycontent="flex-start" direction="row" gap="var(--token-space-4)" wrap="wrap">
+	{#if downServices.length > 0}
+		<BlockNote
+			appearance="error"
+			title="Degraded services"
+			actions={[
+				{
+					appearance: "link",
+					content: "Status Page",
+					href: "https://status.davidnet.net",
+					onClick: () => {}
+				}
+			]}>
+			{#each downServices as name}
+				<p>{name} is experiencing issues.</p>
+			{/each}
+		</BlockNote>
+	{/if}
+
+	{#if maintenanceServices.length > 0}
+		<BlockNote
+			appearance="warning"
+			title="Maintenance"
+			actions={[
+				{
+					appearance: "link",
+					content: "Status Page",
+					href: "https://status.davidnet.net",
+					onClick: () => {}
+				}
+			]}>
+			{#each maintenanceServices as name}
+				<p>{name} is currently under maintenance.</p>
+			{/each}
+		</BlockNote>
+	{/if}
 </FlexWrapper>
+
 <Space height="var(--token-space-6)" />
+
 <FlexWrapper width="80%" direction="row" justifycontent="flex-start" wrap="wrap" gap="var(--token-space-2)">
 	<LinkButton iconbefore="notifications" href="/notifications">Notifications</LinkButton>
 	<LinkButton iconbefore="tune" href="https://account.davidnet.net/account/settings/preferences">Preferences</LinkButton>
 	<LinkButton iconbefore="policy" href="https://davidnet.net/legal/">Policies</LinkButton>
 </FlexWrapper>
+
 <Space height="var(--token-space-3)" />
+
 <FlexWrapper alignitems="flex-start" width="80%">
 	<h2>Apps:</h2>
 	<FlexWrapper gap="var(--token-space-3)" justifycontent="space-between" direction="row" wrap="wrap">
@@ -249,9 +322,6 @@
 </FlexWrapper>
 
 <Space height="var(--token-space-4)" />
-
-<Space height="var(--token-space-6)" />
-<!--Temporary put this in the actual no activity header-->
 
 <FlexWrapper alignitems="flex-start" width="80%">
 	<h2>Recent activity:</h2>

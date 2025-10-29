@@ -90,7 +90,6 @@
 				</FlexWrapper>
 			</FlexWrapper>
 		</div>
-		<Space height="var(--token-space-6)" />
 	{/if}
 </FlexWrapper>
 <Space height="var(--token-space-6)" />

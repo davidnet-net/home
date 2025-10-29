@@ -33,6 +33,7 @@
 	onMount(async () => {
 		const initloader = document.getElementById("initloader");
 		if (initloader) initloader.remove();
+		return;
 		try {
 			si = await getSessionInfo(correlationID, true);
 

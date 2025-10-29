@@ -56,7 +56,7 @@
 
 <div class="welcomebox">
 	<FlexWrapper width="100%" direction="row" justifycontent="flex-start">
-		<FlexWrapper width="50%" alignitems="flex-start" direction="column" gap="0.6rem" justifycontent="flex-start">
+		<FlexWrapper width="50%" alignitems="flex-start" direction="column" gap="0.6rem" justifycontent="flex-start" wrap="wrap">
 			<h1>{greeting}</h1>
 			<span style="margin-left: 5px;">{time} | <Weather /></span>
 		</FlexWrapper>
@@ -64,7 +64,7 @@
 </div>
 
 <Space height="var(--token-space-6)" />
-<FlexWrapper width="80%" direction="row" justifycontent="flex-start">
+<FlexWrapper width="80%" direction="row" justifycontent="flex-start" wrap="wrap" gap="var(--token-space-1)">
 	<LinkButton iconbefore="notifications" href="/notifications">Notifications</LinkButton>
 	<LinkButton iconbefore="tune" href="https://account.davidnet.net/account/settings/preferences">Preferences</LinkButton>
 	<LinkButton iconbefore="policy" href="https://davidnet.net/legal/">Policies</LinkButton>
@@ -72,7 +72,7 @@
 <Space height="var(--token-space-3)" />
 <FlexWrapper alignitems="flex-start" width="80%">
 	<h2>Apps:</h2>
-	<FlexWrapper gap="var(--token-space-3)" justifycontent="space-between" direction="row">
+	<FlexWrapper gap="var(--token-space-3)" justifycontent="space-between" direction="row" wrap="wrap">
 		<a class="option" href="https://kanban.davidnet.net">
 			<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
 				<Icon size="4rem" icon="view_kanban" />
@@ -115,7 +115,7 @@
 {#if sessionInfo?.internal}
 	<FlexWrapper alignitems="flex-start" width="80%">
 		<h2>Internal:</h2>
-		<FlexWrapper gap="var(--token-space-3)" justifycontent="space-between" direction="row">
+		<FlexWrapper gap="var(--token-space-3)" justifycontent="space-between" direction="row" wrap="wrap">
 			<a class="option" href="https://homeassistant.davidnet.net">
 				<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
 					<Icon size="4rem" icon="home" />

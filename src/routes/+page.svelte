@@ -2,7 +2,16 @@
 	import { goto } from "$app/navigation";
 	import Weather from "$lib/components/Weather.svelte";
 	import type { SessionInfo } from "$lib/types";
-	import { FlexWrapper, Icon, LinkButton, Space, getSessionInfo, isAuthenticated, refreshAccessToken, formatDate_PREFERREDTIME } from "@davidnet/svelte-ui";
+	import {
+		FlexWrapper,
+		Icon,
+		LinkButton,
+		Space,
+		getSessionInfo,
+		isAuthenticated,
+		refreshAccessToken,
+		formatDate_PREFERREDTIME
+	} from "@davidnet/svelte-ui";
 	import { onMount } from "svelte";
 
 	let correlationID = crypto.randomUUID();
@@ -54,33 +63,35 @@
 	const handleResize = () => {
 		width = window.innerWidth;
 	};
-	window.addEventListener('resize', handleResize);
-	import { onDestroy } from 'svelte';
+	window.addEventListener("resize", handleResize);
+	import { onDestroy } from "svelte";
 	onDestroy(() => {
-		window.removeEventListener('resize', handleResize);
+		window.removeEventListener("resize", handleResize);
 	});
-
 </script>
 
 <Space height="var(--token-space-6)" />
 <Space height="5rem" />
-
-<div class="welcomebox">
-	<FlexWrapper width="100%" direction="row" justifycontent="flex-start">
-		{#if width < 600}
-			<FlexWrapper width="50%" alignitems="flex-start" direction="row" gap="0.6rem" justifycontent="flex-start">
-				<h1>{greeting}</h1>
-				<span style="margin-left: 5px;">{time} | <Weather /></span>
-			</FlexWrapper>
-		{:else}
+{#if width > 600}
+	<div class="welcomebox">
+		<FlexWrapper width="100%" direction="row" justifycontent="flex-start">
 			<FlexWrapper width="50%" alignitems="flex-start" direction="column" gap="0.6rem" justifycontent="flex-start">
 				<h1>{greeting}</h1>
 				<span style="margin-left: 5px;">{time} | <Weather /></span>
 			</FlexWrapper>
-		{/if}
-	</FlexWrapper>
-</div>
-
+		</FlexWrapper>
+	</div>
+{:else}
+	<div class="welcomebox">
+		<FlexWrapper width="100%" direction="row" justifycontent="space-around">
+			<h1>{greeting}</h1>
+			<FlexWrapper justifycontent="column">
+				<span>{time}</span>
+				<span><Weather /></span>
+			</FlexWrapper>
+		</FlexWrapper>
+	</div>
+{/if}
 <Space height="var(--token-space-6)" />
 <FlexWrapper width="80%" direction="row" justifycontent="flex-start" wrap="wrap" gap="var(--token-space-1)">
 	<LinkButton iconbefore="notifications" href="/notifications">Notifications</LinkButton>

@@ -1,7 +1,7 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 
-const STATUS_PAGE_SLUG = 'davidnet'; // your published slug
+const STATUS_PAGE_SLUG = 'davidnet';
 const STATUS_PAGE_URL = 'https://uptimekuma.davidnet.net/api/status-page';
 
 export const GET: RequestHandler = async () => {

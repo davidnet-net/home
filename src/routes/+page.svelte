@@ -76,7 +76,7 @@
 	<div class="welcomebox">
 		<FlexWrapper width="100%" direction="row" justifycontent="flex-start">
 			<FlexWrapper width="50%" alignitems="flex-start" direction="column" gap="0.6rem" justifycontent="flex-start">
-				<h1>{greeting}</h1>
+				<h1 style="margin: 0px;">{greeting}</h1>
 				<span style="margin-left: 5px;">{time} | <Weather /></span>
 			</FlexWrapper>
 		</FlexWrapper>
@@ -84,8 +84,8 @@
 {:else}
 	<div class="welcomebox">
 		<FlexWrapper width="100%" direction="row" justifycontent="space-around">
-			<h1>{greeting}</h1>
-			<FlexWrapper justifycontent="column">
+			<h1 style="margin: 0px;">{greeting}</h1>
+			<FlexWrapper justifycontent="column" gap="var(--token-space-1)">
 				<span>{time}</span>
 				<span><Weather /></span>
 			</FlexWrapper>

@@ -91,9 +91,10 @@
 			</FlexWrapper>
 		</FlexWrapper>
 	</div>
+	<Space height="var(--token-space-6)" />
 {/if}
 <Space height="var(--token-space-6)" />
-<FlexWrapper width="80%" direction="row" justifycontent="flex-start" wrap="wrap" gap="var(--token-space-1)">
+<FlexWrapper width="80%" direction="row" justifycontent="flex-start" wrap="wrap" gap="var(--token-space-2)">
 	<LinkButton iconbefore="notifications" href="/notifications">Notifications</LinkButton>
 	<LinkButton iconbefore="tune" href="https://account.davidnet.net/account/settings/preferences">Preferences</LinkButton>
 	<LinkButton iconbefore="policy" href="https://davidnet.net/legal/">Policies</LinkButton>

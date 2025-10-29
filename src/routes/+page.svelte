@@ -9,7 +9,8 @@
 		getSessionInfo,
 		isAuthenticated,
 		refreshAccessToken,
-		formatDate_PREFERREDTIME
+		formatDate_PREFERREDTIME,
+		BlockNote
 	} from "@davidnet/svelte-ui";
 	import { onMount } from "svelte";
 
@@ -91,6 +92,21 @@
 			</FlexWrapper>
 		</div>
 	{/if}
+</FlexWrapper>
+<Space height="var(--token-space-6)" />
+<FlexWrapper width="80%" alignitems="flex-start">
+	<BlockNote
+		appearance="error"
+		title="Degraded services"
+		actions={[
+			{
+				appearance: "link",
+				content: "Status Page",
+				href: "https://status.davidnet.net",
+				onClick: () => {}
+			}
+		]}>Some services currently are down.</BlockNote
+	>
 </FlexWrapper>
 <Space height="var(--token-space-6)" />
 <FlexWrapper width="80%" direction="row" justifycontent="flex-start" wrap="wrap" gap="var(--token-space-2)">

@@ -8,7 +8,6 @@
 		Avatar,
 		Loader,
 		IconButton,
-		LinkIconButton,
 		getSessionInfo, isAuthenticated, refreshAccessToken
 	} from "@davidnet/svelte-ui";
 	import favicon from "$lib/assets/favicon.svg";

@@ -1,14 +1,14 @@
 <script lang="ts">
 	import Weather from "$lib/components/Weather.svelte";
 	import type { SessionInfo } from "$lib/types";
-	import { formatDate_PREFERREDTIME } from "$lib/utils/time";
 	import {
 		FlexWrapper,
 		Icon,
 		LinkButton,
 		Space,
 		getSessionInfo,
-		refreshAccessToken
+		refreshAccessToken,
+		formatDate_PREFERREDTIME
 	} from "@davidnet/svelte-ui";
 	import { onMount } from "svelte";
 

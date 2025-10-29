@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { FlexWrapper, Icon, Loader, ToolTip } from "@davidnet/svelte-ui";
+	import { Loader, ToolTip } from "@davidnet/svelte-ui";
 	import { onMount } from "svelte";
 	import { writable } from "svelte/store";
 

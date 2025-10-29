@@ -50,7 +50,7 @@
 		}, 1000);
 	});
 
-	let width = window.innerWidth;
+	let width = $state(window.innerWidth);
 	const handleResize = () => {
 		width = window.innerWidth;
 	};

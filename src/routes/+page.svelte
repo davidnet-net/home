@@ -70,9 +70,8 @@
 	});
 </script>
 
-<Space height="var(--token-space-6)" />
-<Space height="5rem" />
-<FlexWrapper>
+<FlexWrapper direction="column">
+	<Space height="6rem" />
 	{#if width > 600}
 		<div class="welcomebox">
 			<FlexWrapper width="100%" direction="row" justifycontent="flex-start">

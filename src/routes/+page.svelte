@@ -72,27 +72,29 @@
 
 <Space height="var(--token-space-6)" />
 <Space height="5rem" />
-{#if width > 600}
-	<div class="welcomebox">
-		<FlexWrapper width="100%" direction="row" justifycontent="flex-start">
-			<FlexWrapper width="50%" alignitems="flex-start" direction="column" gap="0.6rem" justifycontent="flex-start">
-				<h1 style="margin: 0px;">{greeting}</h1>
-				<span style="margin-left: 5px;">{time} | <Weather /></span>
+<FlexWrapper>
+	{#if width > 600}
+		<div class="welcomebox">
+			<FlexWrapper width="100%" direction="row" justifycontent="flex-start">
+				<FlexWrapper width="50%" alignitems="flex-start" direction="column" gap="0.6rem" justifycontent="flex-start">
+					<h1 style="margin: 0px;">{greeting}</h1>
+					<span style="margin-left: 5px;">{time} | <Weather /></span>
+				</FlexWrapper>
 			</FlexWrapper>
-		</FlexWrapper>
-	</div>
-{:else}
-	<div class="welcomebox">
-		<FlexWrapper width="100%" direction="row" justifycontent="space-around">
-			<h1 style="margin-top: -1rem;">{greeting}</h1>
-			<FlexWrapper justifycontent="column" gap="var(--token-space-2)">
-				<span>{time}</span>
-				<span><Weather /></span>
+		</div>
+	{:else}
+		<div class="welcomebox">
+			<FlexWrapper width="100%" direction="row" justifycontent="space-around">
+				<h1 style="margin-top: -1rem;">{greeting}</h1>
+				<FlexWrapper justifycontent="column" gap="var(--token-space-2)">
+					<span>{time}</span>
+					<span><Weather /></span>
+				</FlexWrapper>
 			</FlexWrapper>
-		</FlexWrapper>
-	</div>
-	<Space height="var(--token-space-6)" />
-{/if}
+		</div>
+		<Space height="var(--token-space-6)" />
+	{/if}
+</FlexWrapper>
 <Space height="var(--token-space-6)" />
 <FlexWrapper width="80%" direction="row" justifycontent="flex-start" wrap="wrap" gap="var(--token-space-2)">
 	<LinkButton iconbefore="notifications" href="/notifications">Notifications</LinkButton>

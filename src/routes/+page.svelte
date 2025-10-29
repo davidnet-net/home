@@ -203,6 +203,7 @@
 	<LinkButton iconbefore="notifications" href="/notifications">Notifications</LinkButton>
 	<LinkButton iconbefore="tune" href="https://account.davidnet.net/account/settings/preferences">Preferences</LinkButton>
 	<LinkButton iconbefore="policy" href="https://davidnet.net/legal/">Policies</LinkButton>
+	<LinkButton iconbefore="policy" href="https://davidnet.net/">Davidnet</LinkButton>
 </FlexWrapper>
 
 <Space height="var(--token-space-3)" />

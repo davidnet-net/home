@@ -59,10 +59,6 @@
 	});
 </script>
 
-<svelte:head>
-	<link rel="icon" href={favicon} />
-</svelte:head>
-
 <ThemeProvider />
 <Toaster />
 <ConnectivityCheck />

@@ -9,7 +9,10 @@
 		getSessionInfo,
 		refreshAccessToken,
 		formatDate_PREFERREDTIME,
-		BlockNote
+		BlockNote,
+
+		isMachineTimeSameAsPreferred
+
 	} from "@davidnet/svelte-ui";
 	import { onMount, onDestroy } from "svelte";
 
@@ -81,6 +84,7 @@
 		}
 	}
 
+	let goodtime: boolean = $state(true);
 	onMount(async () => {
 		await refreshAccessToken(correlationID, true, true);
 		sessionInfo = await getSessionInfo(correlationID);
@@ -101,6 +105,8 @@
 		setInterval(async () => {
 			time = await formatDate_PREFERREDTIME(new Date(), correlationID);
 		}, 1000);
+
+		goodtime = await isMachineTimeSameAsPreferred(correlationID);
 	});
 
 	let width = $state(window.innerWidth);
@@ -174,6 +180,22 @@
 			{#each maintenanceServices as name}
 				<p>{name} is currently under maintenance.</p>
 			{/each}
+		</BlockNote>
+	{/if}
+
+	{#if !goodtime}
+		<BlockNote
+			appearance="info"
+			title="Timezone mismatch"
+			actions={[
+				{
+					appearance: "link",
+					content: "Edit Preferences",
+					href: "https://account.davidnet.net/account/settings/preferences",
+					onClick: () => {}
+				}
+			]}>
+			It seems your device's time settings do not match your preferred timezone. This may lead to you seeing incorrect timestamps.
 		</BlockNote>
 	{/if}
 </FlexWrapper>

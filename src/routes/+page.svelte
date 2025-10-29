@@ -1,17 +1,42 @@
 <script lang="ts">
-	import { goto } from "$app/navigation";
 	import Weather from "$lib/components/Weather.svelte";
 	import type { SessionInfo } from "$lib/types";
 	import { formatDate_PREFERREDTIME } from "$lib/utils/time";
-	import { FlexWrapper, Icon, LinkButton, Space, getSessionInfo, isAuthenticated, refreshAccessToken } from "@davidnet/svelte-ui";
+	import {
+		FlexWrapper,
+		Icon,
+		LinkButton,
+		Space,
+		getSessionInfo,
+		refreshAccessToken
+	} from "@davidnet/svelte-ui";
 	import { onMount } from "svelte";
 
 	let correlationID = crypto.randomUUID();
 	let sessionInfo: SessionInfo | null = $state(null);
 	let greeting = $state("");
 	let time = $state("Time is timing...");
-
 	let caninternal = $state(false);
+
+	// Apps
+	const apps = [
+		{ label: "Kanban", href: "https://kanban.davidnet.net", icon: "view_kanban" },
+		{ label: "Account", href: "https://account.davidnet.net", icon: "identity_platform" },
+		{ label: "Files", href: "https://files.davidnet.net", icon: "smb_share" },
+		{ label: "Chat", href: "https://chat.davidnet.net", icon: "chat" },
+		{ label: "Whiteboard", href: "https://whiteboard.davidnet.net", icon: "draw" },
+		{ label: "Status", href: "https://status.davidnet.net/", icon: "bigtop_updates" }
+	];
+
+	const internalApps = [
+		{ label: "HA (External)", href: "https://homeassistant.davidnet.net", icon: "home" },
+		{ label: "HAQR", href: "https://haqr.davidnet.net/manage", icon: "qr_code" },
+		{ label: "Matrix", href: "https://chat.matrix.davidnet.net/", icon: "chat" },
+		{ label: "Matrix ADMIN", href: "https://admin.matrix.davidnet.net/", icon: "shield" },
+		{ label: "Uptimekuma", href: "https://uptimekuma.davidnet.net/", icon: "bigtop_updates" },
+		{ label: "DN Github", href: "https://github.com/davidnet-net/", icon: "rebase_edit" },
+		{ label: "Davidnet Design", href: "https://design.davidnet.net/", icon: "design_services" }
+	];
 
 	function getGreeting(name: string | undefined) {
 		if (!name) return "";
@@ -25,15 +50,14 @@
 	function checkInternalDomain(): Promise<boolean> {
 		return new Promise((resolve) => {
 			const img = new Image();
-			img.onload = () => resolve(true); // domain exists and responded
-			img.onerror = () => resolve(false); // domain unreachable
+			img.onload = () => resolve(true);
+			img.onerror = () => resolve(false);
 			img.src = "https://homeassistant.internal/static/icons/favicon.ico?" + Date.now();
 		});
 	}
 
 	onMount(async () => {
 		await refreshAccessToken(correlationID, true, true);
-
 		sessionInfo = await getSessionInfo(correlationID);
 		greeting = getGreeting(sessionInfo?.display_name ?? "");
 
@@ -42,7 +66,7 @@
 				caninternal = await checkInternalDomain();
 				console.log("Internal reachable?", caninternal);
 			} catch (err) {
-				return false;
+				caninternal = false;
 			}
 		}
 
@@ -53,112 +77,52 @@
 </script>
 
 <Space height="var(--token-space-6)" />
-<Space height="5rem" />
 
 <div class="welcomebox">
-	<FlexWrapper width="100%" direction="row" justifycontent="flex-start">
-		<FlexWrapper width="50%" alignitems="flex-start" direction="column" gap="0.6rem" justifycontent="flex-start">
+	<FlexWrapper width="100%" direction="row" justifycontent="space-between" alignitems="center" wrap="wrap">
+		<FlexWrapper direction="column" gap="0.3rem" flex="1 1 auto">
 			<h1>{greeting}</h1>
-			<span style="margin-left: 5px;">{time} | <Weather /></span>
+			<span class="time-weather">{time} | <Weather /></span>
 		</FlexWrapper>
 	</FlexWrapper>
 </div>
 
 <Space height="var(--token-space-6)" />
-<FlexWrapper width="80%" direction="row" justifycontent="flex-start">
+
+<FlexWrapper width="80%" gap="var(--token-space-3)" wrap="wrap">
 	<LinkButton iconbefore="notifications" href="/notifications">Notifications</LinkButton>
 	<LinkButton iconbefore="tune" href="https://account.davidnet.net/account/settings/preferences">Preferences</LinkButton>
 	<LinkButton iconbefore="policy" href="https://davidnet.net/legal/">Policies</LinkButton>
 </FlexWrapper>
+
 <Space height="var(--token-space-3)" />
-<FlexWrapper alignitems="flex-start" width="80%">
+
+<FlexWrapper alignitems="flex-start" width="80%" direction="column">
 	<h2>Apps:</h2>
-	<FlexWrapper gap="var(--token-space-3)" justifycontent="space-between" direction="row">
-		<a class="option" href="https://kanban.davidnet.net">
-			<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
-				<Icon size="4rem" icon="view_kanban" />
-				<p class="option-text">Kanban</p>
-			</FlexWrapper>
-		</a>
-		<a class="option" href="https://account.davidnet.net">
-			<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
-				<Icon size="4rem" icon="identity_platform" />
-				<p class="option-text">Account</p>
-			</FlexWrapper>
-		</a>
-		<a class="option" href="https://files.davidnet.net">
-			<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
-				<Icon size="4rem" icon="smb_share" />
-				<p class="option-text">Files</p>
-			</FlexWrapper>
-		</a>
-		<a class="option" href="https://chat.davidnet.net">
-			<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
-				<Icon size="4rem" icon="chat" />
-				<p class="option-text">Chat</p>
-			</FlexWrapper>
-		</a>
-		<a class="option" href="https://whiteboard.davidnet.net">
-			<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
-				<Icon size="4rem" icon="draw" />
-				<p class="option-text">Whiteboard</p>
-			</FlexWrapper>
-		</a>
-		<a class="option" href="https://status.davidnet.net/">
-			<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
-				<Icon size="4rem" icon="bigtop_updates" />
-				<p class="option-text">Status</p>
-			</FlexWrapper>
-		</a>
+	<FlexWrapper gap="var(--token-space-3)" justifycontent="flex-start" direction="row" wrap="wrap">
+		{#each apps as app}
+			<a class="option" href={app.href}>
+				<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+					<Icon size="4rem" icon={app.icon} />
+					<p class="option-text">{app.label}</p>
+				</FlexWrapper>
+			</a>
+		{/each}
 	</FlexWrapper>
 </FlexWrapper>
 
 {#if sessionInfo?.internal}
-	<FlexWrapper alignitems="flex-start" width="80%">
+	<FlexWrapper alignitems="flex-start" width="80%" direction="column">
 		<h2>Internal:</h2>
-		<FlexWrapper gap="var(--token-space-3)" justifycontent="space-between" direction="row">
-			<a class="option" href="https://homeassistant.davidnet.net">
-				<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
-					<Icon size="4rem" icon="home" />
-					<p class="option-text">HA (External)</p>
-				</FlexWrapper>
-			</a>
-			<a class="option" href="https://haqr.davidnet.net/manage">
-				<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
-					<Icon size="4rem" icon="qr_code" />
-					<p class="option-text">HAQR</p>
-				</FlexWrapper>
-			</a>
-			<a class="option" href="https://chat.matrix.davidnet.net/">
-				<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
-					<Icon size="4rem" icon="chat" />
-					<p class="option-text">Matrix</p>
-				</FlexWrapper>
-			</a>
-			<a class="option" href="https://admin.matrix.davidnet.net/">
-				<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
-					<Icon size="4rem" icon="shield" />
-					<p class="option-text">Matrix ADMIN</p>
-				</FlexWrapper>
-			</a>
-			<a class="option" href="https://uptimekuma.davidnet.net/">
-				<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
-					<Icon size="4rem" icon="bigtop_updates" />
-					<p class="option-text">Uptimekuma</p>
-				</FlexWrapper>
-			</a>
-			<a class="option" href="https://github.com/davidnet-net/">
-				<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
-					<Icon size="4rem" icon="rebase_edit" />
-					<p class="option-text">DN Github</p>
-				</FlexWrapper>
-			</a>
-			<a class="option" href="https://design.davidnet.net/">
-				<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
-					<Icon size="4rem" icon="design_services" />
-					<p class="option-text">Davidnet Design</p>
-				</FlexWrapper>
-			</a>
+		<FlexWrapper gap="var(--token-space-3)" justifycontent="flex-start" direction="row" wrap="wrap">
+			{#each internalApps as app}
+				<a class="option" href={app.href}>
+					<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+						<Icon size="4rem" icon={app.icon} />
+						<p class="option-text">{app.label}</p>
+					</FlexWrapper>
+				</a>
+			{/each}
 
 			{#if caninternal}
 				<a class="option" href="https://homeassistant.internal">
@@ -186,7 +150,7 @@
 					</FlexWrapper>
 				</a>
 			{:else}
-				<div class="option" style="width: 16rem;">
+				<div class="option fallback">
 					<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
 						<Icon size="4rem" icon="signal_disconnected" color="var(--token-color-text-danger);" />
 						<p class="option-text">Not connected to internal network</p>
@@ -201,31 +165,35 @@
 
 <FlexWrapper alignitems="flex-start" width="80%">
 	<h2>Today:</h2>
-	<span style="color: var(--token-color-text-secondary); margin-left: var(--token-space-3);">No activity for today.</span>
+	<span class="secondary-text">No activity for today.</span>
 </FlexWrapper>
 
 <Space height="var(--token-space-4)" />
 
-<Space height="var(--token-space-6)" />
-<!--Temporary put this in the actual no activity header-->
-
 <FlexWrapper alignitems="flex-start" width="80%">
 	<h2>Recent activity:</h2>
-	<span style="color: var(--token-color-text-secondary); margin-left: var(--token-space-3);">No recent activity.</span>
+	<span class="secondary-text">No recent activity.</span>
 </FlexWrapper>
+
+<Space height="var(--token-space-6)" />
 
 <style>
 	.welcomebox {
-		height: 4rem;
-		width: 80%;
+		width: 100%;
+		max-width: 80%;
 		background-color: var(--token-color-background-primary-normal);
-		padding: 2rem;
+		padding: 1.5rem 2rem;
 		border-radius: 1rem;
-		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+		box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		margin-bottom: var(--token-space-6);
 	}
 
-	.welcomebox h1 {
-		margin: 0px;
+	.time-weather {
+		font-size: 0.9rem;
+		color: var(--token-color-text-secondary);
 	}
 
 	.option {
@@ -235,17 +203,16 @@
 		border-radius: 2rem;
 		background-color: var(--token-color-surface-overlay-normal);
 		padding: 0.25rem;
-		transition:
-			transform 0.4s ease,
-			box-shadow 0.4s ease;
+		transition: transform 0.4s ease, box-shadow 0.4s ease;
 		height: 8rem;
-		width: 8rem;
+		flex: 1 1 8rem;
+		max-width: 8rem;
 	}
 
 	.option:hover {
 		background-color: var(--token-color-surface-overlay-hover);
 		transform: scale(1.01);
-		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+		box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 	}
 
 	.option:active,
@@ -261,5 +228,26 @@
 		line-height: 1.2;
 		margin: 0px;
 		font-size: larger;
+	}
+
+	.secondary-text {
+		color: var(--token-color-text-secondary);
+		margin-left: var(--token-space-3);
+	}
+
+	@media (max-width: 768px) {
+		.welcomebox {
+			padding: 1rem;
+		}
+
+		.option {
+			height: 7rem;
+			flex: 1 1 45%;
+			max-width: 6rem;
+		}
+
+		.option-text {
+			font-size: 0.85rem;
+		}
 	}
 </style>

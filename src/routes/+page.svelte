@@ -10,9 +10,7 @@
 		refreshAccessToken,
 		formatDate_PREFERREDTIME,
 		BlockNote,
-
 		isMachineTimeSameAsPreferred
-
 	} from "@davidnet/svelte-ui";
 	import { onMount, onDestroy } from "svelte";
 
@@ -46,10 +44,7 @@
 
 	async function fetchStatusData() {
 		try {
-			const endpoints = [
-				"/api/uptimekuma/down",
-				"/api/uptimekuma/maintenance",
-			];
+			const endpoints = ["/api/uptimekuma/down", "/api/uptimekuma/maintenance"];
 
 			// Als intern: voeg ook interne endpoints toe
 			if (sessionInfo?.internal) {
@@ -144,7 +139,6 @@
 	<Space height="var(--token-space-6)" />
 </FlexWrapper>
 
-
 <!-- 🆕 Dynamische blokken met publieke + interne statussen -->
 <FlexWrapper width="80%" justifycontent="flex-start" direction="row" gap="var(--token-space-4)" wrap="wrap">
 	{#if downServices.length > 0}
@@ -158,7 +152,8 @@
 					href: "https://status.davidnet.net",
 					onClick: () => {}
 				}
-			]}>
+			]}
+		>
 			{#each downServices as name}
 				<p>{name} is experiencing issues.</p>
 			{/each}
@@ -176,7 +171,8 @@
 					href: "https://status.davidnet.net",
 					onClick: () => {}
 				}
-			]}>
+			]}
+		>
 			{#each maintenanceServices as name}
 				<p>{name} is currently under maintenance.</p>
 			{/each}
@@ -194,7 +190,8 @@
 					href: "https://account.davidnet.net/account/settings/preferences",
 					onClick: () => {}
 				}
-			]}>
+			]}
+		>
 			It seems your device's time settings do not match your preferred timezone. This may lead to you seeing incorrect timestamps.
 		</BlockNote>
 	{/if}
@@ -212,7 +209,7 @@
 
 <FlexWrapper alignitems="flex-start" width="80%">
 	<h2>Apps:</h2>
-	<FlexWrapper gap="var(--token-space-3)" justifycontent="space-evenly" direction="row" wrap="wrap">
+	<FlexWrapper gap="var(--token-space-3)" justifycontent={width > 600 ? "flex-start" : "space-evenly"} direction="row" wrap="wrap">
 		<a class="option" href="https://kanban.davidnet.net">
 			<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
 				<Icon size="4rem" icon="view_kanban" />
@@ -255,7 +252,7 @@
 {#if sessionInfo?.internal}
 	<FlexWrapper alignitems="flex-start" width="80%">
 		<h2>Internal:</h2>
-		<FlexWrapper gap="var(--token-space-3)" justifycontent="space-evenly" direction="row" wrap="wrap">
+		<FlexWrapper gap="var(--token-space-3)" justifycontent={width > 600 ? "flex-start" : "space-evenly"} direction="row" wrap="wrap">
 			<a class="option" href="https://homeassistant.davidnet.net">
 				<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
 					<Icon size="4rem" icon="home" />

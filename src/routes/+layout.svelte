@@ -8,12 +8,12 @@
 		Avatar,
 		Loader,
 		IconButton,
-		LinkIconButton
+		LinkIconButton,
+		getSessionInfo, isAuthenticated, refreshAccessToken
 	} from "@davidnet/svelte-ui";
 	import favicon from "$lib/assets/favicon.svg";
 	import { onMount } from "svelte";
 	import type { SessionInfo } from "$lib/types";
-	import { getSessionInfo, isAuthenticated, refreshAccessToken } from "$lib/session";
 	import { page } from "$app/state";
 
 	let { children } = $props();

@@ -1,254 +1,137 @@
 <script lang="ts">
-	import Weather from "$lib/components/Weather.svelte";
-	import type { SessionInfo } from "$lib/types";
 	import {
+		ThemeProvider,
+		Toaster,
+		ConnectivityCheck,
+		ThemeMenu,
 		FlexWrapper,
-		Icon,
-		LinkButton,
-		Space,
-		getSessionInfo,
-		refreshAccessToken,
-		formatDate_PREFERREDTIME
+		Avatar,
+		Loader,
+		IconButton,
+		LinkIconButton,
+		getSessionInfo, isAuthenticated, refreshAccessToken
 	} from "@davidnet/svelte-ui";
+	import favicon from "$lib/assets/favicon.svg";
 	import { onMount } from "svelte";
+	import type { SessionInfo } from "$lib/types";
+	import { page } from "$app/state";
+
+	let { children } = $props();
 
 	let correlationID = crypto.randomUUID();
-	let sessionInfo: SessionInfo | null = $state(null);
-	let greeting = $state("");
-	let time = $state("Time is timing...");
-	let caninternal = $state(false);
+	let authed = $state(false);
+	let si: SessionInfo | null = $state(null);
 
-	// Apps
-	const apps = [
-		{ label: "Kanban", href: "https://kanban.davidnet.net", icon: "view_kanban" },
-		{ label: "Account", href: "https://account.davidnet.net", icon: "identity_platform" },
-		{ label: "Files", href: "https://files.davidnet.net", icon: "smb_share" },
-		{ label: "Chat", href: "https://chat.davidnet.net", icon: "chat" },
-		{ label: "Whiteboard", href: "https://whiteboard.davidnet.net", icon: "draw" },
-		{ label: "Status", href: "https://status.davidnet.net/", icon: "bigtop_updates" }
-	];
+	let fontsLoaded = $state(false);
 
-	const internalApps = [
-		{ label: "HA (External)", href: "https://homeassistant.davidnet.net", icon: "home" },
-		{ label: "HAQR", href: "https://haqr.davidnet.net/manage", icon: "qr_code" },
-		{ label: "Matrix", href: "https://chat.matrix.davidnet.net/", icon: "chat" },
-		{ label: "Matrix ADMIN", href: "https://admin.matrix.davidnet.net/", icon: "shield" },
-		{ label: "Uptimekuma", href: "https://uptimekuma.davidnet.net/", icon: "bigtop_updates" },
-		{ label: "DN Github", href: "https://github.com/davidnet-net/", icon: "rebase_edit" },
-		{ label: "Davidnet Design", href: "https://design.davidnet.net/", icon: "design_services" }
-	];
-
-	function getGreeting(name: string | undefined) {
-		if (!name) return "";
-		const hour = new Date().getHours();
-		if (hour < 6) return `Good night, ${name}.`;
-		if (hour < 12) return `Good morning, ${name}.`;
-		if (hour < 18) return `Good afternoon, ${name}.`;
-		return `Good evening, ${name}.`;
-	}
-
-	function checkInternalDomain(): Promise<boolean> {
-		return new Promise((resolve) => {
-			const img = new Image();
-			img.onload = () => resolve(true);
-			img.onerror = () => resolve(false);
-			img.src = "https://homeassistant.internal/static/icons/favicon.ico?" + Date.now();
+	// This will run only in the browser
+	if (typeof window !== "undefined") {
+		document.fonts.ready.then(() => {
+			fontsLoaded = true;
 		});
 	}
 
 	onMount(async () => {
-		await refreshAccessToken(correlationID, true, true);
-		sessionInfo = await getSessionInfo(correlationID);
-		greeting = getGreeting(sessionInfo?.display_name ?? "");
+		const initloader = document.getElementById("initloader");
+		if (initloader) initloader.remove();
+		try {
+			si = await getSessionInfo(correlationID, true);
 
-		if (sessionInfo?.internal) {
-			try {
-				caninternal = await checkInternalDomain();
-				console.log("Internal reachable?", caninternal);
-			} catch (err) {
-				caninternal = false;
+			const pathname = page.url.pathname;
+
+			// Match only /board/<numeric-id>
+			const boardRegex = /^\/board\/\d+$/;
+			if (boardRegex.test(pathname)) {
+				authed = true; // Due public boards
+				return;
 			}
-		}
 
-		setInterval(async () => {
-			time = await formatDate_PREFERREDTIME(new Date(), correlationID);
-		}, 1000);
+			if (!(await isAuthenticated(correlationID)) || !si) {
+				window.location.href = "https://account.davidnet.net/login?redirect=" + encodeURIComponent(page.url.toString());
+				return;
+			}
+
+			if (!si || si.email_verified === 0) {
+				window.location.href = "https://account.davidnet.net/verify/email/check/" + si?.email;
+				return;
+			}
+
+			authed = true;
+			setInterval(
+				() => {
+					refreshAccessToken(correlationID, true, false);
+				},
+				12 * 60 * 1000
+			);
+		} catch (e) {
+			console.error("Session error:", e);
+		}
 	});
 </script>
 
-<Space height="var(--token-space-6)" />
+<svelte:head>
+	<link rel="icon" href={favicon} />
+</svelte:head>
 
-<div class="welcomebox">
-	<FlexWrapper width="100%" direction="row" justifycontent="space-between" alignitems="center" wrap="wrap">
-		<FlexWrapper direction="column" gap="0.3rem" flex="0 1 auto">
-			<h1>{greeting}</h1>
-			<span class="time-weather">{time} | <Weather /></span>
-		</FlexWrapper>
-	</FlexWrapper>
-</div>
+<ThemeProvider />
+<Toaster />
+<ConnectivityCheck />
 
-<Space height="var(--token-space-6)" />
-
-<FlexWrapper width="80%" gap="var(--token-space-3)" wrap="wrap">
-	<LinkButton iconbefore="notifications" href="/notifications">Notifications</LinkButton>
-	<LinkButton iconbefore="tune" href="https://account.davidnet.net/account/settings/preferences">Preferences</LinkButton>
-	<LinkButton iconbefore="policy" href="https://davidnet.net/legal/">Policies</LinkButton>
-</FlexWrapper>
-
-<Space height="var(--token-space-3)" />
-
-<FlexWrapper alignitems="flex-start" width="80%" direction="column">
-	<h2>Apps:</h2>
-	<FlexWrapper gap="var(--token-space-3)" justifycontent="flex-start" direction="row" wrap="wrap">
-		{#each apps as app}
-			<a class="option" href={app.href}>
-				<FlexWrapper width="auto" height="100%" gap="var(--token-space-2)" flex="0 1 auto">
-					<Icon size="4rem" icon={app.icon} />
-					<p class="option-text">{app.label}</p>
-				</FlexWrapper>
-			</a>
-		{/each}
-	</FlexWrapper>
-</FlexWrapper>
-
-{#if sessionInfo?.internal}
-	<FlexWrapper alignitems="flex-start" width="80%" direction="column">
-		<h2>Internal:</h2>
-		<FlexWrapper gap="var(--token-space-3)" justifycontent="flex-start" direction="row" wrap="wrap">
-			{#each internalApps as app}
-				<a class="option" href={app.href}>
-					<FlexWrapper width="auto" height="100%" gap="var(--token-space-2)" flex="0 1 auto">
-						<Icon size="4rem" icon={app.icon} />
-						<p class="option-text">{app.label}</p>
-					</FlexWrapper>
-				</a>
-			{/each}
-
-			{#if caninternal}
-				<a class="option" href="https://homeassistant.internal">
-					<FlexWrapper width="auto" height="100%" gap="var(--token-space-2)" flex="0 1 auto">
-						<Icon size="4rem" icon="home" />
-						<p class="option-text">HA (Internal)</p>
-					</FlexWrapper>
-				</a>
-				<a class="option" href="https://router.internal">
-					<FlexWrapper width="auto" height="100%" gap="var(--token-space-2)" flex="0 1 auto">
-						<Icon size="4rem" icon="router" />
-						<p class="option-text">Router</p>
-					</FlexWrapper>
-				</a>
-				<a class="option" href="https://glances.internal">
-					<FlexWrapper width="auto" height="100%" gap="var(--token-space-2)" flex="0 1 auto">
-						<Icon size="4rem" icon="monitor_heart" />
-						<p class="option-text">Glances</p>
-					</FlexWrapper>
-				</a>
-				<a class="option" href="https://pihole.internal">
-					<FlexWrapper width="auto" height="100%" gap="var(--token-space-2)" flex="0 1 auto">
-						<Icon size="4rem" icon="encrypted" />
-						<p class="option-text">Pi-hole</p>
-					</FlexWrapper>
-				</a>
-			{:else}
-				<div class="option fallback">
-					<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
-						<Icon size="4rem" icon="signal_disconnected" color="var(--token-color-text-danger);" />
-						<p class="option-text">Not connected to internal network</p>
-					</FlexWrapper>
-				</div>
-			{/if}
-		</FlexWrapper>
-	</FlexWrapper>
+{#if fontsLoaded}
+	<nav id="main-nav">
+		<div class="nav-left">
+			<IconButton icon="arrow_back" alt="Go back" onClick={()=> {window.history.back();}} appearance="subtle" /><a href="/">Home</a>
+		</div>
+		<div class="nav-center">Davidnet</div>
+		<div class="nav-right">
+			<ThemeMenu />
+			<Avatar id={String(si?.userId)} owner name={si?.display_name} presence="online" src={si?.profilePicture} />
+		</div>
+	</nav>
 {/if}
 
-<Space height="var(--token-space-4)" />
-
-<FlexWrapper alignitems="flex-start" width="80%">
-	<h2>Today:</h2>
-	<span class="secondary-text">No activity for today.</span>
+<FlexWrapper direction="column" height="calc(100vh - 48px);" width="100%;" justifycontent="flex-start" alignitems="center">
+	{#if fontsLoaded}
+		{@render children?.()}
+	{:else}
+		<Loader />
+	{/if}
 </FlexWrapper>
-
-<Space height="var(--token-space-4)" />
-
-<FlexWrapper alignitems="flex-start" width="80%">
-	<h2>Recent activity:</h2>
-	<span class="secondary-text">No recent activity.</span>
-</FlexWrapper>
-
-<Space height="var(--token-space-6)" />
 
 <style>
-	.welcomebox {
-		width: 100%;
-		max-width: 80%;
-		background-color: var(--token-color-background-primary-normal);
-		padding: 1.5rem 2rem;
-		border-radius: 1rem;
-		box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+	#main-nav {
+		height: 48px;
+		width: calc(100% - 3rem);
 		display: flex;
-		flex-direction: row;
-		justify-content: space-between;
 		align-items: center;
-		margin-bottom: var(--token-space-6);
-		flex-wrap: wrap; /* only wrap if needed */
-	}
-
-	.time-weather {
+		justify-content: space-between;
+		padding: 0 1.5rem;
+		background-color: var(--token-color-surface-raised-normal);
+		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+		user-select: none;
+		font-weight: 600;
 		font-size: 0.9rem;
-		color: var(--token-color-text-secondary);
 	}
 
-	.option {
+	#main-nav > div {
+		flex: 1;
+		display: flex;
+		align-items: center;
+	}
+
+	.nav-left a {
 		text-decoration: none;
 		color: var(--token-color-text-default-normal);
-		text-align: center;
-		border-radius: 2rem;
-		background-color: var(--token-color-surface-overlay-normal);
-		padding: 0.25rem;
-		transition: transform 0.4s ease, box-shadow 0.4s ease;
-		height: 8rem;
-		flex: 0 1 auto; /* shrink if needed, don’t grow unnecessarily */
-		max-width: 8rem;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
 	}
 
-	.option:hover {
-		background-color: var(--token-color-surface-overlay-hover);
-		transform: scale(1.01);
-		box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+	.nav-center {
+		justify-content: center;
 	}
 
-	.option:active,
-	.option:focus {
-		background-color: var(--token-color-surface-overlay-pressed);
-	}
-
-	.option:focus {
-		outline: 2px solid var(--token-color-focusring);
-	}
-
-	.option-text {
-		line-height: 1.2;
-		margin: 0px;
-		font-size: larger;
-	}
-
-	.secondary-text {
-		color: var(--token-color-text-secondary);
-		margin-left: var(--token-space-3);
-	}
-
-	@media (max-width: 768px) {
-		.welcomebox {
-			padding: 1rem;
-		}
-
-		.option {
-			height: 7rem;
-			max-width: 45%; /* allows two items per row on small screens */
-		}
-
-		.option-text {
-			font-size: 0.85rem;
-		}
+	.nav-right {
+		justify-content: flex-end;
 	}
 </style>

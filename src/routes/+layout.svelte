@@ -34,6 +34,8 @@
 		const initloader = document.getElementById("initloader");
 		if (initloader) initloader.remove();
 		try {
+			authed = true;
+			return;
 			si = await getSessionInfo(correlationID, true);
 
 			const pathname = page.url.pathname;

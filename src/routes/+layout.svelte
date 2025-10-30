@@ -97,7 +97,9 @@
 		user-select: none;
 		font-weight: 600;
 		font-size: 0.9rem;
-		position: fixed;
+		position: sticky;
+		top: 0;
+		z-index: 2;
 	}
 
 	#main-nav > div {

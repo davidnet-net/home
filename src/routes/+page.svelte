@@ -142,7 +142,7 @@
 <FlexWrapper width="100%" direction="column">
 	<FlexWrapper width="80%" direction="row" justifycontent="flex-start" wrap="wrap" gap="var(--token-space-2)">
 		<LinkButton iconbefore="notifications" href="/notifications">Notifications</LinkButton>
-		<LinkButton iconbefore="tune" href="https://account.davidnet.net/account/settings/preferences">Preferences</LinkButton>
+		<LinkButton iconbefore="help" href="https://davidnet.net/help">Help</LinkButton>
 		<LinkButton iconbefore="policy" href="https://davidnet.net/legal/">Policies</LinkButton>
 		<LinkButton iconbefore="globe" href="https://davidnet.net/">Davidnet</LinkButton>
 	</FlexWrapper>

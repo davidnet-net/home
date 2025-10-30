@@ -139,6 +139,17 @@
 	<Space height="var(--token-space-6)" />
 </FlexWrapper>
 
+<FlexWrapper width="100%" direction="column">
+	<FlexWrapper width="80%" direction="row" justifycontent="flex-start" wrap="wrap" gap="var(--token-space-2)">
+		<LinkButton iconbefore="notifications" href="/notifications">Notifications</LinkButton>
+		<LinkButton iconbefore="tune" href="https://account.davidnet.net/account/settings/preferences">Preferences</LinkButton>
+		<LinkButton iconbefore="policy" href="https://davidnet.net/legal/">Policies</LinkButton>
+		<LinkButton iconbefore="globe" href="https://davidnet.net/">Davidnet</LinkButton>
+	</FlexWrapper>
+	<Space height="var(--token-space-6)" />
+</FlexWrapper>
+
+
 <!-- 🆕 Dynamische blokken met publieke + interne statussen -->
 <FlexWrapper width="80%" justifycontent="flex-start" direction="row" gap="var(--token-space-4)" wrap="wrap">
 	{#if downServices.length > 0}
@@ -195,18 +206,11 @@
 			It seems your device's time settings do not match your preferred timezone. This may lead to you seeing incorrect timestamps.
 		</BlockNote>
 	{/if}
+
+	<BlockNote appearance="error" title="Work in progress">Some services or apps are still in work in progress and cannot be accessed.</BlockNote>
 </FlexWrapper>
 
 <Space height="var(--token-space-6)" />
-
-<FlexWrapper width="80%" direction="row" justifycontent="flex-start" wrap="wrap" gap="var(--token-space-2)">
-	<LinkButton iconbefore="notifications" href="/notifications">Notifications</LinkButton>
-	<LinkButton iconbefore="tune" href="https://account.davidnet.net/account/settings/preferences">Preferences</LinkButton>
-	<LinkButton iconbefore="policy" href="https://davidnet.net/legal/">Policies</LinkButton>
-	<LinkButton iconbefore="globe" href="https://davidnet.net/">Davidnet</LinkButton>
-</FlexWrapper>
-
-<Space height="var(--token-space-3)" />
 
 <FlexWrapper alignitems="flex-start" width="80%">
 	<h2>Apps:</h2>

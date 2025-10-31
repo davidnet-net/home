@@ -149,7 +149,6 @@
 	<Space height="var(--token-space-6)" />
 </FlexWrapper>
 
-
 <!-- 🆕 Dynamische blokken met publieke + interne statussen -->
 <FlexWrapper width="80%" justifycontent="flex-start" direction="row" gap="var(--token-space-4)" wrap="wrap">
 	{#if downServices.length > 0}
@@ -324,6 +323,12 @@
 					<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
 						<Icon size="4rem" icon="encrypted" />
 						<p class="option-text">Pi-hole</p>
+					</FlexWrapper>
+				</a>
+				<a class="option" href="https://zolder.internal">
+					<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+						<Icon size="4rem" icon="inventory_2" />
+						<p class="option-text">Zolder</p>
 					</FlexWrapper>
 				</a>
 			{:else}

@@ -226,6 +226,12 @@
 				<p class="option-text">Account</p>
 			</FlexWrapper>
 		</a>
+		<a class="option" href="https://kanban.davidnet.net/utils">
+			<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+				<Icon size="4rem" icon="build" />
+				<p class="option-text">Utils</p>
+			</FlexWrapper>
+		</a>
 		<a class="option" href="https://files.davidnet.net">
 			<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
 				<Icon size="4rem" icon="smb_share" />

@@ -244,6 +244,12 @@
 				<p class="option-text">Whiteboard</p>
 			</FlexWrapper>
 		</a>
+		<a class="option" href="https://notes.davidnet.net">
+			<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+				<Icon size="4rem" icon="note_stack" />
+				<p class="option-text">Notes</p>
+			</FlexWrapper>
+		</a>
 		<a class="option" href="https://status.davidnet.net/">
 			<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
 				<Icon size="4rem" icon="bigtop_updates" />

@@ -430,7 +430,7 @@
 			</div>
 		{/each}
 		<!-- Button to add a new link -->
-		<div class="option" on:click={addLinkPrompt}>
+		<div class="option" onclick={addLinkPrompt}>
 			<FlexWrapper width="100%" height="100%" justifycontent="center" alignitems="center">
 				<p class="option-text">➕ Add</p>
 			</FlexWrapper>

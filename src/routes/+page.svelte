@@ -430,7 +430,7 @@
 		<!-- Button to add a new link -->
 		<div class="option" onclick={addLinkPrompt}>
 			<FlexWrapper width="100%" height="100%" justifycontent="center" alignitems="center">
-				<Icon icon="add" size="50%"/>
+				<Icon icon="add" size="5rem"/>
 			</FlexWrapper>
 		</div>
 	</FlexWrapper>

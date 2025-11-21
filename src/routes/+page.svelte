@@ -6,6 +6,7 @@
 		Icon,
 		LinkButton,
 		IconButton,
+		Icon,
 		Space,
 		getSessionInfo,
 		refreshAccessToken,

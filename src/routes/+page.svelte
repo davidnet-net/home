@@ -13,6 +13,7 @@
 		isMachineTimeSameAsPreferred
 	} from "@davidnet/svelte-ui";
 	import { onMount, onDestroy } from "svelte";
+	import { writable } from "svelte/store";
 
 	let correlationID = crypto.randomUUID();
 	let sessionInfo: SessionInfo | null = $state(null);
@@ -112,6 +113,53 @@
 	onDestroy(() => {
 		window.removeEventListener("resize", handleResize);
 	});
+
+		export type CustomLink = {
+		id: string;
+		name: string;
+		url: string;
+	};
+
+	const storedLinks = localStorage.getItem("customLinks");
+	const initialLinks: CustomLink[] = storedLinks ? JSON.parse(storedLinks) : [];
+
+	export const customLinks = writable<CustomLink[]>(initialLinks);
+
+	customLinks.subscribe((links) => {
+		localStorage.setItem("customLinks", JSON.stringify(links));
+	});
+
+	// Functions to manage links
+	export function create_custom_link(id: string, name: string, url: string) {
+		customLinks.update((links) => [...links, { id, name, url }]);
+	}
+
+	export function edit_custom_link(id: string, name: string, url: string) {
+		customLinks.update((links) =>
+			links.map((link) => (link.id === id ? { ...link, name, url } : link))
+		);
+	}
+
+	export function remove_custom_link(id: string) {
+		customLinks.update((links) => links.filter((link) => link.id !== id));
+	}
+
+	function addLinkPrompt() {
+		const name = prompt("Enter link name:");
+		if (!name) return;
+		const url = prompt("Enter link URL:");
+		if (!url) return;
+		const id = crypto.randomUUID();
+		create_custom_link(id, name, url);
+	}
+
+	function editLinkPrompt(link: { id: string; name: string; url: string }) {
+		const name = prompt("Edit link name:", link.name);
+		if (!name) return;
+		const url = prompt("Edit link URL:", link.url);
+		if (!url) return;
+		edit_custom_link(link.id, name, url);
+	}
 </script>
 
 <FlexWrapper direction="column" width="100%">
@@ -362,6 +410,34 @@
 	<h2>Recent activity:</h2>
 	<span style="color: var(--token-color-text-secondary); margin-left: var(--token-space-3);">No recent activity.</span>
 </FlexWrapper>
+
+<Space height="var(--token-space-4)" />
+
+<FlexWrapper alignitems="flex-start" width="80%">
+	<h2>Your links:</h2>
+	<FlexWrapper gap="var(--token-space-3)" justifycontent={width > 600 ? "flex-start" : "space-evenly"} direction="row" wrap="wrap">
+		{#each $customLinks as link (link.id)}
+			<div class="option">
+				<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)" direction="column" alignitems="center">
+					<a href={link.url} target="_blank">
+						<p class="option-text">{link.name}</p>
+					</a>
+					<FlexWrapper gap="0.25rem">
+						<button onclick={() => editLinkPrompt(link)}>✏️</button>
+						<button onclick={() => remove_custom_link(link.id)}>🗑️</button>
+					</FlexWrapper>
+				</FlexWrapper>
+			</div>
+		{/each}
+		<!-- Button to add a new link -->
+		<div class="option" on:click={addLinkPrompt}>
+			<FlexWrapper width="100%" height="100%" justifycontent="center" alignitems="center">
+				<p class="option-text">➕ Add</p>
+			</FlexWrapper>
+		</div>
+	</FlexWrapper>
+</FlexWrapper>
+
 
 <style>
 	.welcomebox {

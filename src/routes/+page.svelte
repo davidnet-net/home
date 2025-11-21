@@ -5,6 +5,7 @@
 		FlexWrapper,
 		Icon,
 		LinkButton,
+		IconButton,
 		Space,
 		getSessionInfo,
 		refreshAccessToken,

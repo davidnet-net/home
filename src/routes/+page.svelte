@@ -427,9 +427,9 @@
 				</a>
 		{/each}
 		<!-- Button to add a new link -->
-		<div class="option">
+		<div class="option" onclick={addLinkPrompt}>
 			<FlexWrapper width="100%" height="100%" justifycontent="center" alignitems="center">
-				<IconButton onClick={addLinkPrompt} icon="add" alt="add custom link"/>
+				<Icon icon="add" size="50%"/>
 			</FlexWrapper>
 		</div>
 	</FlexWrapper>

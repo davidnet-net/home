@@ -3,7 +3,7 @@
 	import type { SessionInfo } from "$lib/types";
 	import { onMount } from "svelte";
 	import Error from "$lib/components/Error.svelte";
-	import { refreshAccessToken, getSessionInfo, isAuthenticated, LinkButton, Loader, FlexWrapper } from "@davidnet/svelte-ui";
+	import { refreshAccessToken, getSessionInfo, isAuthenticated, LinkButton, Loader, FlexWrapper, Icon } from "@davidnet/svelte-ui";
 
 	let correlationID = crypto.randomUUID();
 	let error = false;
@@ -43,6 +43,7 @@
 	{:else}
 		<FlexWrapper width="100%" height="100%">
 			{#if Authenticated}
+                <Icon icon="shield" size="10rem" />
 				<LinkButton href="https://account.davidnet.net/admin/">Account Admin</LinkButton>
 				<LinkButton href="https://kanban.davidnet.net/admin/">Kanban Admin</LinkButton>
 			{:else}

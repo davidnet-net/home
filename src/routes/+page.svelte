@@ -115,7 +115,7 @@
 		window.removeEventListener("resize", handleResize);
 	});
 
-		export type CustomLink = {
+	type CustomLink = {
 		id: string;
 		name: string;
 		url: string;

@@ -6,7 +6,6 @@
 		Icon,
 		LinkButton,
 		IconButton,
-		Icon,
 		Space,
 		getSessionInfo,
 		refreshAccessToken,
@@ -415,26 +414,28 @@
 
 <Space height="var(--token-space-4)" />
 
-<FlexWrapper alignitems="flex-start" width="80%">
-	<h2>Your links:</h2>
-	<FlexWrapper gap="var(--token-space-3)" justifycontent={width > 600 ? "flex-start" : "space-evenly"} direction="row" wrap="wrap">
-		{#each $customLinks as link (link.id)}
-			<a class="option" href={link.url} target="_blank">
-					<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
-						<p class="option-text">{link.name}</p>
-						<IconButton onClick={() => editLinkPrompt(link)} icon="edit" alt="edit"/>
-						<IconButton onClick={() => remove_custom_link(link.id)} icon="delete" alt="delete"/>
-					</FlexWrapper>
-				</a>
-		{/each}
-		<!-- Button to add a new link -->
-		<div class="option" onclick={addLinkPrompt}>
-			<FlexWrapper width="100%" height="100%" justifycontent="center" alignitems="center">
-				<Icon icon="add" size="5rem"/>
-			</FlexWrapper>
-		</div>
+{#if time.length < 0}
+	<FlexWrapper alignitems="flex-start" width="80%">
+		<h2>Your links:</h2>
+		<FlexWrapper gap="var(--token-space-3)" justifycontent={width > 600 ? "flex-start" : "space-evenly"} direction="row" wrap="wrap">
+			{#each $customLinks as link (link.id)}
+				<a class="option" href={link.url} target="_blank">
+						<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+							<p class="option-text">{link.name}</p>
+							<IconButton onClick={() => editLinkPrompt(link)} icon="edit" alt="edit"/>
+							<IconButton onClick={() => remove_custom_link(link.id)} icon="delete" alt="delete"/>
+						</FlexWrapper>
+					</a>
+			{/each}
+			<!-- Button to add a new link -->
+			<div class="option" onclick={addLinkPrompt}>
+				<FlexWrapper width="100%" height="100%" justifycontent="center" alignitems="center">
+					<Icon icon="add" size="5rem"/>
+				</FlexWrapper>
+			</div>
+		</FlexWrapper>
 	</FlexWrapper>
-</FlexWrapper>
+{/if}
 
 
 <style>

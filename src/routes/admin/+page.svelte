@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from "$app/navigation";
 	import { page } from "$app/state";
 	import type { SessionInfo } from "$lib/types";
 	import { onMount } from "svelte";
@@ -15,12 +14,12 @@
 			const si: SessionInfo | null = await getSessionInfo(correlationID);
 
 			if (!(await isAuthenticated(correlationID)) || !si || !si.admin) {
-				goto("/login?redirect=" + encodeURIComponent(page.url.toString()));
+				window.location.href = "/login?redirect=" + encodeURIComponent(page.url.toString());
 				return;
 			}
 
 			if (!si || si.email_verified === 0) {
-				goto("/verify/email/check/" + si?.email);
+				window.location.href = "/verify/email/check/" + si?.email;
 				return;
 			}
 

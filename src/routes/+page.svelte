@@ -13,6 +13,7 @@
 		BlockNote,
 		isMachineTimeSameAsPreferred
 	} from "@davidnet/svelte-ui";
+	import { sign } from "crypto";
 	import { onMount, onDestroy } from "svelte";
 	import { writable } from "svelte/store";
 
@@ -194,6 +195,9 @@
 		<LinkButton iconbefore="help" href="https://davidnet.net/help">Help</LinkButton>
 		<LinkButton iconbefore="policy" href="https://davidnet.net/legal/">Policies</LinkButton>
 		<LinkButton iconbefore="globe" href="https://davidnet.net/">Davidnet</LinkButton>
+		{#if sessionInfo?.admin}
+			<LinkButton iconbefore="shield" href="/admin">Admin</LinkButton>
+		{/if}
 	</FlexWrapper>
 	<Space height="var(--token-space-6)" />
 </FlexWrapper>

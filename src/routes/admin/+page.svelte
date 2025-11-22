@@ -14,12 +14,12 @@
 			const si: SessionInfo | null = await getSessionInfo(correlationID);
 
 			if (!(await isAuthenticated(correlationID)) || !si || !si.admin) {
-				window.location.href = "/login?redirect=" + encodeURIComponent(page.url.toString());
+				window.location.href = "https://account.davidnet.net/login?redirect=" + encodeURIComponent(page.url.toString());
 				return;
 			}
 
 			if (!si || si.email_verified === 0) {
-				window.location.href = "/verify/email/check/" + si?.email;
+				window.location.href = "https://account.davidnet.net/verify/email/check/" + si?.email;
 				return;
 			}
 

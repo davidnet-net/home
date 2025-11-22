@@ -3,7 +3,7 @@
 	import type { SessionInfo } from "$lib/types";
 	import { onMount } from "svelte";
 	import Error from "$lib/components/Error.svelte";
-	import { refreshAccessToken, getSessionInfo, isAuthenticated, LinkButton, Loader, FlexWrapper, Icon } from "@davidnet/svelte-ui";
+	import { refreshAccessToken, getSessionInfo, isAuthenticated, LinkButton, Loader, FlexWrapper, Icon, Space } from "@davidnet/svelte-ui";
 
 	let correlationID = crypto.randomUUID();
 	let error = false;
@@ -42,9 +42,10 @@
 	{#if error}
 		<Error pageName="Admin list" errorMSG="Unknown" />
 	{:else}
-		<FlexWrapper width="100%" height="100%">
+		<FlexWrapper width="100%" height="100%" gap="var(--token-space-1);">
 			{#if Authenticated}
                 <Icon icon="shield" size="10rem" />
+                <Space height="var(--token-space-1);" />
 				<LinkButton href="https://account.davidnet.net/admin/">Account Admin</LinkButton>
 				<LinkButton href="https://kanban.davidnet.net/admin/">Kanban Admin</LinkButton>
 			{:else}

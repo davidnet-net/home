@@ -6,3 +6,6 @@ services:
             - "2002:3000"
         restart: unless-stopped
         dns: 192.168.1.141
+        environment:
+            VITE_COMMIT_HASH: ${VITE_COMMIT_HASH}
+            VITE_COMMIT_URL: ${VITE_COMMIT_URL}

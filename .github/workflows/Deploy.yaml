@@ -1,57 +1,70 @@
 name: Deploy SRV
 
 on:
-  push:
-    branches:
-      - main
+    push:
+        branches:
+            - main
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
+    deploy:
+        runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
 
-      - name: Deploy to server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.DEPLOY_SRV_HOST }}
-          username: ${{ secrets.DEPLOY_SRV_USER }}
-          key: ${{ secrets.DEPLOY_SRV_KEY }}
-          script: |
-            set -e
+            - name: Deploy to server
+              uses: appleboy/ssh-action@v1
+              with:
+                  host: ${{ secrets.DEPLOY_SRV_HOST }}
+                  username: ${{ secrets.DEPLOY_SRV_USER }}
+                  key: ${{ secrets.DEPLOY_SRV_KEY }}
+                  script: |
+                      set -e
 
-            REPO_NAME=$(basename "${{ github.repository }}")
-            DEPLOY_PATH="/srv/$REPO_NAME"
+                      REPO_NAME=$(basename "${{ github.repository }}")
+                      DEPLOY_PATH="/srv/$REPO_NAME"
 
-            echo "Deployment path: $DEPLOY_PATH"
-            git config --global --add safe.directory $DEPLOY_PATH
-            
-            # If folder does not exist, clone the repo
-            if [ ! -d "$DEPLOY_PATH" ]; then
-              echo "Folder does not exist, cloning repo..."
-              git clone https://github.com/${{ github.repository }}.git "$DEPLOY_PATH"
-            fi
+                      echo "Deployment path: $DEPLOY_PATH"
+                      git config --global --add safe.directory $DEPLOY_PATH
 
-            cd "$DEPLOY_PATH"
+                      # If folder does not exist, clone the repo
+                      if [ ! -d "$DEPLOY_PATH" ]; then
+                        echo "Folder does not exist, cloning repo..."
+                        git clone https://github.com/${{ github.repository }}.git "$DEPLOY_PATH"
+                      fi
 
-            if [ -d ".git" ]; then
-              echo "Repo exists, fetching latest changes..."
-              git fetch --all
-              git reset --hard origin/main
-            else
-              echo "No Git repo found, initializing..."
-              git init
-              git remote add origin https://github.com/${{ github.repository }}.git
-              git fetch --all
-              git reset --hard origin/main
-            fi
+                      cd "$DEPLOY_PATH"
 
-            echo "Building updated containers..."
-            docker compose build --pull --no-cache
+                      if [ -d ".git" ]; then
+                        echo "Repo exists, fetching latest changes..."
+                        git fetch --all
+                        git reset --hard origin/main
+                      else
+                        echo "No Git repo found, initializing..."
+                        git init
+                        git remote add origin https://github.com/${{ github.repository }}.git
+                        git fetch --all
+                        git reset --hard origin/main
+                      fi
 
-            echo "Recreating services..."
-            docker compose up -d --remove-orphans
+                      # -------------------------------
+                      # Write commit info to .env
+                      # -------------------------------
+                      COMMIT_HASH=$(git rev-parse HEAD)
+                      COMMIT_URL="https://github.com/${{ github.repository }}/commit/$COMMIT_HASH"
 
-            echo "Deployment finished successfully!"
+                      echo "VITE_COMMIT_HASH=$COMMIT_HASH" > .env
+                      echo "VITE_COMMIT_URL=$COMMIT_URL" >> .env
+                      echo "Commit info written to .env: $COMMIT_HASH"
+
+                      # -------------------------------
+                      # Build and deploy Docker containers
+                      # -------------------------------
+                      echo "Building updated containers..."
+                      docker compose build --pull --no-cache
+
+                      echo "Recreating services..."
+                      docker compose up -d --remove-orphans
+
+                      echo "Deployment finished successfully!"

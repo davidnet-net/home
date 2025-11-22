@@ -8,12 +8,19 @@
 		Avatar,
 		Loader,
 		IconButton,
-		getSessionInfo, isAuthenticated, refreshAccessToken
+		getSessionInfo, isAuthenticated, refreshAccessToken,
+
+		authFetch,
+
+		toast
+
+
 	} from "@davidnet/svelte-ui";
 	import favicon from "$lib/assets/favicon.svg";
 	import { onMount } from "svelte";
 	import type { SessionInfo } from "$lib/types";
 	import { page } from "$app/state";
+	import { authapiurl } from "$lib/config";
 
 	let { children } = $props();
 
@@ -46,6 +53,23 @@
 				return;
 			}
 
+			const res = await authFetch(authapiurl + "policy/check", correlationID);
+			if (!res.ok) {
+				toast({
+					"position": "bottom-left",
+					"title": "Policy check failed!",
+					"appearance": "danger",
+					"icon": "policy_alert"
+				})
+				return;
+			}
+			const data = await res.json();
+			const acceptedpolicies = data.accepted ?? false;
+			if (!acceptedpolicies) {
+				window.location.href = "https://davidnet.net/legal/accept";
+				return;
+			}
+			
 			authed = true;
 			setInterval(
 				() => {

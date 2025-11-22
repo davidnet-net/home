@@ -45,6 +45,7 @@
 		<FlexWrapper width="100%" height="100%" gap="var(--token-space-1);">
 			{#if Authenticated}
                 <Icon icon="shield" size="10rem" />
+                <h1>Central Admin</h1>
                 <Space height="var(--token-space-1);" />
 				<LinkButton href="https://account.davidnet.net/admin/">Account Admin</LinkButton>
 				<LinkButton href="https://kanban.davidnet.net/admin/">Kanban Admin</LinkButton>

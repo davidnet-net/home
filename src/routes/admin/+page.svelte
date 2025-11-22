@@ -2,8 +2,8 @@
 	import { page } from "$app/state";
 	import type { SessionInfo } from "$lib/types";
 	import { onMount } from "svelte";
-    import Error from "$lib/components/Error.svelte";
-	import { refreshAccessToken, getSessionInfo, isAuthenticated, LinkButton, Loader } from "@davidnet/svelte-ui";
+	import Error from "$lib/components/Error.svelte";
+	import { refreshAccessToken, getSessionInfo, isAuthenticated, LinkButton, Loader, FlexWrapper } from "@davidnet/svelte-ui";
 
 	let correlationID = crypto.randomUUID();
 	let error = false;
@@ -38,10 +38,14 @@
 </script>
 
 {#if error}
-    <Error pageName="Admin list" errorMSG="Unknown" />
-{:else if Authenticated}
-    <LinkButton href="https://account.davidnet.net/admin/">Account Admin</LinkButton>
-    <LinkButton href="https://kanban.davidnet.net/admin/">Kanban Admin</LinkButton>
+	<Error pageName="Admin list" errorMSG="Unknown" />
 {:else}
-    <Loader/>
+	<FlexWrapper width="100%" height="100%">
+		{#if Authenticated}
+			<LinkButton href="https://account.davidnet.net/admin/">Account Admin</LinkButton>
+			<LinkButton href="https://kanban.davidnet.net/admin/">Kanban Admin</LinkButton>
+		{:else}
+			<Loader />
+		{/if}
+	</FlexWrapper>
 {/if}

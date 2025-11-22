@@ -37,6 +37,7 @@
 	});
 </script>
 
+<FlexWrapper height="100%" width="100%">
 <div id="background">
 	{#if error}
 		<Error pageName="Admin list" errorMSG="Unknown" />
@@ -52,7 +53,7 @@
 		</FlexWrapper>
 	{/if}
 </div>
-
+</FlexWrapper>
 <style>
 	#background {
 		background-color: var(--token-color-surface-sunken-normal);

@@ -1,0 +1,48 @@
+<script lang="ts">
+	import { goto } from "$app/navigation";
+	import { page } from "$app/state";
+	import type { SessionInfo } from "$lib/types";
+	import { onMount } from "svelte";
+    import Error from "$lib/components/Error.svelte";
+	import { refreshAccessToken, getSessionInfo, isAuthenticated, LinkButton, Loader } from "@davidnet/svelte-ui";
+
+	let correlationID = crypto.randomUUID();
+	let error = false;
+	let Authenticated = false;
+
+	onMount(async () => {
+		try {
+			const si: SessionInfo | null = await getSessionInfo(correlationID);
+
+			if (!(await isAuthenticated(correlationID)) || !si || !si.admin) {
+				goto("/login?redirect=" + encodeURIComponent(page.url.toString()));
+				return;
+			}
+
+			if (!si || si.email_verified === 0) {
+				goto("/verify/email/check/" + si?.email);
+				return;
+			}
+
+			Authenticated = true;
+			setInterval(
+				() => {
+					refreshAccessToken(correlationID, true, false);
+				},
+				12 * 60 * 1000
+			);
+		} catch (e) {
+			console.error("Session error:", e);
+			error = true;
+		}
+	});
+</script>
+
+{#if error}
+    <Error pageName="Admin list" errorMSG="Unknown" />
+{:else if Authenticated}
+    <LinkButton href="https://account.davidnet.net/admin/">Account Admin</LinkButton>
+    <LinkButton href="https://kanban.davidnet.net/admin/">Kanban Admin</LinkButton>
+{:else}
+    <Loader/>
+{/if}

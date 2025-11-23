@@ -66,7 +66,7 @@
 			const data = await res.json();
 			const acceptedpolicies = data.accepted ?? false;
 			if (!acceptedpolicies) {
-				window.location.href = "https://davidnet.net/legal/accept";
+				window.location.href = "https://davidnet.net/legal/accept?redirect=" + encodeURIComponent(page.url.toString());
 				return;
 			}
 			

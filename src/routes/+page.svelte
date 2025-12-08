@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Weather from "$lib/components/Weather.svelte";
-	import type { SessionInfo } from "$lib/types";
+	import { kanbanapiurl } from "$lib/config";
+	import type { Card, SessionInfo } from "$lib/types";
 	import {
 		FlexWrapper,
 		Icon,
@@ -11,7 +12,10 @@
 		refreshAccessToken,
 		formatDate_PREFERREDTIME,
 		BlockNote,
-		isMachineTimeSameAsPreferred
+		isMachineTimeSameAsPreferred,
+
+		authFetch
+
 	} from "@davidnet/svelte-ui";
 	import { sign } from "crypto";
 	import { onMount, onDestroy } from "svelte";
@@ -105,6 +109,7 @@
 		}, 1000);
 
 		goodtime = await isMachineTimeSameAsPreferred(correlationID);
+		await LoadDaily();
 	});
 
 	let width = $state(window.innerWidth);
@@ -162,6 +167,14 @@
 		if (!url) return;
 		edit_custom_link(link.id, name, url);
 	}
+
+	let cards_due_today: Card[] = $state([]);
+	async function LoadDaily() {
+		const cards_due_today_res = await authFetch(`${kanbanapiurl}boards/recent`, correlationID, { method: "GET" });
+		cards_due_today = await cards_due_today_res.json();
+		console.log("Cards due today:", cards_due_today);
+	}
+
 </script>
 
 <FlexWrapper direction="column" width="100%">
@@ -406,7 +419,20 @@
 
 <FlexWrapper alignitems="flex-start" width="80%">
 	<h2>Today:</h2>
+	{#if cards_due_today.length > 0}
+		<FlexWrapper gap="var(--token-space-3)" justifycontent={width > 600 ? "flex-start" : "space-evenly"} direction="row" wrap="wrap">
+			{#each cards_due_today as card (card.id)}
+				<a class="option" href={"https://kanban.davidnet.net"}>
+					<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+						<Icon size="4rem" icon="task_alt" />
+						<p class="option-text">{card.name}</p>
+					</FlexWrapper>
+				</a>
+			{/each}
+		</FlexWrapper>
+	{:else}
 	<span style="color: var(--token-color-text-secondary); margin-left: var(--token-space-3);">No activity for today.</span>
+	{/if}
 </FlexWrapper>
 
 <Space height="var(--token-space-4)" />
@@ -432,6 +458,8 @@
 					</a>
 			{/each}
 			<!-- Button to add a new link -->
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div class="option" onclick={addLinkPrompt}>
 				<FlexWrapper width="100%" height="100%" justifycontent="center" alignitems="center">
 					<Icon icon="add" size="5rem"/>

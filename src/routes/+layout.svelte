@@ -16,9 +16,9 @@
 	} from "@davidnet/svelte-ui";
 	import favicon from "$lib/assets/favicon.svg";
 	import { onMount } from "svelte";
-	import type { Card, SessionInfo } from "$lib/types";
+	import type { SessionInfo } from "$lib/types";
 	import { page } from "$app/state";
-	import { authapiurl, kanbanapiurl } from "$lib/config";
+	import { authapiurl } from "$lib/config";
 
 	let { children } = $props();
 
@@ -34,15 +34,6 @@
 			fontsLoaded = true;
 		});
 	}
-
-	let cards_due_today: Card[] = $state([]);
-
-	async function LoadDaily() {
-		const cards_due_today_res = await authFetch(`${kanbanapiurl}boards/recent`, correlationID, { method: "GET" });
-		cards_due_today = await cards_due_today_res.json();
-		console.log("Cards due today:", cards_due_today);
-	}
-
 	onMount(async () => {
 		const initloader = document.getElementById("initloader");
 		if (initloader) initloader.remove();
@@ -77,7 +68,6 @@
 			}
 
 			authed = true;
-			await LoadDaily();
 			setInterval(
 				() => {
 					refreshAccessToken(correlationID, true, false);

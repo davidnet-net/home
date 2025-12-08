@@ -8,19 +8,17 @@
 		Avatar,
 		Loader,
 		IconButton,
-		getSessionInfo, isAuthenticated, refreshAccessToken,
-
+		getSessionInfo,
+		isAuthenticated,
+		refreshAccessToken,
 		authFetch,
-
 		toast
-
-
 	} from "@davidnet/svelte-ui";
 	import favicon from "$lib/assets/favicon.svg";
 	import { onMount } from "svelte";
-	import type { SessionInfo } from "$lib/types";
+	import type { Card, SessionInfo } from "$lib/types";
 	import { page } from "$app/state";
-	import { authapiurl } from "$lib/config";
+	import { authapiurl, kanbanapiurl } from "$lib/config";
 
 	let { children } = $props();
 
@@ -35,6 +33,14 @@
 		document.fonts.ready.then(() => {
 			fontsLoaded = true;
 		});
+	}
+
+	let cards_due_today: Card[] = $state([]);
+
+	async function LoadDaily() {
+		const cards_due_today_res = await authFetch(`${kanbanapiurl}boards/recent`, correlationID, { method: "GET" });
+		cards_due_today = await cards_due_today_res.json();
+		console.log("Cards due today:", cards_due_today);
 	}
 
 	onMount(async () => {
@@ -56,11 +62,11 @@
 			const res = await authFetch(authapiurl + "policy/check", correlationID);
 			if (!res.ok) {
 				toast({
-					"position": "bottom-left",
-					"title": "Policy check failed!",
-					"appearance": "danger",
-					"icon": "policy_alert"
-				})
+					position: "bottom-left",
+					title: "Policy check failed!",
+					appearance: "danger",
+					icon: "policy_alert"
+				});
 				return;
 			}
 			const data = await res.json();
@@ -69,8 +75,9 @@
 				window.location.href = "https://davidnet.net/legal/accept?redirect=" + encodeURIComponent(page.url.toString());
 				return;
 			}
-			
+
 			authed = true;
+			await LoadDaily();
 			setInterval(
 				() => {
 					refreshAccessToken(correlationID, true, false);
@@ -90,7 +97,14 @@
 {#if fontsLoaded}
 	<nav id="main-nav">
 		<div class="nav-left">
-			<IconButton icon="arrow_back" alt="Go back" onClick={()=> {window.history.back();}} appearance="subtle" /><a href="/">Home</a>
+			<IconButton
+				icon="arrow_back"
+				alt="Go back"
+				onClick={() => {
+					window.history.back();
+				}}
+				appearance="subtle"
+			/><a href="/">Home</a>
 		</div>
 		<div class="nav-center">Davidnet</div>
 		<div class="nav-right">

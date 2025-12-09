@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Weather from "$lib/components/Weather.svelte";
 	import { kanbanapiurl } from "$lib/config";
-	import type { Card, SessionInfo } from "$lib/types";
+	import type { Card, Board, SessionInfo } from "$lib/types";
 	import {
 		FlexWrapper,
 		Icon,
@@ -165,7 +165,7 @@
 	}
 
 	let cards_due_today: Card[] = $state([]);
-	let boards_recent: Card[] = $state([]);
+	let boards_recent: Board[] = $state([]);
 	async function LoadDaily() {
 		//const cards_due_today_res = await authFetch(`${kanbanapiurl}card/due-today`, correlationID, { method: "GET" });
 		//cards_due_today = await cards_due_today_res.json();
@@ -441,7 +441,7 @@
 	{#if boards_recent.length > 0}
 		<FlexWrapper gap="var(--token-space-3)" justifycontent={width > 600 ? "flex-start" : "space-evenly"} direction="row" wrap="wrap">
 			{#each boards_recent as board (board.id)}
-				<a class="option" href={"https://kanban.davidnet.net/board" + board.id}>
+				<a class="option" href={"https://kanban.davidnet.net/board" + board.id} style="image-background: url('{board.background_url}'); background-size: cover; background-position: center;">
 					<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
 						<Icon size="4rem" icon="view_kanban" />
 						<p class="option-text">{board.name}</p>

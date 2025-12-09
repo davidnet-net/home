@@ -322,6 +322,7 @@
 			</FlexWrapper>
 		</a>
 	</FlexWrapper>
+	<Space height="var(--token-space-4)" />
 </FlexWrapper>
 
 {#if sessionInfo?.internal}
@@ -412,6 +413,7 @@
 			{/if}
 		</FlexWrapper>
 	</FlexWrapper>
+	<Space height="var(--token-space-4)" />
 {/if}
 
 <Space height="var(--token-space-4)" />
@@ -432,6 +434,7 @@
 	{:else}
 		<span style="color: var(--token-color-text-secondary); margin-left: var(--token-space-3);">No activity for today.</span>
 	{/if}
+	<Space height="var(--token-space-4)" />
 </FlexWrapper>
 
 <Space height="var(--token-space-4)" />
@@ -452,6 +455,7 @@
 	{:else}
 		<span style="color: var(--token-color-text-secondary); margin-left: var(--token-space-3);">No recent activity.</span>
 	{/if}
+	<Space height="var(--token-space-4)" />
 </FlexWrapper>
 
 <Space height="var(--token-space-4)" />

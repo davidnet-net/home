@@ -13,9 +13,7 @@
 		formatDate_PREFERREDTIME,
 		BlockNote,
 		isMachineTimeSameAsPreferred,
-
 		authFetch
-
 	} from "@davidnet/svelte-ui";
 	import { sign } from "crypto";
 	import { onMount, onDestroy } from "svelte";
@@ -142,9 +140,7 @@
 	}
 
 	export function edit_custom_link(id: string, name: string, url: string) {
-		customLinks.update((links) =>
-			links.map((link) => (link.id === id ? { ...link, name, url } : link))
-		);
+		customLinks.update((links) => links.map((link) => (link.id === id ? { ...link, name, url } : link)));
 	}
 
 	export function remove_custom_link(id: string) {
@@ -169,12 +165,15 @@
 	}
 
 	let cards_due_today: Card[] = $state([]);
+	let boards_recent: Card[] = $state([]);
 	async function LoadDaily() {
 		const cards_due_today_res = await authFetch(`${kanbanapiurl}card/due-today`, correlationID, { method: "GET" });
 		cards_due_today = await cards_due_today_res.json();
+		const boards_recent_res = await authFetch(`${kanbanapiurl}boards/recent`, correlationID, { method: "GET" });
+		boards_recent = await boards_recent_res.json();
 		console.log("Cards due today:", cards_due_today);
+		console.log("Boards recent:", boards_recent);
 	}
-
 </script>
 
 <FlexWrapper direction="column" width="100%">
@@ -431,15 +430,28 @@
 			{/each}
 		</FlexWrapper>
 	{:else}
-	<span style="color: var(--token-color-text-secondary); margin-left: var(--token-space-3);">No activity for today.</span>
+		<span style="color: var(--token-color-text-secondary); margin-left: var(--token-space-3);">No activity for today.</span>
 	{/if}
 </FlexWrapper>
 
 <Space height="var(--token-space-4)" />
 
 <FlexWrapper alignitems="flex-start" width="80%">
-	<h2>Recent activity:</h2>
-	<span style="color: var(--token-color-text-secondary); margin-left: var(--token-space-3);">No recent activity.</span>
+	<h2>Reccent activity:</h2>
+	{#if boards_recent.length > 0}
+		<FlexWrapper gap="var(--token-space-3)" justifycontent={width > 600 ? "flex-start" : "space-evenly"} direction="row" wrap="wrap">
+			{#each boards_recent as board (board.id)}
+				<a class="option" href={"https://kanban.davidnet.net/board" + board.id}>
+					<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+						<Icon size="4rem" icon="view_kanban" />
+						<p class="option-text">{board.name}</p>
+					</FlexWrapper>
+				</a>
+			{/each}
+		</FlexWrapper>
+	{:else}
+		<span style="color: var(--token-color-text-secondary); margin-left: var(--token-space-3);">No recent activity.</span>
+	{/if}
 </FlexWrapper>
 
 <Space height="var(--token-space-4)" />
@@ -450,25 +462,24 @@
 		<FlexWrapper gap="var(--token-space-3)" justifycontent={width > 600 ? "flex-start" : "space-evenly"} direction="row" wrap="wrap">
 			{#each $customLinks as link (link.id)}
 				<a class="option" href={link.url} target="_blank">
-						<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
-							<p class="option-text">{link.name}</p>
-							<IconButton onClick={() => editLinkPrompt(link)} icon="edit" alt="edit"/>
-							<IconButton onClick={() => remove_custom_link(link.id)} icon="delete" alt="delete"/>
-						</FlexWrapper>
-					</a>
+					<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
+						<p class="option-text">{link.name}</p>
+						<IconButton onClick={() => editLinkPrompt(link)} icon="edit" alt="edit" />
+						<IconButton onClick={() => remove_custom_link(link.id)} icon="delete" alt="delete" />
+					</FlexWrapper>
+				</a>
 			{/each}
 			<!-- Button to add a new link -->
 			<!-- svelte-ignore a11y_click_events_have_key_events -->
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div class="option" onclick={addLinkPrompt}>
 				<FlexWrapper width="100%" height="100%" justifycontent="center" alignitems="center">
-					<Icon icon="add" size="5rem"/>
+					<Icon icon="add" size="5rem" />
 				</FlexWrapper>
 			</div>
 		</FlexWrapper>
 	</FlexWrapper>
 {/if}
-
 
 <style>
 	.welcomebox {

@@ -445,7 +445,7 @@
 	{#if boards_recent.length > 0}
 		<FlexWrapper gap="var(--token-space-3)" justifycontent={width > 600 ? "flex-start" : "space-evenly"} direction="row" wrap="wrap">
 			{#each boards_recent as board (board.id)}
-				<a class="option" href={"https://kanban.davidnet.net/board" + board.id} style="background-image: url('{board.background_url}'); background-size: cover; background-position: center;">
+				<a class="option" href={"https://kanban.davidnet.net/board/" + board.id} style="background-image: url('{board.background_url}'); background-size: cover; background-position: center;">
 					<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
 						<Icon size="4rem" icon="view_kanban" />
 						<p class="option-text">{board.name}</p>

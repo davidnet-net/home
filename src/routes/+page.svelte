@@ -427,7 +427,6 @@
 			{#each cards_due_today as card (card.id)}
 				<a class="option" href={"https://kanban.davidnet.net"}>
 					<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
-						<Icon size="4rem" icon="task_alt" />
 						<p class="option-text">{card.name}</p>
 					</FlexWrapper>
 				</a>

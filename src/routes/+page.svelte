@@ -167,12 +167,14 @@
 	let cards_due_today: Card[] = $state([]);
 	let boards_recent: Board[] = $state([]);
 	async function LoadDaily() {
-		//const cards_due_today_res = await authFetch(`${kanbanapiurl}card/due-today`, correlationID, { method: "GET" });
-		//cards_due_today = await cards_due_today_res.json();
 		const boards_recent_res = await authFetch(`${kanbanapiurl}boards/recent`, correlationID, { method: "GET" });
 		boards_recent = await boards_recent_res.json();
-		console.log("Cards due today:", cards_due_today);
 		console.log("Boards recent:", boards_recent);
+
+		const cards_due_today_res = await authFetch(`${kanbanapiurl}card/due-today`, correlationID, { method: "GET" });
+		console.debug(cards_due_today_res);
+		cards_due_today = await cards_due_today_res.json();
+		console.log("Cards due today:", cards_due_today);
 	}
 </script>
 

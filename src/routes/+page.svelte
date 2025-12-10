@@ -15,7 +15,7 @@
 		isMachineTimeSameAsPreferred,
 		authFetch
 	} from "@davidnet/svelte-ui";
-	import { sign } from "crypto";
+
 	import { onMount, onDestroy } from "svelte";
 	import { writable } from "svelte/store";
 
@@ -421,11 +421,11 @@
 <Space height="var(--token-space-4)" />
 
 <FlexWrapper alignitems="flex-start" width="80%">
-	<h2>Today:</h2>
+	<h2>Due today:</h2>
 	{#if cards_due_today.length > 0}
 		<FlexWrapper gap="var(--token-space-3)" justifycontent={width > 600 ? "flex-start" : "space-evenly"} direction="row" wrap="wrap">
 			{#each cards_due_today as card (card.id)}
-				<a class="option" href={"https://kanban.davidnet.net"}>
+				<a class="option" href={"https://kanban.davidnet.net/card/" + card.id}>
 					<FlexWrapper width="100%" height="100%" gap="var(--token-space-2)">
 						<p class="option-text">{card.name}</p>
 					</FlexWrapper>

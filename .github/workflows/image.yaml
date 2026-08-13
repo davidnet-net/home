@@ -40,6 +40,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
             PUBLIC_BACKEND_URL=${{ vars.PUBLIC_BACKEND_URL }}
             PUBLIC_ACCOUNT_FRONTEND_URL=${{ vars.PUBLIC_ACCOUNT_FRONTEND_URL }}
+          secrets: |
+            GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}

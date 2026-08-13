@@ -8,7 +8,7 @@
 </script>
 
 <svelte:head>
-	<title>Davidnet Account - {page.error?.message}</title>
+	<title>Davidnet Home - {page.error?.message}</title>
 </svelte:head>
 
 <div class={styles.pageContainer}>
@@ -34,7 +34,7 @@
 			<Button appearance="primary" iconbefore="arrow_back" onclick={() => history.back()}>
 				Back
 			</Button>
-			<LinkButton href="/">My account</LinkButton>
+			<LinkButton href="/">Home</LinkButton>
 		</div>
 	{:else}
 		<div class={styles.backgroundContainer}>

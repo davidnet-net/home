@@ -673,13 +673,25 @@
 			ctx.restore();
 		}
 
-		function gameLoop() {
-			update();
+		let lastTime = performance.now();
+		let accumulator = 0;
+		const STEP = 1000 / 60;
+
+		function gameLoop(timestamp: number) {
+			let dt = timestamp - lastTime;
+			if (dt > 100) dt = 100;
+			lastTime = timestamp;
+			accumulator += dt;
+
+			while (accumulator >= STEP) {
+				update();
+				accumulator -= STEP;
+			}
 			draw();
 			animationFrameId = requestAnimationFrame(gameLoop);
 		}
 
-		gameLoop();
+		gameLoop(performance.now());
 
 		return () => {
 			window.removeEventListener("keydown", handleKeyDown);

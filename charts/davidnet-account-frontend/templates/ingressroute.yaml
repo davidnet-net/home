@@ -1,7 +1,7 @@
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
-  name: {{ include "davidnet-account-frontend.fullname" . }}-ingress
+  name: {{ include "davidnet-home-frontend.fullname" . }}-ingress
 spec:
   entryPoints:
     - websecure
@@ -9,7 +9,7 @@ spec:
     - match: Host(`{{ .Values.ingress.host }}`)
       kind: Rule
       services:
-        - name: {{ include "davidnet-account-frontend.fullname" . }}
+        - name: {{ include "davidnet-home-frontend.fullname" . }}
           port: {{ .Values.service.port }}
   tls:
     secretName: {{ .Values.ingress.host }}-tls

@@ -1,8 +1,8 @@
-{{- define "davidnet-account-frontend.name" -}}
+{{- define "davidnet-home-frontend.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
-{{- define "davidnet-account-frontend.fullname" -}}
+{{- define "davidnet-home-frontend.fullname" -}}
 {{- if .Values.fullnameOverride -}}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
 {{- else -}}

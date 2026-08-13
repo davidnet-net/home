@@ -25,5 +25,3 @@
 		})();
 	});
 </script>
-
-<h1>Davidnet home</h1>

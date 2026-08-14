@@ -13,7 +13,8 @@
 		getFetch,
 		sleep,
 		IconButton,
-		toast
+		toast,
+		Spinner
 	} from "@davidnet-net/svelte-ui";
 	import { token } from "@davidnet-net/svelte-ui/tokens";
 
@@ -45,6 +46,7 @@
 	let buttonDisabled = $state(false);
 
 	let wildIntervals: any[] = [];
+	let rebuilding = $state(false);
 
 	$effect(() => {
 		if (permanentDisco && !gravityOut) {
@@ -156,7 +158,9 @@
 			});
 
 			// Wait 5 seconds, reset
+			rebuilding = true;
 			await sleep(5000);
+			rebuilding = false;
 			resetAll();
 			buttonDisabled = false;
 			return;
@@ -203,6 +207,14 @@
 	{/each}
 {/if}
 
+{#if rebuilding}
+	<Flex justifyContent="center" alignItems="center" gap="large" direction="column">
+		<h2 class="global-disco" style="font-size: 3.5rem; text-align: center;">
+			Davidnet speel eiland!
+		</h2>
+		<Spinner size="huge" />
+	</Flex>
+{/if}
 <div class:global-disco={permanentDisco} class:shake-screen={totalChaos && !gravityOut}>
 	<Flex alignItems="center" marginTop="giant" direction="column">
 		<Flex width="90%" marginTop="giant" direction="column" gap="small">

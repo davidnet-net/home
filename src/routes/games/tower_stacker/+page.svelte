@@ -420,21 +420,7 @@
 
 			// Draw Game Over Screen Overlay
 			if (gameOver) {
-				ctx.fillStyle = "rgba(17, 24, 39, 0.75)";
-				ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
-
-				ctx.fillStyle = "#ffffff";
-				ctx.font = "bold 36px sans-serif";
-				ctx.textAlign = "center";
-				ctx.fillText("GAME OVER", VIEW_WIDTH / 2, VIEW_HEIGHT / 2 - 20);
-
-				ctx.font = "18px sans-serif";
-				ctx.fillStyle = "#9ca3af";
-				ctx.fillText(
-					"Klik op 'Reset' om opnieuw te proberen!",
-					VIEW_WIDTH / 2,
-					VIEW_HEIGHT / 2 + 25
-				);
+				resetGame();
 			}
 		}
 

@@ -438,12 +438,16 @@
 			}
 		}
 
-		let lastTime = performance.now();
+		let lastTime: number | null = null;
 		let accumulator = 0;
 		const STEP = 1000 / 60;
 
 		function gameLoop(timestamp: number) {
+			if (lastTime === null) {
+				lastTime = timestamp;
+			}
 			let dt = timestamp - lastTime;
+			if (dt < 0) dt = 0;
 			if (dt > 100) dt = 100;
 			lastTime = timestamp;
 			accumulator += dt;
@@ -456,7 +460,7 @@
 			animationFrameId = requestAnimationFrame(gameLoop);
 		}
 
-		gameLoop(performance.now());
+		animationFrameId = requestAnimationFrame(gameLoop);
 
 		return () => {
 			window.removeEventListener("keydown", handleKeyDown);

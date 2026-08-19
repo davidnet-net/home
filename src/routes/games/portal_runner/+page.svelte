@@ -92,7 +92,7 @@
 		(async () => {
 			await whenAuthReady();
 			if (!authState.isLoggedIn && !authState.loading) {
-				goto(`${PUBLIC_ACCOUNT_FRONTEND_URL}/login?continue=${encodeURIComponent(page.url.href)}`);
+				window.location.href = `${PUBLIC_ACCOUNT_FRONTEND_URL}/login?continue=${encodeURIComponent(page.url.href)}`;
 			}
 		})();
 	});

@@ -61,7 +61,8 @@
 				title="Kanban"
 				description=""
 				icon="view_kanban"
-				href="https://kanban.davidnet.netd" />
+				href="https://kanban.davidnet.net" />
+			<HorizontalCard title="Quiz" description="" icon="quiz" href="https://quiz.davidnet.net" />
 		</Flex>
 		<Flex justifyContent="spaceBetween" height="fit-content">
 			<h2>Links</h2>

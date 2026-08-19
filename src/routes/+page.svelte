@@ -148,7 +148,8 @@
 				title="Kanban"
 				description=""
 				icon="view_kanban"
-				href="https://kanban.davidnet.netd" />
+				href="https://kanban.davidnet.net" />
+			<HorizontalCard title="Quiz" description="" icon="quiz" href="https://quiz.davidnet.net" />
 		</Flex>
 		<h2>Recent:</h2>
 		<p style="color: {token.theme.color.text.secondary}">

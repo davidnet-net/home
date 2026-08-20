@@ -20,8 +20,8 @@ interface ManifestOutput {
 }
 
 const CONFIG = {
-	baseLocale: "en",
-	locales: ["en", "nl"],
+	baseLocale: "en-us",
+	locales: ["en-us", "nl"],
 	namespaces: ["lib", "docs"],
 	inputDir: "./translations",
 	outputFile: "./src/lib/manifests/translations-manifest.json"

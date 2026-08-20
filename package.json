@@ -44,7 +44,7 @@
 		]
 	},
 	"dependencies": {
-		"@davidnet-net/svelte-ui": "^2.0.73",
+		"@davidnet-net/svelte-ui": "^2.0.74",
 		"@types/country-list": "^2.1.4",
 		"@vanilla-extract/css": "^1.18.0",
 		"@vanilla-extract/recipes": "^0.5.7",

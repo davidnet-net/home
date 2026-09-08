@@ -222,7 +222,7 @@
 			}
 		}
 
-		// Generate Preset Chamber Levels
+		// --- INFINITE PROCEDURAL LEVEL GENERATOR ---
 		function getLevelData(lvl: number): LevelData {
 			const walls: Wall[] = [
 				// Outer Room Boundary
@@ -234,39 +234,47 @@
 
 			const coins: Coin[] = [];
 
-			if (lvl === 1) {
-				walls.push({ x: 300, y: 200, width: 20, height: 280 });
-				coins.push({ x: 450, y: 350, radius: 8, collected: false });
-				return {
-					spawn: { x: 80, y: 400 },
-					walls,
-					coins,
-					goal: { x: 720, y: 400, width: 40, height: 60 }
-				};
-			} else if (lvl === 2) {
-				walls.push({ x: 250, y: 250, width: 300, height: 20 });
-				walls.push({ x: 530, y: 100, width: 20, height: 170 });
-				coins.push({ x: 400, y: 200, radius: 8, collected: false });
-				return {
-					spawn: { x: 80, y: 400 },
-					walls,
-					coins,
-					goal: { x: 700, y: 100, width: 40, height: 60 }
-				};
-			} else {
-				walls.push({ x: 200, y: 150, width: 20, height: 330 });
-				walls.push({ x: 400, y: 20, width: 20, height: 330 });
-				walls.push({ x: 600, y: 150, width: 20, height: 330 });
-				coins.push({ x: 300, y: 100, radius: 8, collected: false });
-				coins.push({ x: 500, y: 400, radius: 8, collected: false });
-				return {
-					spawn: { x: 80, y: 400 },
-					walls,
-					coins,
-					goal: { x: 720, y: 80, width: 40, height: 60 }
-				};
+			// Safe zones to ensure player isn't trapped on spawn and goal isn't blocked
+			const spawn = { x: 80, y: 400 };
+			const goalY = 50 + Math.random() * (VIEW_HEIGHT - 150);
+			const goal: Goal = { x: 720, y: goalY, width: 40, height: 60 };
+
+			// Gradually increase difficulty up to a cap (so the screen isn't completely solid)
+			const obstacleCount = Math.min(3 + Math.floor(lvl * 0.8), 16);
+
+			for (let i = 0; i < obstacleCount; i++) {
+				const isVertical = Math.random() > 0.5;
+				let w, h;
+
+				if (isVertical) {
+					w = 20; // Pillar thickness
+					h = 100 + Math.random() * 200;
+				} else {
+					w = 100 + Math.random() * 200;
+					h = 20; // Platform thickness
+				}
+
+				// Generate coordinates within the middle "danger/puzzle" zone (x: 150 to 650)
+				const x = 150 + Math.random() * (VIEW_WIDTH - 300 - w);
+				const y = 50 + Math.random() * (VIEW_HEIGHT - 100 - h);
+
+				walls.push({ x, y, width: w, height: h });
 			}
+
+			// Generate coins that also scale with level
+			const coinCount = Math.min(1 + Math.floor(lvl / 2), 8);
+			for (let i = 0; i < coinCount; i++) {
+				coins.push({
+					x: 150 + Math.random() * 500,
+					y: 50 + Math.random() * (VIEW_HEIGHT - 100),
+					radius: 8,
+					collected: false
+				});
+			}
+
+			return { spawn, walls, coins, goal };
 		}
+		// -------------------------------------------
 
 		let currentLevelData = getLevelData(level);
 

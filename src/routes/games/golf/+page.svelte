@@ -26,7 +26,13 @@
 		y: number;
 		width: number;
 		height: number;
-		type: "sand" | "water";
+		type: "sand" | "water" | "rough";
+	}
+
+	interface Bumper {
+		x: number;
+		y: number;
+		radius: number;
 	}
 
 	interface Hole {
@@ -60,6 +66,7 @@
 		hole: Hole;
 		walls: Wall[];
 		hazards: Hazard[];
+		bumpers: Bumper[];
 	}
 
 	let canvasRef = $state<HTMLCanvasElement | undefined>();
@@ -85,6 +92,9 @@
 		wallBorder: "#212121",
 		sand: "#fbc02d",
 		water: "#0288d1",
+		rough: "#1b5e20", // Dark green for tall grass
+		bumper: "#e91e63", // Pink
+		bumperBorder: "#c2185b",
 		hole: "#111111",
 		aimLine: "#ffffff",
 		aimLinePower: "#e53935",
@@ -166,7 +176,7 @@
 			radius: 10,
 			vx: 0,
 			vy: 0,
-			friction: 0.985,
+			baseFriction: 0.975, // Slightly lower than before to stop naturally faster
 			inHole: false,
 			lastShotX: 100,
 			lastShotY: 250
@@ -202,7 +212,8 @@
 			spawn: { x: number; y: number },
 			hole: Hole,
 			walls: Wall[],
-			hazards: Hazard[]
+			hazards: Hazard[],
+			bumpers: Bumper[]
 		): boolean {
 			const GRID = 20;
 			const cols = Math.floor(VIEW_WIDTH / GRID);
@@ -215,7 +226,7 @@
 					const cx = c * GRID + GRID / 2;
 					const cy = r * GRID + GRID / 2;
 
-					// Check Solid Walls (met 12px speler-marge)
+					// Check Solid Walls
 					for (const w of walls) {
 						if (
 							cx >= w.x - 12 &&
@@ -228,17 +239,29 @@
 						}
 					}
 
-					// Check Water Hazards (Onbegaanbaar)
-					for (const h of hazards) {
-						if (
-							h.type === "water" &&
-							cx >= h.x - 10 &&
-							cx <= h.x + h.width + 10 &&
-							cy >= h.y - 10 &&
-							cy <= h.y + h.height + 10
-						) {
-							grid[c][r] = false;
-							break;
+					// Check Water Hazards (Impassable)
+					if (grid[c][r]) {
+						for (const h of hazards) {
+							if (
+								h.type === "water" &&
+								cx >= h.x - 10 &&
+								cx <= h.x + h.width + 10 &&
+								cy >= h.y - 10 &&
+								cy <= h.y + h.height + 10
+							) {
+								grid[c][r] = false;
+								break;
+							}
+						}
+					}
+
+					// Check Bumpers (Impassable)
+					if (grid[c][r]) {
+						for (const b of bumpers) {
+							if (Math.hypot(cx - b.x, cy - b.y) <= b.radius + 12) {
+								grid[c][r] = false;
+								break;
+							}
 						}
 					}
 				}
@@ -307,29 +330,42 @@
 
 			const walls: Wall[] = [...outerWalls];
 			const hazards: Hazard[] = [];
+			const bumpers: Bumper[] = [];
 
-			// Genereer willekeurige binnenmuren
-			const wallCount = 1 + Math.floor(Math.random() * 3);
+			// Genereer willekeurige binnenmuren (scales up with level)
+			const wallCount = 1 + Math.floor(Math.random() * Math.min(4, 1 + currentLvl / 3));
 			for (let i = 0; i < wallCount; i++) {
 				const isVertical = Math.random() > 0.4;
 				const wWidth = isVertical ? 25 : 120 + Math.random() * 160;
 				const wHeight = isVertical ? 140 + Math.random() * 180 : 25;
 				const wx = 180 + Math.random() * (VIEW_WIDTH - 360);
 				const wy = 40 + Math.random() * (VIEW_HEIGHT - 200);
-
 				walls.push({ x: wx, y: wy, width: wWidth, height: wHeight });
 			}
 
-			// Genereer willekeurige gevaren (zand & water)
-			const hazardCount = 1 + Math.floor(Math.random() * 2);
+			// Genereer willekeurige gevaren (zand, water, ruw gras)
+			const hazardCount = 1 + Math.floor(Math.random() * Math.min(3, 1 + currentLvl / 4));
 			for (let i = 0; i < hazardCount; i++) {
-				const hType: "sand" | "water" = Math.random() > 0.45 ? "sand" : "water";
+				const roll = Math.random();
+				let hType: "sand" | "water" | "rough" = "rough";
+				if (roll < 0.33) hType = "sand";
+				else if (roll < 0.66) hType = "water";
+
 				const hWidth = 80 + Math.random() * 120;
 				const hHeight = 80 + Math.random() * 100;
 				const hx = 160 + Math.random() * (VIEW_WIDTH - 320);
 				const hy = 40 + Math.random() * (VIEW_HEIGHT - 180);
-
 				hazards.push({ x: hx, y: hy, width: hWidth, height: hHeight, type: hType });
+			}
+
+			// Genereer Pinball Bumpers
+			const bumperCount = Math.floor(Math.random() * Math.min(4, currentLvl / 2));
+			for (let i = 0; i < bumperCount; i++) {
+				bumpers.push({
+					x: 200 + Math.random() * (VIEW_WIDTH - 400),
+					y: 80 + Math.random() * (VIEW_HEIGHT - 160),
+					radius: 20 + Math.random() * 15
+				});
 			}
 
 			return {
@@ -337,7 +373,8 @@
 				spawn,
 				hole,
 				walls,
-				hazards
+				hazards,
+				bumpers
 			};
 		}
 
@@ -347,11 +384,19 @@
 			while (attempts < 100) {
 				attempts++;
 				const candidate = buildCandidateLevel(currentLvl);
-				if (isLevelPlayable(candidate.spawn, candidate.hole, candidate.walls, candidate.hazards)) {
+				if (
+					isLevelPlayable(
+						candidate.spawn,
+						candidate.hole,
+						candidate.walls,
+						candidate.hazards,
+						candidate.bumpers
+					)
+				) {
 					return candidate;
 				}
 			}
-			return buildCandidateLevel(currentLvl);
+			return buildCandidateLevel(currentLvl); // Failsafe
 		}
 
 		let currentLevelData = generateValidatedLevel(level);
@@ -459,13 +504,15 @@
 				ball.x += ball.vx;
 				ball.y += ball.vy;
 
-				let currentFriction = ball.friction;
+				let activeFriction = ball.baseFriction;
 
-				// Hazards
+				// Hazards Collisions
 				currentLevelData.hazards.forEach((h) => {
 					if (ball.x > h.x && ball.x < h.x + h.width && ball.y > h.y && ball.y < h.y + h.height) {
 						if (h.type === "sand") {
-							currentFriction = 0.88;
+							activeFriction = 0.88;
+						} else if (h.type === "rough") {
+							activeFriction = 0.82; // Zeer traag gras
 						} else if (h.type === "water") {
 							spawnParticles(ball.x, ball.y, COLORS.water, 20);
 							triggerShake(6);
@@ -479,15 +526,45 @@
 					}
 				});
 
-				ball.vx *= currentFriction;
-				ball.vy *= currentFriction;
+				// Tweak: Druk bal sneller stil als de snelheid erg laag is (Settling)
+				if (currentSpeed < 1.5) {
+					activeFriction *= 0.9;
+				}
 
-				if (Math.hypot(ball.vx, ball.vy) < 0.05) {
+				ball.vx *= activeFriction;
+				ball.vy *= activeFriction;
+
+				// Tweak: Verhoogde stop-drempel zodat wind de bal niet eeuwig laat kruipen
+				if (Math.hypot(ball.vx, ball.vy) < 0.3) {
 					ball.vx = 0;
 					ball.vy = 0;
 				}
 
-				// Wall Collisions
+				// Bumper Collisions (Bouncy Circles)
+				currentLevelData.bumpers.forEach((b) => {
+					const dx = ball.x - b.x;
+					const dy = ball.y - b.y;
+					const distance = Math.hypot(dx, dy);
+
+					if (distance < ball.radius + b.radius) {
+						const overlap = ball.radius + b.radius - distance;
+						const nx = dx / distance;
+						const ny = dy / distance;
+
+						ball.x += nx * overlap;
+						ball.y += ny * overlap;
+
+						const dot = ball.vx * nx + ball.vy * ny;
+						const bounceForce = 1.6; // Bumpers voegen snelheid toe!
+						ball.vx = ball.vx - (1 + bounceForce) * dot * nx;
+						ball.vy = ball.vy - (1 + bounceForce) * dot * ny;
+
+						spawnParticles(b.x, b.y, COLORS.bumper, 15);
+						triggerShake(5);
+					}
+				});
+
+				// Solid Wall Collisions
 				currentLevelData.walls.forEach((w) => {
 					const closestX = Math.max(w.x, Math.min(ball.x, w.x + w.width));
 					const closestY = Math.max(w.y, Math.min(ball.y, w.y + w.height));
@@ -589,8 +666,27 @@
 
 			// Draw Hazards
 			currentLevelData.hazards.forEach((h) => {
-				ctx.fillStyle = h.type === "sand" ? COLORS.sand : COLORS.water;
+				ctx.fillStyle =
+					h.type === "sand" ? COLORS.sand : h.type === "rough" ? COLORS.rough : COLORS.water;
 				ctx.fillRect(h.x, h.y, h.width, h.height);
+			});
+
+			// Draw Bumpers
+			currentLevelData.bumpers.forEach((b) => {
+				ctx.beginPath();
+				ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+				ctx.fillStyle = COLORS.bumper;
+				ctx.fill();
+				ctx.strokeStyle = COLORS.bumperBorder;
+				ctx.lineWidth = 3;
+				ctx.stroke();
+
+				// Inner bumper ring details
+				ctx.beginPath();
+				ctx.arc(b.x, b.y, b.radius * 0.4, 0, Math.PI * 2);
+				ctx.strokeStyle = "#f48fb1"; // Lighter pink inside
+				ctx.lineWidth = 2;
+				ctx.stroke();
 			});
 
 			// Draw Hole & Flag

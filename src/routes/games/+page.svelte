@@ -269,8 +269,22 @@
 				<div class="physics-item">
 					<HorizontalCard title="Portal runner" icon="sprint" href="/games/portal_runner/" />
 				</div>
+
 				<div class="physics-item">
 					<HorizontalCard title="Mini golf" icon="golf_course" href="/games/golf/" />
+				</div>
+
+				<div class="physics-item">
+					<HorizontalCard
+						title="Beam bender"
+						icon="stylus_laser_pointer"
+						href="/games/beam_bender/" />
+				</div>
+				<div class="physics-item">
+					<HorizontalCard
+						title="Falling blocks"
+						icon="keyboard_double_arrow_down"
+						href="/games/falling_blocks/" />
 				</div>
 			</Flex>
 		</Flex>

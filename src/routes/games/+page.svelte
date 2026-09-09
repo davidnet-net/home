@@ -158,7 +158,11 @@
 		{ title: "Mini golf", icon: "golf_course", href: "/games/golf/" },
 		{ title: "Beam bender", icon: "stylus_laser_pointer", href: "/games/beam_bender/" },
 		{ title: "Falling blocks", icon: "keyboard_double_arrow_down", href: "/games/falling_blocks/" },
-		{ title: "Lava dodger", icon: "volcano", href: "/games/lava_dodger/" }
+		{ title: "Lava dodger", icon: "volcano", href: "/games/lava_dodger/" },
+		{ title: "Tic Tac Toe", icon: "joystick", href: "/games/tic_tac_toe/" },
+		{ title: "Police chase drifter", icon: "car_crash", href: "/games/police_chase_drifter/" },
+		{ title: "Snake", icon: "earbuds", href: "/games/snake/" },
+		{ title: "Breakout", icon: "view_compact", href: "/games/breakout/" }
 	];
 
 	const communityGames = [
@@ -171,6 +175,11 @@
 			title: "Cola fabriek",
 			icon: "joystick",
 			href: "/games/community/cola_fabriek"
+		},
+		{
+			title: "Rocket",
+			icon: "rocket",
+			href: "/games/community/rocket"
 		}
 	];
 

@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ruimte Vlieger - Ultimate</title>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; background-color: #000; color: white; font-family: 'Segoe UI', Tahoma, sans-serif; user-select: none; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 20px; box-sizing: border-box; z-index: 10; }
+        .hud-container { display: flex; justify-content: space-between; align-items: flex-start; }
+        .gauge-box { background: rgba(15, 23, 42, 0.75); padding: 15px; border-radius: 10px; border: 2px solid #334155; min-width: 220px; box-shadow: 0 4px 6px rgba(0,0,0,0.5); backdrop-filter: blur(4px); pointer-events: auto; }
+        .gauge-title { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; color: #94a3b8; }
+        .bar-bg { background: #334155; height: 20px; border-radius: 10px; overflow: hidden; position: relative; }
+        .bar-fill { height: 100%; background: #10b981; width: 100%; transition: width 0.1s linear, background-color 0.3s; }
+        .bar-fill.low { background: #eab308; }
+        .bar-fill.critical { background: #ef4444; }
+        .status-text { font-size: 18px; font-weight: bold; margin-top: 10px; }
+        
+        .crystal-display { font-size: 24px; font-weight: bold; color: #c084fc; text-shadow: 0 2px 5px rgba(0,0,0,0.8); display: flex; align-items: center; margin-bottom: 10px; }
+        .crystal-icon { display: inline-block; width: 16px; height: 16px; background: #c084fc; transform: rotate(45deg); margin-right: 10px; box-shadow: 0 0 10px #c084fc; }
+        .score-display { font-size: 28px; font-weight: 900; color: #fcd34d; text-shadow: 2px 2px 0px #b45309, 0 4px 10px rgba(0,0,0,0.8); }
+        .biome-text { font-size: 16px; color: #38bdf8; font-weight: bold; margin-top: 5px; text-transform: uppercase; }
+        
+        .env-warning, .event-warning { color: #f43f5e; font-size: 16px; font-weight: bold; animation: blink 1s infinite; margin-top: 5px; text-shadow: 1px 1px 2px black; }
+        .event-warning { color: #fbbf24; font-size: 24px; text-align: center; width: 100%; position: absolute; top: 100px; left: 0; pointer-events: none;}
+
+        #mission-panel { margin-top: 15px; padding-top: 15px; border-top: 1px solid #475569; display: none; }
+        .mission-title { color: #fbbf24; font-weight: bold; margin-bottom: 5px; }
+        
+        #radar-box { position: absolute; bottom: 20px; right: 20px; width: 160px; height: 160px; border-radius: 50%; border: 3px solid #475569; background: rgba(15, 23, 42, 0.8); overflow: hidden; box-shadow: 0 0 15px rgba(0,0,0,0.8); pointer-events: auto; }
+        #radarCanvas { width: 100%; height: 100%; }
+
+        #shop-overlay { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.95); border: 2px solid #10b981; border-radius: 12px; padding: 20px; width: 800px; max-width: 95%; pointer-events: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 20px rgba(16, 185, 129, 0.2); display: none; transition: transform 0.3s; z-index: 50;}
+        #shop-overlay.active { display: block; animation: slideUp 0.4s forwards; }
+        #shop-content { max-height: 50vh; overflow-y: auto; padding-right: 10px; }
+        #shop-content::-webkit-scrollbar { width: 8px; }
+        #shop-content::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        
+        .shop-section { margin-top: 20px; border-top: 1px solid #334155; padding-top: 10px; }
+        .shop-section h3 { color: #38bdf8; margin: 0 0 10px 0; font-size: 16px; text-transform: uppercase; }
+        .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        
+        .btn { background: #3b82f6; color: white; border: none; padding: 10px 15px; font-size: 1rem; border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center;}
+        .btn:hover:not(:disabled) { background: #2563eb; transform: translateY(-2px); }
+        .btn:active:not(:disabled) { transform: translateY(0); }
+        .btn:disabled { background: #334155 !important; color: #64748b; cursor: not-allowed; box-shadow: none !important; border-color: #475569;}
+        
+        .btn-shop { background: #059669; border: 1px solid #10b981; }
+        .btn-shop:hover:not(:disabled) { background: #047857; box-shadow: 0 0 15px rgba(16,185,129,0.5); }
+        .btn-perm { background: #7c3aed; border: 1px solid #a855f7; }
+        .btn-perm:hover:not(:disabled) { background: #6d28d9; box-shadow: 0 0 15px rgba(168,85,247,0.5); }
+        .btn-cosmetic { background: #db2777; border: 1px solid #f472b6; }
+        .btn-mission { background: #d97706; margin-top: 15px; width: 100%; justify-content: center; font-size: 1.1rem; padding: 15px;}
+        .btn-danger { background: #dc2626; border: 1px solid #f87171; margin-top: 20px; }
+
+        #danger-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(239, 68, 68, 0); pointer-events: none; transition: background 0.1s; z-index: 5; }
+        #message-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(15, 23, 42, 0.9); z-index: 20; backdrop-filter: blur(5px); }
+        h1 { font-size: 4rem; margin: 0 0 10px 0; color: #f8fafc; text-shadow: 0 4px 10px rgba(0,0,0,0.5); text-align: center;}
+        .instructions { font-size: 1.1rem; color: #cbd5e1; text-align: center; max-width: 650px; line-height: 1.6; margin-bottom: 30px; background: rgba(0,0,0,0.3); padding: 20px; border-radius: 10px;}
+        kbd { background: #334155; padding: 4px 8px; border-radius: 4px; font-family: monospace; border-bottom: 2px solid #0f172a; color: #f8fafc; }
+        
+        .hidden { display: none !important; }
+        .warning { color: #ef4444; font-weight: bold; text-shadow: 1px 1px 2px black;}
+        .safe { color: #10b981; font-weight: bold; text-shadow: 1px 1px 2px black;}
+
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        @keyframes slideUp { from { transform: translate(-50%, 50px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="danger-overlay"></div>
+
+    <div id="ui-layer" class="hidden">
+        <div class="hud-container">
+            <div class="gauge-box">
+                <div class="crystal-display"><div class="crystal-icon"></div> <span id="crystal-text">0</span></div>
+                <div class="gauge-title">Brandstof</div>
+                <div class="bar-bg"><div id="fuel-bar" class="bar-fill"></div></div>
+                <div class="status-text" id="flight-status">Vliegend...</div>
+                
+                <div id="mission-panel">
+                    <div class="mission-title">Actieve Missie:</div>
+                    <div id="mission-desc" style="font-size: 14px; color: #e2e8f0;">Geen missie</div>
+                    <div id="mission-timer" style="color: #fbbf24; font-weight: bold; margin-top: 5px;"></div>
+                </div>
+            </div>
+            
+            <div class="gauge-box" style="text-align: right;">
+                <div class="gauge-title">Snelheid: <span id="speed-text">0</span> m/s</div>
+                <div class="gauge-title">Hoogte: <span id="alt-text">0</span> m</div>
+                <div class="biome-text" id="biome-text">Aarde</div>
+                <div class="env-warning hidden" id="env-warning"></div>
+                <div class="score-display">Score: <span id="score-text">0</span></div>
+            </div>
+        </div>
+        
+        <div class="event-warning hidden" id="global-event-warning"></div>
+        <div style="text-align: center; margin-bottom: 20vh;"><div id="landing-assist" style="font-size: 24px;"></div></div>
+
+        <div id="radar-box"><canvas id="radarCanvas"></canvas></div>
+
+        <div id="shop-overlay">
+            <h2 style="margin-top:0; color: #10b981; border-bottom: 1px solid #334155; padding-bottom: 10px; display:flex; justify-content: space-between;">
+                <span>Platform Terminal</span>
+                <span style="color:#c084fc;">Kassier: <span id="shop-crystal-text">0</span> ♦</span>
+            </h2>
+            <div id="shop-content">
+                <div style="color: #cbd5e1; margin-bottom: 10px;">Welkom. Brandstof wordt bijgevuld. Reparaties en upgrades beschikbaar.</div>
+                
+                <div class="shop-section">
+                    <h3>Per-Run Upgrades (Verlies je bij crash)</h3>
+                    <div class="shop-grid">
+                        <button class="btn btn-shop" id="btn-up-fuel" onclick="buyUpgrade('fuel')">Grotere Tank <span>20 ♦</span></button>
+                        <button class="btn btn-shop" id="btn-up-engine" onclick="buyUpgrade('engine')">Sterkere Motor <span>30 ♦</span></button>
+                        <button class="btn btn-shop" id="btn-buy-shield" onclick="buyUpgrade('shield')">Schild Generator <span>50 ♦</span></button>
+                        <button class="btn btn-shop" id="btn-fix-leak" onclick="buyUpgrade('fix_leak')" style="display:none; background:#dc2626; border-color:#f87171;">Repareer Lek <span>20 ♦</span></button>
+                    </div>
+                </div>
+
+                <div class="shop-section">
+                    <h3>Permanente Ontgrendelingen</h3>
+                    <div class="shop-grid">
+                        <button class="btn btn-perm" id="btn-mod-boost" onclick="buyUpgrade('mod_boost')">Turbo Boost (<kbd>Spatie</kbd>) <span>150 ♦</span></button>
+                        <button class="btn btn-perm" id="btn-mod-magnet" onclick="buyUpgrade('mod_magnet')">Magneet (<kbd>Shift</kbd>) <span>200 ♦</span></button>
+                        <button class="btn btn-perm" id="btn-ship-sport" onclick="buyUpgrade('ship_sport')">Sport Schip <span>300 ♦</span></button>
+                        <button class="btn btn-perm" id="btn-ship-tanker" onclick="buyUpgrade('ship_tanker')">Zware Tanker <span>300 ♦</span></button>
+                    </div>
+                </div>
+
+                <div class="shop-section">
+                    <h3>Cosmetica (Permanent)</h3>
+                    <div class="shop-grid">
+                        <button class="btn btn-cosmetic" id="btn-cos-pink" onclick="buyUpgrade('cos_pink')">Roze Vlam <span>50 ♦</span></button>
+                        <button class="btn btn-cosmetic" id="btn-cos-blue" onclick="buyUpgrade('cos_blue')">Blauwe Vlam <span>50 ♦</span></button>
+                    </div>
+                </div>
+
+                <div id="mission-offer-container" class="hidden">
+                    <button class="btn btn-mission" id="btn-accept-mission" onclick="acceptMission()">Missie Aannemen</button>
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 15px; color: #94a3b8; font-size: 14px;">Geef gas (<kbd>W</kbd> of <kbd>↑</kbd>) om het platform te verlaten.</div>
+        </div>
+    </div>
+
+    <div id="message-overlay">
+        <h1 id="title-text">Ruimte Vlieger<br><span style="font-size: 1.5rem; color:#c084fc;">Ultimate Edition</span></h1>
+        <div class="instructions" id="desc-text">
+            Verken de gevaarlijke biomen, verzamel paarse kristallen en ontwijk meteoren en aliens!<br><br>
+            Land op <span style="color:#10b981; font-weight:bold;">Groene Platforms</span> om de <strong>Shop</strong> te openen.<br>
+            <strong>Voortgang Opgeslagen:</strong> Kristallen en permanente upgrades bewaar je, zelfs na een crash!<br><br>
+            <kbd>↑</kbd> of <kbd>W</kbd> = Gas <span style="margin:0 10px;">|</span> <kbd>←</kbd> <kbd>→</kbd> of <kbd>A</kbd> <kbd>D</kbd> = Roteren<br>
+            <kbd>Spatie</kbd> = Turbo Boost <span style="margin:0 10px;">|</span> <kbd>Shift</kbd> = Magneet (indien gekocht)
+        </div>
+        <button class="btn" style="font-size: 1.5rem; padding: 15px 40px;" id="start-btn">Start Spel</button>
+        <button class="btn btn-danger" id="reset-btn">Reset Alle Voortgang</button>
+    </div>
+
+<script>
+/** * GLOBALE SPEL VARIABELEN & CONFIGURATIE */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const radarCanvas = document.getElementById('radarCanvas');
+const radarCtx = radarCanvas.getContext('2d');
+
+let animationId;
+let gameState = 'START'; 
+let camera = { x: 0, y: 0, zoom: 1 };
+let gameTime = 0; 
+let lastFrameTime = performance.now();
+
+// Entiteiten
+let particles = []; let weatherParticles = []; let stars = []; let planets = [];
+let terrain = []; let collectibles = []; let hazards = [];
+
+// Opslag & Status
+const STORAGE_KEY = 'ruimte_vlieger_save_v2';
+let player = {};
+let runUpgrades = { fuelLvl: 0, engineLvl: 0, shield: false };
+let permUnlocks = { boost: false, magnet: false, ship_sport: false, ship_tanker: false, cos_pink: false, cos_blue: false };
+let stats = { crystals: 0, score: 0, maxDistanceX: 0, bestScore: 0 };
+let cosmetics = { thrustColor: '#f97316' };
+let currentShipIdx = 0;
+
+let currentMission = null; 
+let activePadIndex = -1;
+let missionOffer = null; 
+
+// Events
+let activeEvents = { fuelLeak: false, meteorAlarmTimer: 0 };
+
+// Configuratie
+const SHIPS = [
+    { name: "Starter", width: 16, height: 30, baseThrust: 0.12, baseFuel: 1000, color1: '#e2e8f0', color2: '#ef4444', drag: 0.99 },
+    { name: "Sport", width: 12, height: 35, baseThrust: 0.18, baseFuel: 700, color1: '#fde047', color2: '#ea580c', drag: 0.985 }, 
+    { name: "Tanker", width: 28, height: 26, baseThrust: 0.09, baseFuel: 2500, color1: '#22c55e', color2: '#334155', drag: 0.995 }
+];
+const BASE_GRAVITY = 0.04; const TURN_SPEED = 0.05; const FUEL_CONS = 1.5; const REFILL_RATE = 10;
+
+// Input
+const keys = { up: false, left: false, right: false, space: false, shift: false };
+window.addEventListener('keydown', (e) => {
+    if (e.code === 'ArrowUp' || e.code === 'KeyW') keys.up = true;
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = true;
+    if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
+    if (e.code === 'Space') keys.space = true;
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') keys.shift = true;
+});
+window.addEventListener('keyup', (e) => {
+    if (e.code === 'ArrowUp' || e.code === 'KeyW') keys.up = false;
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = false;
+    if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
+    if (e.code === 'Space') keys.space = false;
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') keys.shift = false;
+});
+
+function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize); resize();
+
+/** * LOCAL STORAGE LOGICA */
+function loadData() {
+    let saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+        let p = JSON.parse(saved);
+        if (p.permUnlocks) permUnlocks = { ...permUnlocks, ...p.permUnlocks };
+        if (p.stats) stats = { ...stats, ...p.stats, score: 0 }; 
+        if (p.cosmetics) cosmetics = { ...cosmetics, ...p.cosmetics };
+        if (p.currentShipIdx !== undefined) currentShipIdx = p.currentShipIdx;
+    }
+}
+function saveData() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ permUnlocks, stats, cosmetics, currentShipIdx }));
+}
+document.getElementById('reset-btn').addEventListener('click', () => {
+    if(confirm("Weet je zeker dat je alle kristallen, upgrades en schepen wilt wissen? Dit kan niet ongedaan worden gemaakt.")) {
+        localStorage.removeItem(STORAGE_KEY);
+        location.reload();
+    }
+});
+
+/** * BIOMEN & WERELD GENERATIE */
+const BIOMES = [
+    { endX: 6000, name: "Aarde", colorTop: '#166534', colorBot: '#0f172a', gravity: 1.0, windX: 0, weather: 'none', desc: "" },
+    { endX: 14000, name: "Woestijn", colorTop: '#b45309', colorBot: '#451a03', gravity: 1.0, windX: -0.025, weather: 'sand', desc: "Zandstorm: Tegenwind!" },
+    { endX: 22000, name: "IJsplaneet", colorTop: '#bae6fd', colorBot: '#0c4a6e', gravity: 0.6, windX: 0.02, weather: 'snow', desc: "Sneeuw: Lage Zwaartekracht" },
+    { endX: Infinity, name: "Alien Afgrond", colorTop: '#86198f', colorBot: '#2e1065', gravity: 1.5, windX: 0, weather: 'none', desc: "Gevaar: Hoge Zwaartekracht!" }
+];
+function getBiome(x) { for(let b of BIOMES) if (x < b.endX) return b; return BIOMES[0]; }
+
+function initBackgrounds() {
+    stars = []; weatherParticles = []; hazards = [];
+    for(let i=0; i<300; i++) stars.push({ x: Math.random()*20000, y: Math.random()*2500, size: Math.random()*2, parallax: Math.random()*0.4 + 0.05 });
+    planets = [
+        { x: 3000, y: 300, radius: 150, color: '#f87171', parallax: 0.02 },
+        { x: 10000, y: 100, radius: 250, color: '#fbbf24', parallax: 0.015 },
+        { x: 18000, y: 400, radius: 200, color: '#c084fc', parallax: 0.03 }
+    ];
+}
+
+function generateWorld() {
+    terrain = []; collectibles = [];
+    let currentX = -1000, currentY = 500, padCounter = 0;
+    
+    terrain.push({ x: currentX, y: currentY, ceilY: currentY-2000, isPad: false, padId: -1, isEmergency: false });
+    currentX = -200; terrain.push({ x: currentX, y: currentY, ceilY: currentY-2000, isPad: true, padId: 0, isEmergency: false }); 
+    currentX = 200; terrain.push({ x: currentX, y: currentY, ceilY: currentY-2000, isPad: true, padId: 0, isEmergency: false });
+    
+    let isCave = false; let caveTimer = 0;
+
+    for (let i = 1; i < 700; i++) {
+        let isPad = (i % 12 === 0);
+        let dx = isPad ? 250 : 100 + Math.random() * 200;
+        let dy = isPad ? 0 : (Math.random() - 0.5) * 450;
+
+        if (currentY + dy > 2500) dy = -300;
+        if (currentY + dy < -500) dy = 300;
+        if (isPad) dy = 0; 
+        
+        if (!isCave && !isPad && i > 15 && Math.random() < 0.05) { isCave = true; caveTimer = Math.floor(Math.random()*8)+5; }
+        let ceilY = currentY - 2000;
+        if (isCave) {
+            ceilY = currentY - 350 - Math.random() * 150; 
+            caveTimer--; if (caveTimer <= 0) isCave = false;
+        }
+
+        if (isPad) padCounter++;
+        let pId = isPad ? padCounter : -1;
+        
+        let emergency = isPad && Math.random() < 0.1 && pId > 2;
+        if (emergency) dx = 80;
+
+        terrain.push({ x: currentX, y: currentY, ceilY: ceilY, isPad: isPad, padId: pId, isEmergency: emergency });
+        
+        if (!isPad && Math.random() < (isCave ? 0.6 : 0.25)) {
+            collectibles.push({
+                x: currentX + dx/2,
+                y: isCave ? currentY - 150 : currentY - 200 - Math.random() * 400,
+                type: Math.random() < 0.15 ? 'ring' : 'crystal',
+                collected: false, floatOffset: Math.random() * Math.PI * 2
+            });
+        }
+        currentX += dx; currentY += dy;
+    }
+}
+
+/** * RESET & START */
+function startGame() {
+    loadData();
+    initBackgrounds(); generateWorld();
+    
+    let shipCfg = SHIPS[currentShipIdx];
+    let maxFuelCalc = shipCfg.baseFuel + (runUpgrades.fuelLvl * 450);
+
+    player = {
+        x: 0, y: 480, vx: 0, vy: 0, angle: -Math.PI / 2,
+        fuel: maxFuelCalc, maxFuel: maxFuelCalc,
+        thrust: shipCfg.baseThrust + (runUpgrades.engineLvl * 0.03),
+        isLanded: true, hasShield: runUpgrades.shield
+    };
+    
+    camera = { x: player.x, y: player.y, zoom: 1 };
+    particles = []; hazards = []; gameTime = 0; stats.score = 0; stats.maxDistanceX = 0;
+    keys.up = false; keys.left = false; keys.right = false; keys.space = false; keys.shift = false;
+    currentMission = null; activeEvents = { fuelLeak: false, meteorAlarmTimer: 0 };
+    
+    gameState = 'PLAYING';
+    document.getElementById('ui-layer').classList.remove('hidden');
+    document.getElementById('message-overlay').classList.add('hidden');
+    document.getElementById('shop-overlay').classList.remove('active');
+    
+    if(animationId) cancelAnimationFrame(animationId);
+    lastFrameTime = performance.now();
+    animationId = requestAnimationFrame(gameLoop);
+}
+
+function gameOver(reason) {
+    gameState = 'GAMEOVER';
+    document.getElementById('ui-layer').classList.add('hidden');
+    document.getElementById('shop-overlay').classList.remove('active');
+    
+    let extraDesc = "";
+    if (reason === 'speed') extraDesc = "Je crashte te hard op de grond.";
+    if (reason === 'angle') extraDesc = "Je schip stond te schuin en brak.";
+    if (reason === 'fuel') extraDesc = "Je brandstof raakte op.";
+    if (reason === 'terrain') extraDesc = "Je vloog vol in de rotsen.";
+    if (reason === 'ceiling') extraDesc = "Je botste tegen het plafond van een grot.";
+    if (reason === 'meteor') extraDesc = "Je bent verpletterd door een meteoor!";
+    if (reason === 'alien') extraDesc = "Je bent opgegeten door een ruimte-alien.";
+
+    if (stats.score > stats.bestScore) stats.bestScore = stats.score;
+    saveData(); 
+    
+    document.getElementById('message-overlay').classList.remove('hidden');
+    document.getElementById('title-text').innerHTML = "GECRASHT!";
+    document.getElementById('title-text').style.color = "#ef4444";
+    document.getElementById('desc-text').innerHTML = `
+        <strong>Oorzaak:</strong> ${extraDesc}<br><br>
+        <strong>Score deze run:</strong> ${stats.score} (Beste: ${stats.bestScore})<br>
+        <strong>Totale Kristallen:</strong> ${stats.crystals} ♦<br><br>
+        <span style="color:#ef4444;">Run-upgrades (Tank/Motor/Schild) zijn verloren.<br>Kristallen en Modules zijn veilig!</span>
+    `;
+    document.getElementById('start-btn').innerText = "Nieuwe Run";
+    
+    runUpgrades = { fuelLvl: 0, engineLvl: 0, shield: false };
+}
+
+/** * EFFECTEN & HAZARDS */
+function addParticles(x, y, vx, vy, color, count, lifeMult = 1, sizeMult = 1) {
+    for (let i=0; i<count; i++) particles.push({ x: x, y: y, vx: vx + (Math.random()-0.5)*3, vy: vy + (Math.random()-0.5)*3, life: 1, decay: (Math.random()*0.02 + 0.01)/lifeMult, color: color, size: (Math.random()*5 + 2)*sizeMult });
+}
+
+function spawnFloatingText(x, y, text, color) {
+    particles.push({ x: x, y: y, vx: 0, vy: -1.5, life: 1.5, decay: 0.015, color: color, text: text, size: 20 });
+}
+
+function drawParticles() {
+    particles.forEach(p => {
+        if (!p.text) {
+            ctx.globalAlpha = Math.max(0, p.life);
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    });
+    ctx.globalAlpha = 1.0;
+}
+
+function updateParticlesAndHazards() {
+    for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i]; p.x += p.vx; p.y += p.vy; p.life -= p.decay;
+        if (p.life <= 0) particles.splice(i, 1);
+    }
+    
+    if (activeEvents.meteorAlarmTimer > 0) {
+        activeEvents.meteorAlarmTimer--;
+        if (Math.random() < 0.05) { 
+            hazards.push({ type: 'meteor', x: player.x + Math.random()*2500 - 500, y: camera.y - 100, vx: -2 - Math.random()*2, vy: 6 + Math.random()*4, size: 15 + Math.random()*15, nearMissed: false, rot: 0, rotSpeed: Math.random()*0.2 });
+        }
+    } else if (player.x > 5000 && Math.random() < 0.0005 && !player.isLanded) { 
+        activeEvents.meteorAlarmTimer = 600; 
+    }
+    
+    let biome = getBiome(player.x);
+    if (Math.random() < (biome.name === 'Alien Afgrond' ? 0.01 : 0.002) && !player.isLanded && hazards.length < 5) {
+        hazards.push({ type: 'alien', x: player.x + 1500, y: player.y + (Math.random()-0.5)*800, vx: -3 - Math.random()*2, vy: 0, size: 20, nearMissed: false, floatBaseY: player.y + (Math.random()-0.5)*800, floatTime: 0 });
+    }
+
+    for (let i = hazards.length - 1; i >= 0; i--) {
+        let h = hazards[i];
+        if (h.type === 'meteor') { h.x += h.vx; h.y += h.vy; h.rot += h.rotSpeed; addParticles(h.x, h.y, 0, -2, '#f97316', 1, 0.5, 0.5); }
+        if (h.type === 'alien') { h.floatTime+=0.05; h.x += h.vx; h.y = h.floatBaseY + Math.sin(h.floatTime)*50; }
+        
+        if (h.x < camera.x - 500 || h.y > camera.y + canvas.height + 500) { hazards.splice(i, 1); continue; }
+        
+        let distSq = (player.x - h.x)**2 + (player.y - h.y)**2;
+        if (distSq < (h.size + 15)**2) { 
+            if (player.hasShield) {
+                player.hasShield = false; hazards.splice(i, 1); player.vy = (h.type==='meteor') ? 5 : -5;
+                addParticles(player.x, player.y, 0, 0, '#38bdf8', 40, 1.5);
+                document.getElementById('danger-overlay').style.background = `rgba(56, 189, 248, 0.6)`;
+                setTimeout(() => document.getElementById('danger-overlay').style.background = `transparent`, 200);
+            } else {
+                addParticles(player.x, player.y, 0, 0, '#ef4444', 80, 2);
+                gameOver(h.type); return;
+            }
+        } else if (distSq < (h.size + 80)**2 && !h.nearMissed && gameState === 'PLAYING') { 
+            h.nearMissed = true; stats.score += 50;
+            spawnFloatingText(player.x, player.y - 40, "Near Miss! +50", "#10b981");
+        }
+    }
+}
+
+/** * SHOP & MISSIES */
+function handlePadLanding(padId, isEmergency) {
+    if (activePadIndex === padId) return; 
+    activePadIndex = padId; activeEvents.fuelLeak = false; 
+
+    if (currentMission && currentMission.targetPadIndex === padId) {
+        stats.crystals += currentMission.reward; currentMission = null;
+        addParticles(player.x, player.y - 40, 0, -2, '#c084fc', 50, 2);
+        spawnFloatingText(player.x, player.y - 80, "Missie Voltooid!", "#fbbf24");
+    }
+
+    missionOffer = null;
+    if (!currentMission && padId > 0 && Math.random() < 0.7) {
+        let types = ['pakket', 'passagier', 'tijdrit'];
+        let dist = Math.floor(Math.random() * 4) + 2; 
+        if (isEmergency) types = ['noodoproep']; 
+        
+        let type = types[Math.floor(Math.random() * types.length)];
+        let rew = dist * 20;
+        let time = type === 'tijdrit' ? dist * 900 : 0; 
+        missionOffer = { type: type, targetPadIndex: padId + dist, reward: rew, timeLeft: time };
+    }
+
+    updateShopUI(); document.getElementById('shop-overlay').classList.add('active'); saveData();
+}
+
+function updateShopUI() {
+    document.getElementById('shop-crystal-text').innerText = stats.crystals;
+    
+    let costF = 20 + runUpgrades.fuelLvl*20; document.getElementById('btn-up-fuel').innerHTML = `Grotere Tank (Lvl ${runUpgrades.fuelLvl+1}) <span>${costF} ♦</span>`; document.getElementById('btn-up-fuel').disabled = stats.crystals < costF;
+    let costE = 30 + runUpgrades.engineLvl*20; document.getElementById('btn-up-engine').innerHTML = `Motor Upgrade (Lvl ${runUpgrades.engineLvl+1}) <span>${costE} ♦</span>`; document.getElementById('btn-up-engine').disabled = stats.crystals < costE;
+    let btnSh = document.getElementById('btn-buy-shield'); btnSh.disabled = (stats.crystals < 50 || player.hasShield); btnSh.innerHTML = player.hasShield ? "Schild Actief ✓" : `Schild Generator <span>50 ♦</span>`;
+    
+    let btnLeak = document.getElementById('btn-fix-leak');
+    if(activeEvents.fuelLeak) { btnLeak.style.display = 'flex'; btnLeak.disabled = stats.crystals < 20; } else { btnLeak.style.display = 'none'; }
+
+    let btnBoost = document.getElementById('btn-mod-boost'); btnBoost.disabled = (stats.crystals < 150 || permUnlocks.boost); btnBoost.innerHTML = permUnlocks.boost ? "Turbo Boost (✓)" : `Turbo Boost (<kbd>Spc</kbd>) <span>150 ♦</span>`;
+    let btnMag = document.getElementById('btn-mod-magnet'); btnMag.disabled = (stats.crystals < 200 || permUnlocks.magnet); btnMag.innerHTML = permUnlocks.magnet ? "Magneet (✓)" : `Magneet (<kbd>Shft</kbd>) <span>200 ♦</span>`;
+    let btnSport = document.getElementById('btn-ship-sport'); btnSport.disabled = ((stats.crystals < 300 && !permUnlocks.ship_sport) || currentShipIdx === 1); btnSport.innerHTML = currentShipIdx===1 ? "Sport (Actief)" : (permUnlocks.ship_sport ? "Kies Sport Schip" : `Sport Schip <span>300 ♦</span>`);
+    let btnTanker = document.getElementById('btn-ship-tanker'); btnTanker.disabled = ((stats.crystals < 300 && !permUnlocks.ship_tanker) || currentShipIdx === 2); btnTanker.innerHTML = currentShipIdx===2 ? "Tanker (Actief)" : (permUnlocks.ship_tanker ? "Kies Tanker" : `Zware Tanker <span>300 ♦</span>`);
+
+    let btnPink = document.getElementById('btn-cos-pink'); btnPink.disabled = ((stats.crystals < 50 && !permUnlocks.cos_pink) || cosmetics.thrustColor === '#ec4899'); btnPink.innerHTML = cosmetics.thrustColor==='#ec4899' ? "Roze Vlam (Actief)" : (permUnlocks.cos_pink ? "Kies Roze Vlam" : `Roze Vlam <span>50 ♦</span>`);
+    let btnBlue = document.getElementById('btn-cos-blue'); btnBlue.disabled = ((stats.crystals < 50 && !permUnlocks.cos_blue) || cosmetics.thrustColor === '#0ea5e9'); btnBlue.innerHTML = cosmetics.thrustColor==='#0ea5e9' ? "Blauwe Vlam (Actief)" : (permUnlocks.cos_blue ? "Kies Blauwe Vlam" : `Blauwe Vlam <span>50 ♦</span>`);
+
+    let mCont = document.getElementById('mission-offer-container');
+    if (missionOffer && !currentMission) { mCont.classList.remove('hidden'); let i = missionOffer.type==='tijdrit'?'⏱️':(missionOffer.type==='noodoproep'?'🆘':'📦'); document.getElementById('btn-accept-mission').innerText = `${i} Missie: Pad ${missionOffer.targetPadIndex} (${missionOffer.reward} ♦)`; }
+    else mCont.classList.add('hidden');
+}
+
+function buyUpgrade(type) {
+    if (gameState !== 'PLAYING' || !player.isLanded) return;
+    let costF = 20 + runUpgrades.fuelLvl*20; let costE = 30 + runUpgrades.engineLvl*20;
+
+    if (type === 'fuel' && stats.crystals >= costF) { stats.crystals -= costF; runUpgrades.fuelLvl++; player.maxFuel += 450; player.fuel = player.maxFuel; }
+    else if (type === 'engine' && stats.crystals >= costE) { stats.crystals -= costE; runUpgrades.engineLvl++; player.thrust += 0.03; }
+    else if (type === 'shield' && stats.crystals >= 50 && !player.hasShield) { stats.crystals -= 50; player.hasShield = true; }
+    else if (type === 'fix_leak' && stats.crystals >= 20 && activeEvents.fuelLeak) { stats.crystals -= 20; activeEvents.fuelLeak = false; }
+    else if (type === 'mod_boost' && stats.crystals >= 150 && !permUnlocks.boost) { stats.crystals -= 150; permUnlocks.boost = true; }
+    else if (type === 'mod_magnet' && stats.crystals >= 200 && !permUnlocks.magnet) { stats.crystals -= 200; permUnlocks.magnet = true; }
+    else if (type === 'ship_sport') { if (!permUnlocks.ship_sport && stats.crystals >= 300) { stats.crystals-=300; permUnlocks.ship_sport=true; } if (permUnlocks.ship_sport) { currentShipIdx=1; applyShip(); } }
+    else if (type === 'ship_tanker') { if (!permUnlocks.ship_tanker && stats.crystals >= 300) { stats.crystals-=300; permUnlocks.ship_tanker=true; } if (permUnlocks.ship_tanker) { currentShipIdx=2; applyShip(); } }
+    else if (type === 'cos_pink') { if (!permUnlocks.cos_pink && stats.crystals >= 50) { stats.crystals-=50; permUnlocks.cos_pink=true; } if (permUnlocks.cos_pink) { cosmetics.thrustColor='#ec4899'; } }
+    else if (type === 'cos_blue') { if (!permUnlocks.cos_blue && stats.crystals >= 50) { stats.crystals-=50; permUnlocks.cos_blue=true; } if (permUnlocks.cos_blue) { cosmetics.thrustColor='#0ea5e9'; } }
+    
+    saveData(); updateShopUI();
+}
+
+function applyShip() { let s = SHIPS[currentShipIdx]; player.maxFuel = s.baseFuel + (runUpgrades.fuelLvl*450); player.thrust = s.baseThrust + (runUpgrades.engineLvl*0.03); player.fuel = player.maxFuel; }
+function acceptMission() { if(missionOffer) { currentMission = missionOffer; missionOffer = null; updateShopUI(); updateMissionUI(); } }
+
+function updateMissionUI() {
+    const p = document.getElementById('mission-panel'); const d = document.getElementById('mission-desc'); const t = document.getElementById('mission-timer');
+    if (currentMission) { p.style.display = 'block'; let i = currentMission.type==='tijdrit'?'⏱️ Tijdrit':(currentMission.type==='noodoproep'?'🆘 Noodoproep':'📦 Pakketje'); d.innerText = `${i} naar Pad ${currentMission.targetPadIndex}`; t.innerText = currentMission.type==='tijdrit' ? `${Math.ceil(currentMission.timeLeft/60)} sec resteren` : ""; }
+    else p.style.display = 'none';
+}
+
+/** * HOOFD UPDATE LOOP */
+function update(dt) {
+    updateParticlesAndHazards();
+    if (gameState !== 'PLAYING') return;
+
+    gameTime += 0.0002 * dt; 
+    let currentBiome = getBiome(player.x);
+    let shipCfg = SHIPS[currentShipIdx];
+    
+    if (keys.left) player.angle -= TURN_SPEED;
+    if (keys.right) player.angle += TURN_SPEED;
+
+    let isBoosting = (keys.space && permUnlocks.boost && player.fuel > 0);
+    let currentThrust = isBoosting ? player.thrust * 2.5 : player.thrust;
+    let fuelDrain = isBoosting ? FUEL_CONS * 3.5 : FUEL_CONS;
+
+    if ((keys.up || isBoosting) && player.fuel > 0) {
+        player.vx += Math.cos(player.angle) * currentThrust;
+        player.vy += Math.sin(player.angle) * currentThrust;
+        player.fuel -= fuelDrain;
+        
+        if (player.isLanded) { player.isLanded = false; document.getElementById('shop-overlay').classList.remove('active'); activePadIndex = -1; }
+
+        let exX = player.x - Math.cos(player.angle) * (shipCfg.height/2); let exY = player.y - Math.sin(player.angle) * (shipCfg.height/2);
+        addParticles(exX, exY, -player.vx*0.2, -player.vy*0.2, isBoosting ? '#fef08a' : cosmetics.thrustColor, isBoosting ? 4 : 2);
+    }
+
+    if (!player.isLanded) {
+        player.vy += BASE_GRAVITY * currentBiome.gravity;
+        player.vx += currentBiome.windX; 
+        player.vx *= shipCfg.drag; player.vy *= shipCfg.drag;
+        
+        if (activeEvents.fuelLeak) { player.fuel -= 1.0; addParticles(player.x, player.y, 0, 2, '#3b82f6', 1, 0.5, 0.5); }
+        else if (player.x > 3000 && player.fuel > player.maxFuel*0.4 && Math.random() < 0.0005) { activeEvents.fuelLeak = true; spawnFloatingText(player.x, player.y-40, "Brandstoflek!", "#ef4444"); }
+        
+    } else {
+        player.fuel = Math.min(player.maxFuel, player.fuel + REFILL_RATE);
+        player.vx *= 0.5; player.vy = 0;
+        let diff = (-Math.PI/2) - player.angle; while(diff < -Math.PI) diff+=Math.PI*2; while(diff > Math.PI) diff-=Math.PI*2; player.angle += diff*0.1;
+    }
+    player.x += player.vx; player.y += player.vy;
+    
+    if (player.x > stats.maxDistanceX) { stats.maxDistanceX = player.x; stats.score = Math.floor(stats.maxDistanceX / 10); }
+
+    let pullRadius = (keys.shift && permUnlocks.magnet) ? 350 : 45;
+    if (keys.shift && permUnlocks.magnet) {
+        ctx.beginPath(); ctx.arc(player.x, player.y, pullRadius, 0, Math.PI*2); ctx.strokeStyle='rgba(192, 132, 252, 0.1)'; ctx.stroke();
+    }
+    
+    for(let i = collectibles.length-1; i >= 0; i--) {
+        let c = collectibles[i];
+        if(!c.collected) {
+            c.floatOffset += 0.05; let cy = c.y + Math.sin(c.floatOffset) * 10;
+            let distSq = (player.x - c.x)**2 + (player.y - cy)**2;
+            
+            if (distSq < pullRadius**2 && keys.shift && permUnlocks.magnet) { 
+                c.x += (player.x - c.x)*0.1; c.y += (player.y - cy)*0.1; distSq = (player.x - c.x)**2 + (player.y - cy)**2;
+            }
+
+            if (distSq < 1600) { 
+                c.collected = true;
+                if (c.type === 'crystal') { stats.crystals += Math.floor(Math.random()*3)+1; addParticles(c.x, cy, 0, 0, '#c084fc', 15, 1.5); updateShopUI(); saveData(); } 
+                else if (c.type === 'ring') { stats.score += 50; player.fuel = Math.min(player.maxFuel, player.fuel + 300); addParticles(c.x, cy, 0, 0, '#fcd34d', 20, 2); spawnFloatingText(c.x, cy, "Fuel +300", "#10b981");}
+            }
+        }
+    }
+
+    if (currentMission && currentMission.type === 'tijdrit' && !player.isLanded) {
+        currentMission.timeLeft--; updateMissionUI();
+        if (currentMission.timeLeft <= 0) { spawnFloatingText(player.x, player.y-40, "Tijdrit Gefaald!", "#ef4444"); currentMission = null; updateMissionUI(); }
+    }
+
+    let segIdx = -1;
+    for (let i = 0; i < terrain.length - 1; i++) { if (player.x >= terrain[i].x && player.x <= terrain[i + 1].x) { segIdx = i; break; } }
+
+    const assist = document.getElementById('landing-assist'); assist.innerHTML = "";
+    let isDangerous = false; let altitude = 9999;
+
+    if (segIdx !== -1) {
+        let p1 = terrain[segIdx]; let p2 = terrain[segIdx + 1];
+        let t = (player.x - p1.x) / (p2.x - p1.x);
+        let terrainY = p1.y + t * (p2.y - p1.y);
+        let ceilingY = p1.ceilY + t * (p2.ceilY - p1.ceilY);
+
+        let speed = Math.sqrt(player.vx*player.vx + player.vy*player.vy);
+        let nAng = player.angle % (Math.PI * 2); if (nAng < 0) nAng += Math.PI * 2;
+        let angDev = Math.abs(nAng - (Math.PI * 1.5));
+        let pBottom = player.y + (shipCfg.height / 2); let pTop = player.y - (shipCfg.height / 2);
+        altitude = Math.max(0, terrainY - pBottom);
+
+        if (pTop <= ceilingY) {
+            if (player.hasShield && speed < 8) { player.hasShield = false; player.vy = 4; addParticles(player.x, player.y, 0,0,'#38bdf8', 30, 1.5); }
+            else { addParticles(player.x, player.y, 0,0,'#ef4444', 80, 2); gameOver('ceiling'); return; }
+        }
+
+        if (p1.isPad && altitude < 300) {
+            let checks = [];
+            if (speed < 3.5) checks.push(`<span class="safe">Snelheid OK</span>`); else checks.push(`<span class="warning">TE SNEL</span>`);
+            if (angDev < 0.6) checks.push(`<span class="safe">Hoek OK</span>`); else checks.push(`<span class="warning">TE SCHUIN</span>`);
+            assist.innerHTML = checks.join(" | ");
+        }
+
+        if (altitude < 200 && player.vy > 1.0 && (!p1.isPad || speed >= 3.5 || angDev >= 0.6)) isDangerous = true;
+
+        if (pBottom >= terrainY) {
+            if (p1.isPad && speed < 3.5 && angDev < 0.6) {
+                if (!player.isLanded) { player.y = terrainY - (shipCfg.height/2); player.vx=0; player.vy=0; player.isLanded=true; handlePadLanding(p1.padId, p1.isEmergency); }
+            } else {
+                if (player.hasShield && speed < 9.0) { player.hasShield = false; player.vy = -5; addParticles(player.x, player.y, 0,0,'#38bdf8', 30, 1.5); } 
+                else { addParticles(player.x, player.y, 0,0,'#ef4444', 80, 2); addParticles(player.x, player.y, 0,0,'#64748b', 100, 3); let r = 'terrain'; if (p1.isPad) { r = speed>=3.5?'speed':'angle'; } else if (player.fuel<=0) r='fuel'; gameOver(r); return; }
+            }
+        }
+    }
+
+    const dOver = document.getElementById('danger-overlay');
+    if (isDangerous && gameState === 'PLAYING') dOver.style.background = `rgba(239, 68, 68, ${Math.min(0.6, 1.0-(altitude/200))})`;
+    else if(gameState === 'PLAYING') dOver.style.background = `rgba(239, 68, 68, 0)`;
+
+    let tCamX = player.x - canvas.width/2 + (player.vx*15); let tCamY = player.y - canvas.height/2 + 100 + (player.vy*10);
+    camera.x += (tCamX - camera.x) * 0.08; camera.y += (tCamY - camera.y) * 0.08;
+
+    updateUIElements(currentBiome);
+}
+
+function updateUIElements(biome) {
+    let fPerc = Math.max(0, (player.fuel / player.maxFuel) * 100);
+    let fB = document.getElementById('fuel-bar'); fB.style.width = fPerc + '%'; fB.className = 'bar-fill';
+    if (fPerc < 20) fB.classList.add('critical'); else if (fPerc < 50) fB.classList.add('low');
+
+    document.getElementById('speed-text').innerText = (Math.sqrt(player.vx**2 + player.vy**2)*10).toFixed(0);
+    let alt = 0; for (let i=0; i<terrain.length-1; i++) { if (player.x >= terrain[i].x && player.x <= terrain[i+1].x) { let t = (player.x-terrain[i].x)/(terrain[i+1].x-terrain[i].x); alt = (terrain[i].y + t*(terrain[i+1].y-terrain[i].y)) - player.y; break; } }
+    document.getElementById('alt-text').innerText = Math.max(0, alt).toFixed(0);
+    document.getElementById('score-text').innerText = stats.score; document.getElementById('crystal-text').innerText = stats.crystals;
+    document.getElementById('biome-text').innerText = biome.name;
+    
+    let envW = document.getElementById('env-warning');
+    if(biome.desc) { envW.innerText = biome.desc; envW.classList.remove('hidden'); } else { envW.classList.add('hidden'); }
+
+    let gEvent = document.getElementById('global-event-warning'); let evText = [];
+    if(activeEvents.meteorAlarmTimer > 0) evText.push("⚠️ METEOREN ALARM ⚠️");
+    if(activeEvents.fuelLeak) evText.push("💧 BRANDSTOFLEK! Zoek een pad!");
+    if(evText.length > 0) { gEvent.innerHTML = evText.join('<br>'); gEvent.classList.remove('hidden'); } else { gEvent.classList.add('hidden'); }
+
+    let fS = document.getElementById('flight-status');
+    if (player.isLanded) { fS.innerText = "GELAND Op Pad " + activePadIndex; fS.style.color = "#10b981"; } 
+    else if (player.fuel <= 0) { fS.innerText = "BRANDSTOF OP!"; fS.style.color = "#ef4444"; } 
+    else { fS.innerText = "VLIEGEND"; fS.style.color = "white"; }
+}
+
+/** * RADAR (MINIMAP) TEKENEN */
+function drawRadar() {
+    radarCtx.clearRect(0, 0, 160, 160);
+    let cx = 80, cy = 80; let scale = 0.02; 
+    
+    radarCtx.strokeStyle = 'rgba(255,255,255,0.1)'; radarCtx.beginPath(); radarCtx.moveTo(cx,0); radarCtx.lineTo(cx,160); radarCtx.moveTo(0,cy); radarCtx.lineTo(160,cy); radarCtx.stroke();
+    
+    radarCtx.strokeStyle = 'rgba(255,255,255,0.3)'; radarCtx.lineWidth = 1; radarCtx.beginPath();
+    for (let i = 0; i < terrain.length; i++) {
+        let t = terrain[i]; let rx = cx + (t.x - player.x)*scale; let ry = cy + (t.y - player.y)*scale;
+        if(i===0) radarCtx.moveTo(rx, ry); else radarCtx.lineTo(rx, ry);
+        
+        if (t.isPad) { radarCtx.fillStyle = (currentMission && currentMission.targetPadIndex === t.padId) ? '#fbbf24' : '#10b981'; radarCtx.fillRect(rx-2, ry-2, 6, 4); }
+    }
+    radarCtx.stroke();
+
+    radarCtx.fillStyle = '#c084fc';
+    collectibles.forEach(c => { if(!c.collected) { let rx=cx+(c.x-player.x)*scale; let ry=cy+(c.y-player.y)*scale; radarCtx.fillRect(rx-1,ry-1,3,3); }});
+    
+    radarCtx.fillStyle = '#ef4444';
+    hazards.forEach(h => { let rx=cx+(h.x-player.x)*scale; let ry=cy+(h.y-player.y)*scale; radarCtx.fillRect(rx-2,ry-2,4,4); });
+
+    radarCtx.fillStyle = '#38bdf8'; radarCtx.beginPath(); radarCtx.arc(cx, cy, 3, 0, Math.PI*2); radarCtx.fill();
+    radarCtx.strokeStyle = 'white'; radarCtx.beginPath(); radarCtx.moveTo(cx, cy); radarCtx.lineTo(cx + Math.cos(player.angle)*6, cy + Math.sin(player.angle)*6); radarCtx.stroke();
+}
+
+/** * HOOFD TEKEN LOGICA */
+function draw() {
+    let dt = gameTime; let skyOp = Math.sin(dt) * 0.5 + 0.5; 
+    let b = getBiome(player.x);
+
+    let skyG = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    skyG.addColorStop(0, `rgba(15, 23, 42, ${skyOp})`); skyG.addColorStop(1, `rgba(56, 189, 248, ${1 - skyOp})`);
+    ctx.fillStyle = skyG; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = `rgba(255,255,255, ${skyOp})`; 
+    stars.forEach(s => { let sx=(s.x-camera.x*s.parallax)%canvas.width; let sy=(s.y-camera.y*s.parallax)%canvas.height; if(sx<0)sx+=canvas.width; if(sy<0)sy+=canvas.height; ctx.beginPath(); ctx.arc(sx, sy, s.size, 0, Math.PI*2); ctx.fill(); });
+    planets.forEach(p => { let px=(p.x-camera.x*p.parallax); let py=(p.y-camera.y*p.parallax); if(px>-p.radius && px<canvas.width+p.radius) { ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(px,py,p.radius,0,Math.PI*2); ctx.fill(); ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.arc(px,py,p.radius,0,Math.PI); ctx.fill(); }});
+
+    ctx.save(); ctx.translate(-camera.x, -camera.y);
+
+    if (terrain.length > 0) {
+        for (let i = 0; i < terrain.length - 1; i++) {
+            let p1 = terrain[i], p2 = terrain[i+1];
+            if (p2.x < camera.x - 200 || p1.x > camera.x + canvas.width + 200) continue;
+
+            if (p1.ceilY > -1000) {
+                ctx.beginPath(); ctx.moveTo(p1.x, -3000); ctx.lineTo(p1.x, p1.ceilY); ctx.lineTo(p2.x, p2.ceilY); ctx.lineTo(p2.x, -3000);
+                let g = ctx.createLinearGradient(0, p1.ceilY, 0, p1.ceilY-500); g.addColorStop(0, b.colorTop); g.addColorStop(1, b.colorBot);
+                ctx.fillStyle = g; ctx.fill(); ctx.lineWidth=3; ctx.strokeStyle='rgba(255,255,255,0.1)'; ctx.beginPath(); ctx.moveTo(p1.x,p1.ceilY); ctx.lineTo(p2.x,p2.ceilY); ctx.stroke();
+            }
+
+            if (p1.isPad) {
+                ctx.fillStyle = '#064e3b'; ctx.fillRect(p1.x, p1.y, p2.x-p1.x, 3000); 
+                ctx.lineWidth = 6; ctx.shadowBlur = 15; 
+                ctx.shadowColor = (currentMission && currentMission.targetPadIndex === p1.padId) ? '#fbbf24' : (p1.isEmergency ? '#ef4444' : '#10b981'); 
+                ctx.strokeStyle = ctx.shadowColor;
+                ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke(); ctx.shadowBlur = 0;
+                ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '24px monospace'; ctx.fillText(p1.padId, p1.x+(p2.x-p1.x)/2 - 10, p1.y + 30);
+                if(p1.isEmergency) { ctx.fillStyle='rgba(239, 68, 68, 0.5)'; ctx.fillText("🆘", p1.x+(p2.x-p1.x)/2 - 15, p1.y - 20); }
+            } else {
+                ctx.beginPath(); ctx.moveTo(p1.x, 3000); ctx.lineTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p2.x, 3000);
+                let g = ctx.createLinearGradient(0, p1.y, 0, p1.y+1000); g.addColorStop(0, b.colorTop); g.addColorStop(1, b.colorBot);
+                ctx.fillStyle = g; ctx.fill(); ctx.lineWidth=3; ctx.strokeStyle='rgba(255,255,255,0.1)'; ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+            }
+        }
+    }
+
+    collectibles.forEach(c => {
+        if (c.collected || c.x < camera.x - 100 || c.x > camera.x + canvas.width + 100) return;
+        let cy = c.y + Math.sin(c.floatOffset) * 10;
+        if (c.type === 'crystal') { ctx.fillStyle='#c084fc'; ctx.shadowBlur=15; ctx.shadowColor='#c084fc'; ctx.beginPath(); ctx.moveTo(c.x, cy-15); ctx.lineTo(c.x+10, cy); ctx.lineTo(c.x, cy+15); ctx.lineTo(c.x-10, cy); ctx.fill(); ctx.shadowBlur=0; } 
+        else if (c.type === 'ring') { ctx.strokeStyle='#fcd34d'; ctx.lineWidth=4; ctx.shadowBlur=10; ctx.shadowColor='#f59e0b'; ctx.beginPath(); ctx.ellipse(c.x, cy, 20, 40, c.floatOffset*0.5, 0, Math.PI*2); ctx.stroke(); ctx.shadowBlur=0; }
+    });
+
+    hazards.forEach(h => {
+        if (h.type === 'meteor') { ctx.fillStyle='#f97316'; ctx.beginPath(); ctx.arc(h.x,h.y,h.size,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#fef08a'; ctx.beginPath(); ctx.arc(h.x,h.y,h.size*0.5,0,Math.PI*2); ctx.fill(); }
+        if (h.type === 'alien') { ctx.fillStyle='#22c55e'; ctx.beginPath(); ctx.ellipse(h.x,h.y,h.size,h.size*0.5,0,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#0f172a'; ctx.beginPath(); ctx.arc(h.x-5,h.y-2,3,0,Math.PI*2); ctx.arc(h.x+5,h.y-2,3,0,Math.PI*2); ctx.fill(); }
+    });
+
+    drawParticles();
+
+    if (gameState === 'PLAYING') {
+        let shipCfg = SHIPS[currentShipIdx]; ctx.save(); ctx.translate(player.x, player.y); ctx.rotate(player.angle + Math.PI/2); 
+        if ((keys.up || (keys.space && permUnlocks.boost)) && player.fuel > 0) { ctx.fillStyle = keys.space ? '#fef08a' : cosmetics.thrustColor; ctx.beginPath(); ctx.moveTo(-shipCfg.width/3, shipCfg.height/2); ctx.lineTo(shipCfg.width/3, shipCfg.height/2); ctx.lineTo(0, shipCfg.height/2 + Math.random()*(keys.space?35:20)+15); ctx.fill(); }
+        ctx.fillStyle = shipCfg.color1; ctx.beginPath(); ctx.moveTo(0, -shipCfg.height/2); ctx.lineTo(shipCfg.width/2, shipCfg.height/2); ctx.lineTo(-shipCfg.width/2, shipCfg.height/2); ctx.fill();
+        ctx.fillStyle = shipCfg.color2; ctx.beginPath(); ctx.moveTo(-shipCfg.width/2, shipCfg.height/2); ctx.lineTo(-shipCfg.width/2-8, shipCfg.height/2+5); ctx.lineTo(-shipCfg.width/2+3, shipCfg.height/2-5); ctx.fill(); ctx.beginPath(); ctx.moveTo(shipCfg.width/2, shipCfg.height/2); ctx.lineTo(shipCfg.width/2+8, shipCfg.height/2+5); ctx.lineTo(shipCfg.width/2-3, shipCfg.height/2-5); ctx.fill();
+        ctx.fillStyle = '#38bdf8'; ctx.beginPath(); ctx.arc(0, -shipCfg.height/6, 4, 0, Math.PI*2); ctx.fill();
+        if (player.hasShield) { ctx.strokeStyle='rgba(56,189,248,0.8)'; ctx.lineWidth=3; ctx.shadowBlur=10; ctx.shadowColor='#38bdf8'; ctx.beginPath(); ctx.arc(0,0,Math.max(shipCfg.width,shipCfg.height)+5,0,Math.PI*2); ctx.stroke(); ctx.shadowBlur=0; }
+        if (currentMission && currentMission.type==='pakket') { ctx.fillStyle='#fbbf24'; ctx.fillRect(-5, shipCfg.height/2-10, 10, 10); ctx.strokeStyle='#b45309'; ctx.lineWidth=1; ctx.strokeRect(-5, shipCfg.height/2-10, 10, 10); }
+        
+        particles.forEach(p => { if (p.text) { ctx.save(); ctx.rotate(-player.angle - Math.PI/2); ctx.fillStyle = p.color; ctx.font = `bold ${p.size}px sans-serif`; ctx.globalAlpha = p.life; ctx.fillText(p.text, p.x-player.x, p.y-player.y); ctx.restore(); }});
+        ctx.restore();
+    }
+    ctx.restore();
+
+    if (b.weather !== 'none') {
+        if(Math.random()<0.5) weatherParticles.push({x:Math.random()*canvas.width, y:-10, vx:(b.weather==='sand'?-10:-2)+Math.random()*2, vy:(b.weather==='sand'?2:8)+Math.random()*2, size:Math.random()*(b.weather==='sand'?2:4)});
+        ctx.fillStyle = b.weather==='sand'?'rgba(217,119,6,0.6)':'rgba(255,255,255,0.7)';
+        for(let i=weatherParticles.length-1; i>=0; i--) {
+            let wp=weatherParticles[i]; wp.x+=wp.vx; wp.y+=wp.vy; ctx.beginPath(); ctx.arc(wp.x,wp.y,wp.size,0,Math.PI*2); ctx.fill();
+            if(wp.y>canvas.height || wp.x<0) weatherParticles.splice(i,1);
+        }
+    } else { weatherParticles = []; }
+
+    drawRadar();
+}
+
+function gameLoop(now) {
+    if (!now) now = performance.now();
+    let dt = now - lastFrameTime; lastFrameTime = now;
+    if (dt > 100) dt = 16; 
+    update(dt); draw();
+    animationId = requestAnimationFrame(gameLoop);
+}
+
+// Safely bind initialization logic once the DOM is fully interactive inside the iframe
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('start-btn').addEventListener('click', startGame);
+    loadData();
+    initBackgrounds(); 
+    generateWorld(); 
+    draw(); 
+    drawRadar();
+});
+
+// Fallback safety trigger if DOMContentLoaded already passed
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    document.getElementById('start-btn').addEventListener('click', startGame);
+    loadData();
+    initBackgrounds(); 
+    generateWorld(); 
+    draw(); 
+    drawRadar();
+}
+</script>
+</body>
+</html>

@@ -252,6 +252,14 @@
 			player.vy = 0;
 			player.rotation = 0;
 			activeMeteors = [];
+
+			// Reset crumbling platforms
+			activeLevel.platforms.forEach((plat) => {
+				if (plat.type === "crumbling") {
+					plat.isCrumbled = false;
+					plat.crumbleTimer = undefined;
+				}
+			});
 		}
 
 		resetPlayerPosition();
@@ -583,7 +591,7 @@
 					const overlapX1 = player.x + player.width - plat.x;
 					const overlapX2 = plat.x + plat.width - player.x;
 					const overlapY1 = player.y + player.height - plat.y;
-					const overlapY2 = plat.y + plat.height - player.y;
+					const overlapY2 = plat.y + player.height - player.y;
 
 					const minOverlapX = Math.min(overlapX1, overlapX2);
 					const minOverlapY = Math.min(overlapY1, overlapY2);

@@ -46,6 +46,23 @@
 		height: number;
 	}
 
+	interface ButtonObj {
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+		pressed: boolean;
+		targetDoorId: number;
+	}
+
+	interface Hazard {
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+		active: boolean;
+	}
+
 	interface Particle {
 		x: number;
 		y: number;
@@ -61,7 +78,10 @@
 	interface LevelData {
 		spawn: { x: number; y: number };
 		walls: Wall[];
+		doors: Wall[];
 		coins: Coin[];
+		buttons: ButtonObj[];
+		hazards: Hazard[];
 		goal: Goal;
 	}
 
@@ -85,7 +105,11 @@
 		portalOrangeGlow: "#fb923c",
 		goal: "#22c55e",
 		coin: "#facc15",
-		player: "#e11d48"
+		player: "#e11d48",
+		button: "#eab308",
+		buttonPressed: "#ca8a04",
+		door: "#06b6d4",
+		hazard: "#ef4444"
 	};
 
 	$effect(() => {
@@ -222,59 +246,139 @@
 			}
 		}
 
-		// --- INFINITE PROCEDURAL LEVEL GENERATOR ---
+		// --- GEAVANCEERDE GEÜNIFORMEERDE WILLEKEURIGE KAMERSYSTEMEN ---
 		function getLevelData(lvl: number): LevelData {
 			const walls: Wall[] = [
-				// Outer Room Boundary
+				// Buitenste randen van het speelveld
 				{ x: 0, y: 0, width: VIEW_WIDTH, height: 20 },
 				{ x: 0, y: VIEW_HEIGHT - 20, width: VIEW_WIDTH, height: 20 },
 				{ x: 0, y: 0, width: 20, height: VIEW_HEIGHT },
 				{ x: VIEW_WIDTH - 20, y: 0, width: 20, height: VIEW_HEIGHT }
 			];
 
+			const doors: Wall[] = [];
+			const buttons: ButtonObj[] = [];
+			const hazards: Hazard[] = [];
 			const coins: Coin[] = [];
 
-			// Safe zones to ensure player isn't trapped on spawn and goal isn't blocked
-			const spawn = { x: 80, y: 400 };
-			const goalY = 50 + Math.random() * (VIEW_HEIGHT - 150);
-			const goal: Goal = { x: 720, y: goalY, width: 40, height: 60 };
+			// Bepaal het aantal kamers (willekeurig tussen 2 en 4 kolommen afhankelijk van level)
+			const numRooms = Math.min(2 + Math.floor(Math.random() * 2) + Math.floor(lvl * 0.2), 4);
+			const roomWidth = (VIEW_WIDTH - 40) / numRooms;
 
-			// Gradually increase difficulty up to a cap (so the screen isn't completely solid)
-			const obstacleCount = Math.min(3 + Math.floor(lvl * 0.8), 16);
+			// Genereer muren tussen kamers met doorgangen en optionele deuren
+			for (let c = 1; c < numRooms; c++) {
+				const wallX = 20 + c * roomWidth - 10;
+				const wallThickness = 20;
 
-			for (let i = 0; i < obstacleCount; i++) {
-				const isVertical = Math.random() > 0.5;
-				let w, h;
+				// Willekeurige hoogte voor de doorgang
+				const doorSize = 130;
+				const doorY = 40 + Math.random() * (VIEW_HEIGHT - 180 - doorSize);
 
-				if (isVertical) {
-					w = 20; // Pillar thickness
-					h = 100 + Math.random() * 200;
-				} else {
-					w = 100 + Math.random() * 200;
-					h = 20; // Platform thickness
+				// Bovenste muurdeel
+				if (doorY > 30) {
+					walls.push({ x: wallX, y: 20, width: wallThickness, height: doorY - 20 });
 				}
 
-				// Generate coordinates within the middle "danger/puzzle" zone (x: 150 to 650)
-				const x = 150 + Math.random() * (VIEW_WIDTH - 300 - w);
-				const y = 50 + Math.random() * (VIEW_HEIGHT - 100 - h);
+				// Soms is dit een dichte deur die met een knop opengaat, soms een vrije opening
+				const isLockedDoor = Math.random() > 0.4;
+				if (isLockedDoor) {
+					doors.push({ x: wallX, y: doorY, width: wallThickness, height: doorSize });
 
-				walls.push({ x, y, width: w, height: h });
+					// Plaats een knop in een eerdere kamer of vlakbij
+					buttons.push({
+						x: (c - 1) * roomWidth + 40 + Math.random() * (roomWidth - 80),
+						y: VIEW_HEIGHT - 40,
+						width: 30,
+						height: 20,
+						pressed: false,
+						targetDoorId: doors.length - 1
+					});
+				} else {
+					// Vrije doorgang
+					const bottomY = doorY + doorSize;
+					if (bottomY < VIEW_HEIGHT - 20) {
+						walls.push({
+							x: wallX,
+							y: bottomY,
+							width: wallThickness,
+							height: VIEW_HEIGHT - 20 - bottomY
+						});
+					}
+				}
 			}
 
-			// Generate coins that also scale with level
-			const coinCount = Math.min(1 + Math.floor(lvl / 2), 8);
+			// Voeg unieke obstakels / platformen toe per kamer op basis van willekeur
+			for (let i = 0; i < numRooms; i++) {
+				const layoutType = Math.floor(Math.random() * 3);
+				const rx = 30 + i * roomWidth;
+
+				if (layoutType === 1) {
+					// Midden-pilaar / zwevend platform
+					walls.push({
+						x: rx + roomWidth * 0.25,
+						y: 140 + Math.random() * 120,
+						width: roomWidth * 0.5,
+						height: 18
+					});
+				} else if (layoutType === 2) {
+					// Dubbele kleine plateaus (split-level kamer)
+					walls.push({
+						x: rx + 20,
+						y: 120 + Math.random() * 80,
+						width: 60,
+						height: 16
+					});
+					walls.push({
+						x: rx + roomWidth - 90,
+						y: 260 + Math.random() * 80,
+						width: 60,
+						height: 16
+					});
+				}
+			}
+
+			// Willekeurige lasers / hazards toevoegen naarmate level stijgt
+			const hazardCount = Math.min(Math.floor(lvl * 0.7), 4);
+			for (let i = 0; i < hazardCount; i++) {
+				const hx = 60 + Math.random() * (VIEW_WIDTH - 120);
+				const hy = 80 + Math.random() * (VIEW_HEIGHT - 160);
+				const isHorizontal = Math.random() > 0.5;
+
+				hazards.push({
+					x: hx,
+					y: hy,
+					width: isHorizontal ? 80 + Math.random() * 60 : 16,
+					height: isHorizontal ? 16 : 80 + Math.random() * 60,
+					active: true
+				});
+			}
+
+			// Spawn links in de eerste kamer
+			const spawn = { x: 50, y: VIEW_HEIGHT - 80 };
+
+			// Goal rechts in de laatste kamer
+			const goal = {
+				x: VIEW_WIDTH - 70,
+				y: 50 + Math.random() * (VIEW_HEIGHT - 140),
+				width: 40,
+				height: 60
+			};
+
+			// Munten verspreiden door de kamers
+			const coinCount = Math.min(2 + Math.floor(lvl / 2), 7);
 			for (let i = 0; i < coinCount; i++) {
+				const roomIdx = i % numRooms;
 				coins.push({
-					x: 150 + Math.random() * 500,
+					x: 40 + roomIdx * roomWidth + Math.random() * (roomWidth - 60),
 					y: 50 + Math.random() * (VIEW_HEIGHT - 100),
 					radius: 8,
 					collected: false
 				});
 			}
 
-			return { spawn, walls, coins, goal };
+			return { spawn, walls, doors, coins, buttons, hazards, goal };
 		}
-		// -------------------------------------------
+		// --------------------------------------------------------------------
 
 		let currentLevelData = getLevelData(level);
 
@@ -290,7 +394,6 @@
 
 		resetPlayerPosition();
 
-		// Raycast Shoot Portals onto Wall Surfaces
 		function shootPortal(type: "blue" | "orange") {
 			const dx = mouseX - player.x;
 			const dy = mouseY - player.y;
@@ -302,12 +405,20 @@
 
 			let closestHit: { t: number; x: number; y: number; nx: number; ny: number } | null = null;
 
-			currentLevelData.walls.forEach((w) => {
+			// Alleen op dichte deuren en vaste muren kun je schieten. Open deuren laten de straal door.
+			const closedDoorsAsWalls = currentLevelData.doors.filter((_, idx) => {
+				const linkedButton = currentLevelData.buttons.find((b) => b.targetDoorId === idx);
+				return !linkedButton || !linkedButton.pressed;
+			});
+
+			const shootableSurfaces = [...currentLevelData.walls, ...closedDoorsAsWalls];
+
+			shootableSurfaces.forEach((w) => {
 				const segments = [
-					{ ax: w.x, ay: w.y, bx: w.x + w.width, by: w.y, nx: 0, ny: -1 }, // Top
-					{ ax: w.x, ay: w.y + w.height, bx: w.x + w.width, by: w.y + w.height, nx: 0, ny: 1 }, // Bottom
-					{ ax: w.x, ay: w.y, bx: w.x, by: w.y + w.height, nx: -1, ny: 0 }, // Left
-					{ ax: w.x + w.width, ay: w.y, bx: w.x + w.width, by: w.y + w.height, nx: 1, ny: 0 } // Right
+					{ ax: w.x, ay: w.y, bx: w.x + w.width, by: w.y, nx: 0, ny: -1 },
+					{ ax: w.x, ay: w.y + w.height, bx: w.x + w.width, by: w.y + w.height, nx: 0, ny: 1 },
+					{ ax: w.x, ay: w.y, bx: w.x, by: w.y + w.height, nx: -1, ny: 0 },
+					{ ax: w.x + w.width, ay: w.y, bx: w.x + w.width, by: w.y + w.height, nx: 1, ny: 0 }
 				];
 
 				segments.forEach((s) => {
@@ -358,32 +469,11 @@
 			if (["ArrowRight", "d", "D"].includes(e.key)) keys.right = true;
 			if (["ArrowUp", "w", "W", " "].includes(e.key)) keys.up = true;
 
-			// Q for Blue Portal, E for Orange Portal
 			if (["q", "Q"].includes(e.key)) shootPortal("blue");
 			if (["e", "E"].includes(e.key)) shootPortal("orange");
 		};
 
 		const handleKeyUp = (e: KeyboardEvent) => {
-			if (
-				[
-					"ArrowLeft",
-					"a",
-					"A",
-					"ArrowRight",
-					"d",
-					"D",
-					"ArrowUp",
-					"w",
-					"W",
-					" ",
-					"q",
-					"Q",
-					"e",
-					"E"
-				].includes(e.key)
-			) {
-				e.preventDefault();
-			}
 			if (["ArrowLeft", "a", "A"].includes(e.key)) keys.left = false;
 			if (["ArrowRight", "d", "D"].includes(e.key)) keys.right = false;
 			if (["ArrowUp", "w", "W", " "].includes(e.key)) keys.up = false;
@@ -399,14 +489,10 @@
 		const handleContextMenu = (e: MouseEvent) => {
 			e.preventDefault();
 		};
-
 		const handleMouseDown = (e: MouseEvent) => {
 			updateMousePos(e);
-			if (e.button === 0) {
-				shootPortal("blue");
-			} else if (e.button === 2) {
-				shootPortal("orange");
-			}
+			if (e.button === 0) shootPortal("blue");
+			else if (e.button === 2) shootPortal("orange");
 		};
 
 		window.addEventListener("keydown", handleKeyDown);
@@ -461,8 +547,27 @@
 
 			player.grounded = false;
 
-			// Solid Wall Collisions
-			currentLevelData.walls.forEach((w) => {
+			// Knoppen activeren
+			currentLevelData.buttons.forEach((b) => {
+				const isTouchingButton =
+					player.x + player.radius > b.x &&
+					player.x - player.radius < b.x + b.width &&
+					player.y + player.radius > b.y &&
+					player.y - player.radius < b.y + b.height;
+
+				b.pressed = isTouchingButton;
+			});
+
+			// Botsingen met muren en dichte deuren
+			const activeCollidables = [
+				...currentLevelData.walls,
+				...currentLevelData.doors.filter((_, idx) => {
+					const linkedButton = currentLevelData.buttons.find((b) => b.targetDoorId === idx);
+					return !linkedButton || !linkedButton.pressed;
+				})
+			];
+
+			activeCollidables.forEach((w) => {
 				if (
 					player.x + player.radius > w.x &&
 					player.x - player.radius < w.x + w.width &&
@@ -498,10 +603,26 @@
 				}
 			});
 
+			// Hazards / Lasers controleren
+			currentLevelData.hazards.forEach((h) => {
+				if (
+					h.active &&
+					player.x + player.radius > h.x &&
+					player.x - player.radius < h.x + h.width &&
+					player.y + player.radius > h.y &&
+					player.y - player.radius < h.y + h.height
+				) {
+					spawnParticles(player.x, player.y, COLORS.hazard, 20);
+					triggerShake(8);
+					score = Math.max(0, score - 15);
+					resetPlayerPosition();
+				}
+			});
+
 			checkPortalTeleport(portalA, portalB);
 			checkPortalTeleport(portalB, portalA);
 
-			// Coin Collection
+			// Munten verzamelen
 			currentLevelData.coins.forEach((c) => {
 				if (!c.collected) {
 					const dist = Math.hypot(player.x - c.x, player.y - c.y);
@@ -513,7 +634,7 @@
 				}
 			});
 
-			// Goal Reached
+			// Doel bereikt -> Volgend level genereren
 			const goal = currentLevelData.goal;
 			if (
 				player.x + player.radius > goal.x &&
@@ -528,7 +649,7 @@
 				triggerShake(5);
 			}
 
-			// Particles Update
+			// Partikels updaten
 			for (let i = particles.length - 1; i >= 0; i--) {
 				const p = particles[i];
 				p.x += p.vx;
@@ -586,7 +707,7 @@
 
 			ctx.translate(offsetX, offsetY);
 
-			// Draw Aim Laser Line
+			// Richtlijn (laser)
 			ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
 			ctx.lineWidth = 1.5;
 			ctx.setLineDash([4, 4]);
@@ -596,7 +717,7 @@
 			ctx.stroke();
 			ctx.setLineDash([]);
 
-			// Draw Walls
+			// Muren tekenen
 			currentLevelData.walls.forEach((w) => {
 				ctx.fillStyle = COLORS.wall;
 				ctx.fillRect(w.x, w.y, w.width, w.height);
@@ -605,7 +726,48 @@
 				ctx.strokeRect(w.x, w.y, w.width, w.height);
 			});
 
-			// Draw Goal Door
+			// Deuren tekenen
+			currentLevelData.doors.forEach((d, idx) => {
+				const linkedButton = currentLevelData.buttons.find((b) => b.targetDoorId === idx);
+				const isOpen = linkedButton && linkedButton.pressed;
+
+				if (!isOpen) {
+					ctx.fillStyle = COLORS.door;
+					ctx.fillRect(d.x, d.y, d.width, d.height);
+					ctx.strokeStyle = "#ffffff";
+					ctx.lineWidth = 2;
+					ctx.strokeRect(d.x, d.y, d.width, d.height);
+				} else {
+					ctx.strokeStyle = "rgba(6, 182, 212, 0.4)";
+					ctx.lineWidth = 1;
+					ctx.setLineDash([2, 2]);
+					ctx.strokeRect(d.x, d.y, d.width, d.height);
+					ctx.setLineDash([]);
+				}
+			});
+
+			// Knoppen tekenen
+			currentLevelData.buttons.forEach((b) => {
+				ctx.fillStyle = b.pressed ? COLORS.buttonPressed : COLORS.button;
+				ctx.fillRect(b.x, b.y + (b.pressed ? 10 : 0), b.width, b.height - (b.pressed ? 10 : 0));
+				ctx.strokeStyle = "#ffffff";
+				ctx.lineWidth = 1;
+				ctx.strokeRect(b.x, b.y + (b.pressed ? 10 : 0), b.width, b.height - (b.pressed ? 10 : 0));
+			});
+
+			// Hazards / Lasers
+			currentLevelData.hazards.forEach((h) => {
+				if (h.active) {
+					ctx.save();
+					ctx.shadowColor = COLORS.hazard;
+					ctx.shadowBlur = 10;
+					ctx.fillStyle = COLORS.hazard;
+					ctx.fillRect(h.x, h.y, h.width, h.height);
+					ctx.restore();
+				}
+			});
+
+			// Doel deur
 			const goal = currentLevelData.goal;
 			ctx.fillStyle = COLORS.goal;
 			ctx.fillRect(goal.x, goal.y, goal.width, goal.height);
@@ -613,7 +775,7 @@
 			ctx.lineWidth = 2;
 			ctx.strokeRect(goal.x, goal.y, goal.width, goal.height);
 
-			// Draw Coins
+			// Munten
 			currentLevelData.coins.forEach((c) => {
 				if (!c.collected) {
 					ctx.beginPath();
@@ -626,11 +788,11 @@
 				}
 			});
 
-			// Draw Portals
+			// Portals
 			drawPortal(portalA);
 			drawPortal(portalB);
 
-			// Draw Particles
+			// Partikels
 			particles.forEach((p) => {
 				ctx.save();
 				ctx.globalAlpha = p.alpha;
@@ -641,7 +803,7 @@
 				ctx.restore();
 			});
 
-			// Draw Player Avatar Or Orb
+			// Speler avatar
 			ctx.save();
 			ctx.translate(player.x, player.y);
 			ctx.rotate(player.rotation);
@@ -686,9 +848,7 @@
 		const STEP = 1000 / 60;
 
 		function gameLoop(timestamp: number) {
-			if (lastTime === null) {
-				lastTime = timestamp;
-			}
+			if (lastTime === null) lastTime = timestamp;
 			let dt = timestamp - lastTime;
 			if (dt < 0) dt = 0;
 			if (dt > 100) dt = 100;

@@ -1,0 +1,1475 @@
+<!DOCTYPE html>
+<html lang="nl" class="h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tower Defense Simulator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+        }
+        canvas {
+            touch-action: none;
+        }
+        /* Glassmorphism styling */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(51, 65, 85, 0.8);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col overflow-hidden select-none">
+
+    <!-- Top Bar Navigation & Stats -->
+    <header class="glass-panel z-20 px-4 py-3 flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 shadow-lg">
+        <div class="flex items-center space-x-3">
+            <div class="p-2 bg-indigo-600 rounded-lg shadow-lg shadow-indigo-500/30">
+                <i class="fa-solid font-bold text-xl text-white">🏰</i>
+            </div>
+            <div>
+                <h1 class="text-xl font-extrabold tracking-wide bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-400 bg-clip-text text-transparent">
+                    TOWER DEFENSE
+                </h1>
+                <p class="text-xs text-slate-400 font-medium">Strategische Defensie Simulator</p>
+            </div>
+        </div>
+
+        <!-- In-game Stats Display -->
+        <div id="statsContainer" class="hidden flex items-center gap-4 sm:gap-6">
+            <!-- Health -->
+            <div class="flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-red-900/50">
+                <i class="fa-solid fa-heart text-red-500 animate-pulse"></i>
+                <div>
+                    <span class="text-xs text-slate-400 block leading-none">Levens</span>
+                    <span id="healthDisplay" class="text-base font-bold text-red-400">100</span>
+                </div>
+            </div>
+
+            <!-- Gold -->
+            <div class="flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-amber-900/50">
+                <i class="fa-solid fa-coins text-amber-400"></i>
+                <div>
+                    <span class="text-xs text-slate-400 block leading-none">Goud</span>
+                    <span id="goldDisplay" class="text-base font-bold text-amber-300">200</span>
+                </div>
+            </div>
+
+            <!-- Waves -->
+            <div class="flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-indigo-900/50">
+                <i class="fa-solid fa-shield-halved text-indigo-400"></i>
+                <div>
+                    <span class="text-xs text-slate-400 block leading-none">Golf</span>
+                    <span id="waveDisplay" class="text-base font-bold text-indigo-300">0 / 15</span>
+                </div>
+            </div>
+
+            <!-- Difficulty Tag -->
+            <div class="hidden md:block bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-700 text-center">
+                <span class="text-xs text-slate-400 block leading-none">Niveau</span>
+                <span id="difficultyBadge" class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Makkelijk</span>
+            </div>
+        </div>
+
+        <!-- Audio & Game Speed Controls -->
+        <div id="gameControls" class="hidden flex items-center gap-2">
+            <button id="muteBtn" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition" title="Geluid Aan/Uit">
+                <i id="muteIcon" class="fa-solid fa-volume-high"></i>
+            </button>
+            <button id="speedBtn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-indigo-300 rounded-lg transition border border-slate-700">
+                1x Snelheid
+            </button>
+            <button id="pauseBtn" class="p-2 bg-slate-800 hover:bg-slate-700 text-amber-400 rounded-lg transition" title="Pauzeer">
+                <i id="pauseIcon" class="fa-solid fa-pause"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Viewport -->
+    <main class="flex-1 relative flex flex-col md:flex-row overflow-hidden bg-slate-950">
+
+        <!-- Difficulty Selection Screen (Overlay before start) -->
+        <div id="difficultyOverlay" class="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
+            <div class="max-w-lg w-full glass-panel p-6 sm:p-8 rounded-2xl shadow-2xl border border-slate-800 text-center">
+                <div class="w-16 h-16 bg-gradient-to-tr from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-500/30">
+                    <i class="fa-solid fa-chess-rook text-3xl text-white"></i>
+                </div>
+                <h2 class="text-2xl font-black text-white mb-2">Kies Moeilijkheidsgraad</h2>
+                <p class="text-slate-400 text-sm mb-6">Selecteer het niveau van je tactische uitdaging. Geen extra bonussen, pure defensieve strategie!</p>
+
+                <div class="space-y-3 mb-6">
+                    <!-- Makkelijk -->
+                    <button onclick="startGame('EASY')" class="w-full p-4 rounded-xl border border-emerald-500/30 bg-slate-900/60 hover:bg-emerald-950/40 hover:border-emerald-500 transition flex items-center justify-between group text-left">
+                        <div>
+                            <div class="text-emerald-400 font-bold text-base flex items-center gap-2">
+                                <i class="fa-solid fa-seedling"></i> Makkelijk
+                            </div>
+                            <div class="text-slate-400 text-xs mt-0.5">300 Startgoud • 100 Levens • 15 Golven</div>
+                        </div>
+                        <i class="fa-solid fa-arrow-right text-slate-500 group-hover:text-emerald-400 group-hover:translate-x-1 transition"></i>
+                    </button>
+
+                    <!-- Gemiddeld -->
+                    <button onclick="startGame('MEDIUM')" class="w-full p-4 rounded-xl border border-amber-500/30 bg-slate-900/60 hover:bg-amber-950/40 hover:border-amber-500 transition flex items-center justify-between group text-left">
+                        <div>
+                            <div class="text-amber-400 font-bold text-base flex items-center gap-2">
+                                <i class="fa-solid fa-shield"></i> Gemiddeld
+                            </div>
+                            <div class="text-slate-400 text-xs mt-0.5">200 Startgoud • 75 Levens • 20 Golven</div>
+                        </div>
+                        <i class="fa-solid fa-arrow-right text-slate-500 group-hover:text-amber-400 group-hover:translate-x-1 transition"></i>
+                    </button>
+
+                    <!-- Moeilijk -->
+                    <button onclick="startGame('HARD')" class="w-full p-4 rounded-xl border border-rose-500/30 bg-slate-900/60 hover:bg-rose-950/40 hover:border-rose-500 transition flex items-center justify-between group text-left">
+                        <div>
+                            <div class="text-rose-400 font-bold text-base flex items-center gap-2">
+                                <i class="fa-solid fa-skull"></i> Moeilijk
+                            </div>
+                            <div class="text-slate-400 text-xs mt-0.5">125 Startgoud • 50 Levens • 25 Golven</div>
+                        </div>
+                        <i class="fa-solid fa-arrow-right text-slate-500 group-hover:text-rose-400 group-hover:translate-x-1 transition"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Canvas Container -->
+        <div id="canvasWrapper" class="flex-1 relative flex items-center justify-center p-2 sm:p-4 overflow-hidden">
+            <canvas id="gameCanvas" class="rounded-xl shadow-2xl border border-slate-800 bg-slate-900 cursor-crosshair max-w-full max-h-full"></canvas>
+            
+            <!-- In-game Notification Toast -->
+            <div id="gameToast" class="absolute top-6 left-1/2 -translate-x-1/2 pointer-events-none transition-all duration-300 opacity-0 transform -translate-y-2 bg-slate-900/90 border border-slate-700 px-4 py-2 rounded-full text-xs font-semibold text-slate-200 shadow-xl flex items-center gap-2">
+                <i class="fa-solid fa-circle-info text-indigo-400"></i>
+                <span id="toastMsg">Bericht</span>
+            </div>
+        </div>
+
+        <!-- Right Sidebar - Towers Shop & Controls -->
+        <aside id="sidebar" class="w-full md:w-80 glass-panel border-t md:border-t-0 md:border-l border-slate-800 flex flex-col h-auto md:h-full z-10">
+            <!-- Header Tab -->
+            <div class="p-3 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Arsenaal & Besturing</span>
+                <button id="startWaveBtn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg shadow-lg shadow-emerald-600/30 transition flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="fa-solid fa-play"></i> Start Golf
+                </button>
+            </div>
+
+            <!-- Content Area (Shop vs Selected Tower) -->
+            <div class="flex-1 overflow-y-auto p-3 space-y-4 custom-scrollbar">
+                
+                <!-- Towers Selection List -->
+                <div>
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Selecteer Toren Om Te Bouwen</h3>
+                    <div class="grid grid-cols-1 gap-2" id="towersShopGrid">
+                        <!-- Tower Shop Items inserted dynamically -->
+                    </div>
+                </div>
+
+                <!-- Selected Tower Details Panel -->
+                <div id="towerDetailPanel" class="hidden bg-slate-900/80 border border-slate-800 rounded-xl p-3 space-y-3">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                        <div class="flex items-center gap-2">
+                            <span id="detailTowerIcon" class="text-xl">🏹</span>
+                            <div>
+                                <h4 id="detailTowerName" class="font-bold text-sm text-slate-100">Toren Naam</h4>
+                                <span id="detailTowerLevel" class="text-xs text-indigo-400 font-semibold">Niveau 1</span>
+                            </div>
+                        </div>
+                        <button onclick="deselectTower()" class="text-slate-500 hover:text-slate-300 text-xs">
+                            <i class="fa-solid fa-xmark text-sm"></i>
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div class="bg-slate-950/50 p-2 rounded border border-slate-800/80">
+                            <span class="text-slate-400 block text-[10px]">Schade</span>
+                            <span id="detailTowerDamage" class="font-bold text-slate-200">15</span>
+                        </div>
+                        <div class="bg-slate-950/50 p-2 rounded border border-slate-800/80">
+                            <span class="text-slate-400 block text-[10px]">Bereik</span>
+                            <span id="detailTowerRange" class="font-bold text-slate-200">120</span>
+                        </div>
+                        <div class="bg-slate-950/50 p-2 rounded border border-slate-800/80">
+                            <span class="text-slate-400 block text-[10px]">Snelheid</span>
+                            <span id="detailTowerSpeed" class="font-bold text-slate-200">1.2/s</span>
+                        </div>
+                        <div class="bg-slate-950/50 p-2 rounded border border-slate-800/80">
+                            <span class="text-slate-400 block text-[10px]">Type</span>
+                            <span id="detailTowerType" class="font-bold text-slate-200">Single</span>
+                        </div>
+                    </div>
+
+                    <!-- Actions Buttons -->
+                    <div class="grid grid-cols-2 gap-2 pt-1">
+                        <button id="upgradeTowerBtn" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-lg transition flex flex-col items-center justify-center">
+                            <span>Upgrade</span>
+                            <span id="upgradeCostText" class="text-[10px] text-indigo-200 font-normal">💰 100</span>
+                        </button>
+                        <button id="sellTowerBtn" class="px-3 py-2 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-lg transition flex flex-col items-center justify-center">
+                            <span>Verkoop</span>
+                            <span id="sellValueText" class="text-[10px] text-rose-300/80 font-normal">💰 70</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Quick Help / Information -->
+                <div class="bg-slate-900/40 border border-slate-800/60 rounded-xl p-3 text-xs text-slate-400 space-y-1">
+                    <p class="font-semibold text-slate-300 mb-1"><i class="fa-solid fa-lightbulb text-amber-400 mr-1"></i> Tips:</p>
+                    <p>• Plaats Kanonnen bij bochten voor maximale gebiedsschade.</p>
+                    <p>• IJs-torens vertragen snelle vijanden voor je schutters.</p>
+                    <p>• Klik op gebouwde torens om deze te upgraden.</p>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <!-- Game Over / Victory Modal Overlay -->
+    <div id="endGameModal" class="hidden absolute inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
+        <div class="max-w-md w-full glass-panel p-6 sm:p-8 rounded-2xl shadow-2xl border border-slate-800 text-center">
+            <div id="endGameIconContainer" class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <i id="endGameIcon" class="text-4xl text-white"></i>
+            </div>
+            <h2 id="endGameTitle" class="text-3xl font-black mb-2 text-white">GAME OVER</h2>
+            <p id="endGameSubtext" class="text-slate-400 text-sm mb-6">Je basis is overspoeld door de vijand!</p>
+
+            <div class="bg-slate-900/80 rounded-xl p-4 border border-slate-800 mb-6 space-y-2 text-left text-sm">
+                <div class="flex justify-between">
+                    <span class="text-slate-400">Bereikte Golf:</span>
+                    <span id="statFinalWave" class="font-bold text-indigo-400">12 / 15</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">Verslagen Vijanden:</span>
+                    <span id="statKills" class="font-bold text-emerald-400">142</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">Totaal Goud Verzameld:</span>
+                    <span id="statTotalGold" class="font-bold text-amber-400">1850</span>
+                </div>
+            </div>
+
+            <button onclick="resetToMenu()" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/30 transition">
+                <i class="fa-solid fa-rotate-right mr-2"></i> Opnieuw Spelen
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- AUDIO SYNTHESIZER (Web Audio API - No external sound files) ---
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            playShoot(type) {
+                if (this.muted || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                if (type === 'cannon') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.exponentialRampToValueAtTime(30, now + 0.25);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                } else if (type === 'frost') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600, now);
+                    osc.frequency.linearRampToValueAtTime(300, now + 0.15);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                } else {
+                    // Regular pew
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(800, now);
+                    osc.frequency.exponentialRampToValueAtTime(200, now + 0.1);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                    osc.start(now);
+                    osc.stop(now + 0.1);
+                }
+            }
+
+            playHit() {
+                if (this.muted || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(120, now);
+                osc.frequency.exponentialRampToValueAtTime(40, now + 0.08);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.08);
+            }
+
+            playBuild() {
+                if (this.muted || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.setValueAtTime(600, now + 0.08);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.2);
+            }
+
+            playUpgrade() {
+                if (this.muted || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(500, now);
+                osc.frequency.linearRampToValueAtTime(900, now + 0.2);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+        }
+
+        const audio = new SoundEngine();
+
+        // --- GAME CONFIGURATIONS & TYPES ---
+        const TOWER_TYPES = {
+            ARCHER: {
+                id: 'ARCHER',
+                name: 'Schutter Toren',
+                icon: '🏹',
+                cost: 100,
+                range: 120,
+                damage: 16,
+                fireRate: 1.2, // shots/sec
+                color: '#38bdf8', // sky-400
+                type: 'Enkel Doel',
+                desc: 'Snelle pijlenaanval op individuele doelen.'
+            },
+            CANNON: {
+                id: 'CANNON',
+                name: 'Kanonnier',
+                icon: '💣',
+                cost: 175,
+                range: 100,
+                damage: 38,
+                fireRate: 0.6,
+                color: '#f97316', // orange-500
+                type: 'Gebiedsschade',
+                splashRadius: 50,
+                desc: 'Traag maar veroorzaakt zware gebiedsschade.'
+            },
+            FROST: {
+                id: 'FROST',
+                name: 'IJs-Toren',
+                icon: '❄️',
+                cost: 150,
+                range: 110,
+                damage: 8,
+                fireRate: 0.9,
+                color: '#06b6d4', // cyan-500
+                type: 'Vertraging',
+                slowAmount: 0.45, // 45% slow
+                slowDuration: 2.5, // seconds
+                desc: 'Vertraagt vijanden in de buurt.'
+            },
+            SNIPER: {
+                id: 'SNIPER',
+                name: 'Scherpschutter',
+                icon: '🎯',
+                cost: 225,
+                range: 220,
+                damage: 85,
+                fireRate: 0.35,
+                color: '#a855f7', // purple-500
+                type: 'Groot Bereik',
+                desc: 'Extreem groot bereik met krachtige schoten.'
+            },
+            LASER: {
+                id: 'LASER',
+                name: 'Laser Toren',
+                icon: '⚡',
+                cost: 280,
+                range: 135,
+                damage: 3.2, // Continuous tick damage per frame
+                fireRate: 60, // Per frame beam
+                color: '#ec4899', // pink-500
+                type: 'Continu',
+                desc: 'Smelt doelen met een ononderbroken laserstraal.'
+            }
+        };
+
+        const DIFFICULTY_SETTINGS = {
+            EASY: {
+                name: 'Makkelijk',
+                health: 100,
+                gold: 300,
+                maxWaves: 15,
+                enemyHpMult: 0.85,
+                enemyGoldMult: 1.2,
+                badgeClass: 'text-emerald-400'
+            },
+            MEDIUM: {
+                name: 'Gemiddeld',
+                health: 75,
+                gold: 200,
+                maxWaves: 20,
+                enemyHpMult: 1.0,
+                enemyGoldMult: 1.0,
+                badgeClass: 'text-amber-400'
+            },
+            HARD: {
+                name: 'Moeilijk',
+                health: 50,
+                gold: 125,
+                maxWaves: 25,
+                enemyHpMult: 1.3,
+                enemyGoldMult: 0.85,
+                badgeClass: 'text-rose-400'
+            }
+        };
+
+        // Standard Map Path Coordinates (800x500 virtual canvas resolution)
+        const MAP_PATH = [
+            { x: -20, y: 120 },
+            { x: 200, y: 120 },
+            { x: 200, y: 380 },
+            { x: 450, y: 380 },
+            { x: 450, y: 150 },
+            { x: 650, y: 150 },
+            { x: 650, y: 450 },
+            { x: 820, y: 450 }
+        ];
+
+        // --- GAME STATE VARIABLES ---
+        let canvas, ctx;
+        let selectedDifficulty = 'MEDIUM';
+        let currentHealth = 100;
+        let currentGold = 200;
+        let currentWave = 0;
+        let maxWaves = 20;
+        let isWaveActive = false;
+        let isPaused = false;
+        let gameSpeed = 1;
+        let totalKills = 0;
+        let totalGoldEarned = 0;
+
+        let towers = [];
+        let enemies = [];
+        let projectiles = [];
+        let particles = [];
+        let floatingTexts = [];
+
+        let selectedShopTower = null;
+        let selectedBuiltTower = null;
+        let hoveredGridCell = null;
+
+        let lastTime = 0;
+        let waveSpawnTimer = 0;
+        let waveEnemiesToSpawn = [];
+
+        // Grid parameters
+        const GRID_SIZE = 40;
+        const VIRTUAL_WIDTH = 800;
+        const VIRTUAL_HEIGHT = 500;
+
+        // Initialize Canvas & Event Listeners
+        window.addEventListener('DOMContentLoaded', () => {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            // Populate Shop UI
+            renderShopUI();
+
+            // Setup Canvas Mouse Listeners
+            canvas.addEventListener('mousemove', handleCanvasMouseMove);
+            canvas.addEventListener('mouseleave', () => { hoveredGridCell = null; });
+            canvas.addEventListener('click', handleCanvasClick);
+
+            // Controls listeners
+            document.getElementById('startWaveBtn').addEventListener('click', startNextWave);
+            document.getElementById('speedBtn').addEventListener('click', toggleGameSpeed);
+            document.getElementById('pauseBtn').addEventListener('click', togglePause);
+            document.getElementById('muteBtn').addEventListener('click', toggleMute);
+
+            document.getElementById('upgradeTowerBtn').addEventListener('click', upgradeSelectedTower);
+            document.getElementById('sellTowerBtn').addEventListener('click', sellSelectedTower);
+        });
+
+        function resizeCanvas() {
+            const container = document.getElementById('canvasWrapper');
+            const rect = container.getBoundingClientRect();
+            
+            // Maintain 16:10 aspect ratio inside container
+            let w = rect.width - 32;
+            let h = w * (VIRTUAL_HEIGHT / VIRTUAL_WIDTH);
+
+            if (h > rect.height - 32) {
+                h = rect.height - 32;
+                w = h * (VIRTUAL_WIDTH / VIRTUAL_HEIGHT);
+            }
+
+            canvas.style.width = `${Math.max(300, w)}px`;
+            canvas.style.height = `${Math.max(200, h)}px`;
+            canvas.width = VIRTUAL_WIDTH;
+            canvas.height = VIRTUAL_HEIGHT;
+        }
+
+        function startGame(difficultyKey) {
+            audio.init();
+            selectedDifficulty = difficultyKey;
+            const config = DIFFICULTY_SETTINGS[difficultyKey];
+
+            currentHealth = config.health;
+            currentGold = config.gold;
+            maxWaves = config.maxWaves;
+            currentWave = 0;
+            isWaveActive = false;
+            isPaused = false;
+            totalKills = 0;
+            totalGoldEarned = config.gold;
+
+            towers = [];
+            enemies = [];
+            projectiles = [];
+            particles = [];
+            floatingTexts = [];
+            selectedBuiltTower = null;
+
+            // UI Adjustments
+            document.getElementById('difficultyOverlay').classList.add('hidden');
+            document.getElementById('statsContainer').classList.remove('hidden');
+            document.getElementById('gameControls').classList.remove('hidden');
+            document.getElementById('endGameModal').classList.add('hidden');
+
+            const badge = document.getElementById('difficultyBadge');
+            badge.innerText = config.name;
+            badge.className = `text-xs font-bold uppercase tracking-wider ${config.badgeClass}`;
+
+            updateStatsDisplay();
+
+            // Start Animation Loop
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+            showToast(`Spel gestart op ${config.name}! Bouw je verdediging.`);
+        }
+
+        function resetToMenu() {
+            document.getElementById('endGameModal').classList.add('hidden');
+            document.getElementById('difficultyOverlay').classList.remove('hidden');
+            document.getElementById('statsContainer').classList.add('hidden');
+            document.getElementById('gameControls').classList.add('hidden');
+        }
+
+        function updateStatsDisplay() {
+            document.getElementById('healthDisplay').innerText = Math.max(0, currentHealth);
+            document.getElementById('goldDisplay').innerText = currentGold;
+            document.getElementById('waveDisplay').innerText = `${currentWave} / ${maxWaves}`;
+
+            // Update shop item disabled states based on gold
+            Object.keys(TOWER_TYPES).forEach(type => {
+                const btn = document.getElementById(`shop-btn-${type}`);
+                if (btn) {
+                    if (currentGold < TOWER_TYPES[type].cost) {
+                        btn.classList.add('opacity-50', 'cursor-not-allowed');
+                    } else {
+                        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    }
+                }
+            });
+
+            // Update Start Wave button
+            const startBtn = document.getElementById('startWaveBtn');
+            if (isWaveActive) {
+                startBtn.disabled = true;
+                startBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Golf Bezig`;
+            } else {
+                startBtn.disabled = false;
+                startBtn.innerHTML = `<i class="fa-solid fa-play"></i> Start Golf`;
+            }
+
+            // Update upgrade button if tower selected
+            if (selectedBuiltTower) {
+                updateTowerDetailPanel();
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('gameToast');
+            document.getElementById('toastMsg').innerText = msg;
+            toast.classList.remove('opacity-0', '-translate-y-2');
+            toast.classList.add('opacity-100', 'translate-y-0');
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', '-translate-y-2');
+                toast.classList.remove('opacity-100', 'translate-y-0');
+            }, 3000);
+        }
+
+        function renderShopUI() {
+            const grid = document.getElementById('towersShopGrid');
+            grid.innerHTML = '';
+
+            Object.values(TOWER_TYPES).forEach(tower => {
+                const item = document.createElement('div');
+                item.id = `shop-btn-${tower.id}`;
+                item.className = `p-2.5 rounded-xl border border-slate-800 bg-slate-900/60 hover:bg-slate-800/80 hover:border-slate-700 transition cursor-pointer flex items-center justify-between group`;
+                item.onclick = () => selectShopTower(tower.id);
+
+                item.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-slate-950 flex items-center justify-center text-xl shadow-inner border border-slate-800" style="color: ${tower.color}">
+                            ${tower.icon}
+                        </div>
+                        <div>
+                            <div class="font-bold text-xs text-slate-200 group-hover:text-white">${tower.name}</div>
+                            <div class="text-[10px] text-slate-400">${tower.type} • ⚔️ ${tower.damage}</div>
+                        </div>
+                    </div>
+                    <div class="bg-amber-950/40 border border-amber-800/50 px-2.5 py-1 rounded-lg text-xs font-extrabold text-amber-300">
+                        💰 ${tower.cost}
+                    </div>
+                `;
+                grid.appendChild(item);
+            });
+        }
+
+        function selectShopTower(typeId) {
+            const towerDef = TOWER_TYPES[typeId];
+            if (currentGold < towerDef.cost) {
+                showToast(`Niet genoeg goud voor ${towerDef.name}!`);
+                return;
+            }
+
+            deselectTower();
+            selectedShopTower = towerDef;
+            showToast(`${towerDef.name} geselecteerd. Klik op de kaart om te bouwen.`);
+
+            // Highlight selected shop card
+            Object.keys(TOWER_TYPES).forEach(key => {
+                const card = document.getElementById(`shop-btn-${key}`);
+                if (key === typeId) {
+                    card.classList.add('border-indigo-500', 'bg-indigo-950/30');
+                } else {
+                    card.classList.remove('border-indigo-500', 'bg-indigo-950/30');
+                }
+            });
+        }
+
+        function deselectShopTower() {
+            selectedShopTower = null;
+            Object.keys(TOWER_TYPES).forEach(key => {
+                const card = document.getElementById(`shop-btn-${key}`);
+                if (card) card.classList.remove('border-indigo-500', 'bg-indigo-950/30');
+            });
+        }
+
+        function selectBuiltTower(tower) {
+            deselectShopTower();
+            selectedBuiltTower = tower;
+            document.getElementById('towerDetailPanel').classList.remove('hidden');
+            updateTowerDetailPanel();
+        }
+
+        function deselectTower() {
+            selectedBuiltTower = null;
+            deselectShopTower();
+            document.getElementById('towerDetailPanel').classList.add('hidden');
+        }
+
+        function updateTowerDetailPanel() {
+            if (!selectedBuiltTower) return;
+
+            const t = selectedBuiltTower;
+            document.getElementById('detailTowerIcon').innerText = t.def.icon;
+            document.getElementById('detailTowerName').innerText = t.def.name;
+            document.getElementById('detailTowerLevel').innerText = `Niveau ${t.level}`;
+            document.getElementById('detailTowerDamage').innerText = Math.round(t.damage);
+            document.getElementById('detailTowerRange').innerText = Math.round(t.range);
+            document.getElementById('detailTowerSpeed').innerText = `${t.fireRate.toFixed(1)}/s`;
+            document.getElementById('detailTowerType').innerText = t.def.type;
+
+            const upgradeCost = Math.round(t.def.cost * 0.85 * t.level);
+            const sellValue = Math.round(t.totalCost * 0.7);
+
+            document.getElementById('upgradeCostText').innerText = `💰 ${upgradeCost}`;
+            document.getElementById('sellValueText').innerText = `💰 ${sellValue}`;
+
+            const upBtn = document.getElementById('upgradeTowerBtn');
+            if (currentGold < upgradeCost) {
+                upBtn.disabled = true;
+                upBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                upBtn.disabled = false;
+                upBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        }
+
+        function handleCanvasMouseMove(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = VIRTUAL_WIDTH / rect.width;
+            const scaleY = VIRTUAL_HEIGHT / rect.height;
+
+            const mouseX = (e.clientX - rect.left) * scaleX;
+            const mouseY = (e.clientY - rect.top) * scaleY;
+
+            const gridX = Math.floor(mouseX / GRID_SIZE) * GRID_SIZE;
+            const gridY = Math.floor(mouseY / GRID_SIZE) * GRID_SIZE;
+
+            hoveredGridCell = { x: gridX + GRID_SIZE / 2, y: gridY + GRID_SIZE / 2, gridX, gridY };
+        }
+
+        function handleCanvasClick(e) {
+            if (!hoveredGridCell) return;
+
+            const { x, y, gridX, gridY } = hoveredGridCell;
+
+            // Check if clicking existing tower
+            const existingTower = towers.find(t => t.x === x && t.y === y);
+            if (existingTower) {
+                selectBuiltTower(existingTower);
+                return;
+            }
+
+            // If building a new tower
+            if (selectedShopTower) {
+                // Validate placement (not on path, not outside map bounds)
+                if (isPositionOnPath(x, y)) {
+                    showToast("Kan niet op het pad bouwen!");
+                    return;
+                }
+
+                if (currentGold >= selectedShopTower.cost) {
+                    currentGold -= selectedShopTower.cost;
+                    const newTower = new Tower(x, y, selectedShopTower);
+                    towers.push(newTower);
+                    audio.playBuild();
+                    showToast(`${selectedShopTower.name} gebouwd!`);
+
+                    createParticles(x, y, selectedShopTower.color, 12);
+
+                    deselectShopTower();
+                    updateStatsDisplay();
+                } else {
+                    showToast("Niet genoeg goud!");
+                }
+            } else {
+                deselectTower();
+            }
+        }
+
+        function isPositionOnPath(cx, cy) {
+            // Check distance to path segments
+            const buffer = 28; // path radius clearance
+            for (let i = 0; i < MAP_PATH.length - 1; i++) {
+                const p1 = MAP_PATH[i];
+                const p2 = MAP_PATH[i + 1];
+
+                const distSq = distToSegmentSquared({ x: cx, y: cy }, p1, p2);
+                if (distSq < buffer * buffer) return true;
+            }
+            return false;
+        }
+
+        function distToSegmentSquared(p, v, w) {
+            const l2 = (v.x - w.x) ** 2 + (v.y - w.y) ** 2;
+            if (l2 === 0) return (p.x - v.x) ** 2 + (p.y - v.y) ** 2;
+            let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+            t = Math.max(0, Math.min(1, t));
+            return (p.x - (v.x + t * (w.x - v.x))) ** 2 + (p.y - (v.y + t * (w.y - v.y))) ** 2;
+        }
+
+        function upgradeSelectedTower() {
+            if (!selectedBuiltTower) return;
+            const t = selectedBuiltTower;
+            const upgradeCost = Math.round(t.def.cost * 0.85 * t.level);
+
+            if (currentGold >= upgradeCost) {
+                currentGold -= upgradeCost;
+                t.level++;
+                t.totalCost += upgradeCost;
+                t.damage *= 1.35;
+                t.range *= 1.1;
+                t.fireRate *= 1.12;
+
+                audio.playUpgrade();
+                createParticles(t.x, t.y, '#6366f1', 15);
+                showToast(`${t.def.name} geüpgraded naar Niveau ${t.level}!`);
+                updateStatsDisplay();
+            }
+        }
+
+        function sellSelectedTower() {
+            if (!selectedBuiltTower) return;
+            const t = selectedBuiltTower;
+            const sellValue = Math.round(t.totalCost * 0.7);
+
+            currentGold += sellValue;
+            towers = towers.filter(item => item !== t);
+            audio.playBuild();
+            showToast(`${t.def.name} verkocht voor 💰 ${sellValue}`);
+
+            deselectTower();
+            updateStatsDisplay();
+        }
+
+        function startNextWave() {
+            if (isWaveActive) return;
+
+            if (currentWave >= maxWaves) {
+                showToast("Alle golven voltooid!");
+                return;
+            }
+
+            currentWave++;
+            isWaveActive = true;
+            updateStatsDisplay();
+
+            // Generate Wave Enemies
+            waveEnemiesToSpawn = generateWaveQueue(currentWave);
+            waveSpawnTimer = 0;
+
+            showToast(`Golf ${currentWave} gestart! Maak je klaar.`);
+        }
+
+        function generateWaveQueue(waveNum) {
+            const queue = [];
+            const difficulty = DIFFICULTY_SETTINGS[selectedDifficulty];
+            const hpMult = difficulty.enemyHpMult * Math.pow(1.15, waveNum - 1);
+
+            let normalCount = 5 + waveNum * 2;
+            let fastCount = Math.floor(waveNum * 1.5);
+            let heavyCount = Math.floor(waveNum * 0.8);
+            let isBossWave = (waveNum % 5 === 0);
+
+            // Add Normals
+            for (let i = 0; i < normalCount; i++) {
+                queue.push({
+                    type: 'NORMAL',
+                    hp: Math.round(80 * hpMult),
+                    speed: 1.3,
+                    gold: Math.round(18 * difficulty.enemyGoldMult),
+                    color: '#f59e0b',
+                    size: 11
+                });
+            }
+
+            // Add Fasts
+            for (let i = 0; i < fastCount; i++) {
+                queue.push({
+                    type: 'FAST',
+                    hp: Math.round(45 * hpMult),
+                    speed: 2.2,
+                    gold: Math.round(14 * difficulty.enemyGoldMult),
+                    color: '#38bdf8',
+                    size: 9
+                });
+            }
+
+            // Add Heavies
+            for (let i = 0; i < heavyCount; i++) {
+                queue.push({
+                    type: 'HEAVY',
+                    hp: Math.round(260 * hpMult),
+                    speed: 0.8,
+                    gold: Math.round(35 * difficulty.enemyGoldMult),
+                    color: '#ef4444',
+                    size: 15
+                });
+            }
+
+            // Add Boss on every 5th wave
+            if (isBossWave) {
+                queue.push({
+                    type: 'BOSS',
+                    hp: Math.round(950 * hpMult),
+                    speed: 0.5,
+                    gold: Math.round(150 * difficulty.enemyGoldMult),
+                    color: '#a855f7',
+                    size: 20
+                });
+            }
+
+            // Shuffle queue slightly for variety
+            return queue.sort(() => Math.random() - 0.5);
+        }
+
+        class Tower {
+            constructor(x, y, def) {
+                this.x = x;
+                this.y = y;
+                this.def = def;
+                this.level = 1;
+                this.totalCost = def.cost;
+                this.damage = def.damage;
+                this.range = def.range;
+                this.fireRate = def.fireRate;
+                this.cooldown = 0;
+                this.angle = 0;
+                this.target = null;
+            }
+
+            update(dt) {
+                this.cooldown -= dt;
+
+                // Find target (closest enemy in range furthest along path)
+                this.target = null;
+                let maxProgress = -1;
+
+                for (let e of enemies) {
+                    const dist = Math.hypot(e.x - this.x, e.y - this.y);
+                    if (dist <= this.range && e.pathIndex > maxProgress) {
+                        maxProgress = e.pathIndex;
+                        this.target = e;
+                    }
+                }
+
+                if (this.target) {
+                    this.angle = Math.atan2(this.target.y - this.y, this.target.x - this.x);
+
+                    // Continuous Laser Tower logic
+                    if (this.def.id === 'LASER') {
+                        this.target.takeDamage(this.damage * dt * 60, 'laser');
+                        createParticles(this.target.x, this.target.y, '#ec4899', 1);
+                    } else if (this.cooldown <= 0) {
+                        this.shoot();
+                        this.cooldown = 1 / this.fireRate;
+                    }
+                }
+            }
+
+            shoot() {
+                if (!this.target) return;
+
+                audio.playShoot(this.def.id.toLowerCase());
+
+                if (this.def.id === 'FROST') {
+                    // Frost splash pulse
+                    enemies.forEach(e => {
+                        if (Math.hypot(e.x - this.x, e.y - this.y) <= this.range) {
+                            e.applySlow(this.def.slowAmount, this.def.slowDuration);
+                            e.takeDamage(this.damage, 'frost');
+                        }
+                    });
+                    createParticles(this.x, this.y, '#06b6d4', 20, this.range);
+                } else {
+                    // Spawn projectile
+                    projectiles.push(new Projectile(
+                        this.x, this.y, this.target, this.damage, this.def
+                    ));
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // Draw Tower Base
+                ctx.fillStyle = '#1e293b';
+                ctx.beginPath();
+                ctx.arc(0, 0, 16, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = this.def.color;
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
+
+                // Draw Turret Head / Barrel
+                ctx.rotate(this.angle);
+                ctx.fillStyle = this.def.color;
+                ctx.fillRect(0, -4, 18, 8);
+
+                ctx.restore();
+
+                // Draw Level Badge
+                if (this.level > 1) {
+                    ctx.fillStyle = '#38bdf8';
+                    ctx.font = 'bold 10px Inter';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`L${this.level}`, this.x, this.y + 24);
+                }
+
+                // Draw Continuous Laser Line
+                if (this.def.id === 'LASER' && this.target) {
+                    ctx.strokeStyle = '#ec4899';
+                    ctx.lineWidth = 3;
+                    ctx.shadowColor = '#ec4899';
+                    ctx.shadowBlur = 8;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(this.target.x, this.target.y);
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                }
+            }
+        }
+
+        class Enemy {
+            constructor(spec) {
+                this.x = MAP_PATH[0].x;
+                this.y = MAP_PATH[0].y;
+                this.pathIndex = 0;
+                this.hp = spec.hp;
+                this.maxHp = spec.hp;
+                this.baseSpeed = spec.speed;
+                this.speed = spec.speed;
+                this.gold = spec.gold;
+                this.color = spec.color;
+                this.size = spec.size;
+                this.type = spec.type;
+
+                this.slowTimer = 0;
+                this.slowFactor = 1;
+            }
+
+            update(dt) {
+                // Handle Slow effects
+                if (this.slowTimer > 0) {
+                    this.slowTimer -= dt;
+                    this.speed = this.baseSpeed * (1 - this.slowFactor);
+                } else {
+                    this.speed = this.baseSpeed;
+                }
+
+                // Move along map path
+                const targetPoint = MAP_PATH[this.pathIndex + 1];
+                if (!targetPoint) return;
+
+                const dx = targetPoint.x - this.x;
+                const dy = targetPoint.y - this.y;
+                const dist = Math.hypot(dx, dy);
+                const step = this.speed * dt * 60;
+
+                if (dist <= step) {
+                    this.x = targetPoint.x;
+                    this.y = targetPoint.y;
+                    this.pathIndex++;
+
+                    if (this.pathIndex >= MAP_PATH.length - 1) {
+                        // Reached base!
+                        this.reachBase();
+                    }
+                } else {
+                    this.x += (dx / dist) * step;
+                    this.y += (dy / dist) * step;
+                }
+            }
+
+            applySlow(amount, duration) {
+                this.slowFactor = amount;
+                this.slowTimer = duration;
+            }
+
+            takeDamage(amount, type) {
+                this.hp -= amount;
+                audio.playHit();
+
+                // Floating Damage Number
+                floatingTexts.push(new FloatingText(this.x, this.y - 10, Math.round(amount)));
+
+                if (this.hp <= 0) {
+                    this.die();
+                }
+            }
+
+            reachBase() {
+                currentHealth -= (this.type === 'BOSS' ? 15 : 1);
+                updateStatsDisplay();
+                createParticles(this.x, this.y, '#ef4444', 20);
+                this.destroy();
+
+                if (currentHealth <= 0) {
+                    triggerGameOver(false);
+                }
+            }
+
+            die() {
+                currentGold += this.gold;
+                totalGoldEarned += this.gold;
+                totalKills++;
+                createParticles(this.x, this.y, this.color, 15);
+                updateStatsDisplay();
+                this.destroy();
+            }
+
+            destroy() {
+                enemies = enemies.filter(e => e !== this);
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // Body
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                // Slow indicator aura
+                if (this.slowTimer > 0) {
+                    ctx.fillStyle = 'rgba(6, 182, 212, 0.4)';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.size + 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Health Bar
+                const barW = this.size * 2.2;
+                const barH = 4;
+                const hpRatio = Math.max(0, this.hp / this.maxHp);
+
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+                ctx.fillRect(-barW / 2, -this.size - 8, barW, barH);
+
+                ctx.fillStyle = hpRatio > 0.5 ? '#22c55e' : (hpRatio > 0.2 ? '#f59e0b' : '#ef4444');
+                ctx.fillRect(-barW / 2, -this.size - 8, barW * hpRatio, barH);
+
+                ctx.restore();
+            }
+        }
+
+        class Projectile {
+            constructor(x, y, target, damage, towerDef) {
+                this.x = x;
+                this.y = y;
+                this.target = target;
+                this.damage = damage;
+                this.towerDef = towerDef;
+                this.speed = 450; // px/sec
+            }
+
+            update(dt) {
+                if (!this.target || enemies.indexOf(this.target) === -1) {
+                    this.destroy();
+                    return;
+                }
+
+                const dx = this.target.x - this.x;
+                const dy = this.target.y - this.y;
+                const dist = Math.hypot(dx, dy);
+                const step = this.speed * dt;
+
+                if (dist <= step) {
+                    // Hit Target
+                    if (this.towerDef.splashRadius) {
+                        // Area Damage (Cannon)
+                        enemies.forEach(e => {
+                            if (Math.hypot(e.x - this.target.x, e.y - this.target.y) <= this.towerDef.splashRadius) {
+                                e.takeDamage(this.damage, 'cannon');
+                            }
+                        });
+                        createParticles(this.target.x, this.target.y, '#f97316', 25, this.towerDef.splashRadius);
+                    } else {
+                        // Single Target
+                        this.target.takeDamage(this.damage, 'single');
+                        createParticles(this.target.x, this.target.y, this.towerDef.color, 6);
+                    }
+                    this.destroy();
+                } else {
+                    this.x += (dx / dist) * step;
+                    this.y += (dy / dist) * step;
+                }
+            }
+
+            destroy() {
+                projectiles = projectiles.filter(p => p !== this);
+            }
+
+            draw() {
+                ctx.fillStyle = this.towerDef.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.towerDef.splashRadius ? 5 : 3.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color, speedRadius = null) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                const angle = Math.random() * Math.PI * 2;
+                const spd = speedRadius ? Math.random() * speedRadius : (Math.random() * 80 + 20);
+                this.vx = Math.cos(angle) * spd;
+                this.vy = Math.sin(angle) * spd;
+                this.life = 1.0;
+                this.decay = Math.random() * 2 + 1.5;
+                this.size = Math.random() * 3 + 2;
+            }
+
+            update(dt) {
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+                this.life -= this.decay * dt;
+                if (this.life <= 0) {
+                    particles = particles.filter(p => p !== this);
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life);
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class FloatingText {
+            constructor(x, y, text) {
+                this.x = x;
+                this.y = y;
+                this.text = text;
+                this.life = 1.0;
+            }
+
+            update(dt) {
+                this.y -= 20 * dt;
+                this.life -= 1.8 * dt;
+                if (this.life <= 0) {
+                    floatingTexts = floatingTexts.filter(t => t !== this);
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life);
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 11px Inter';
+                ctx.fillText(this.text, this.x, this.y);
+                ctx.restore();
+            }
+        }
+
+        function createParticles(x, y, color, count, speedRadius = null) {
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, color, speedRadius));
+            }
+        }
+
+        function gameLoop(timestamp) {
+            const dt = Math.min((timestamp - lastTime) / 1000, 0.1) * (isPaused ? 0 : gameSpeed);
+            lastTime = timestamp;
+
+            if (!isPaused) {
+                // Wave Spawning logic
+                if (isWaveActive && waveEnemiesToSpawn.length > 0) {
+                    waveSpawnTimer += dt;
+                    if (waveSpawnTimer >= 0.8 / gameSpeed) {
+                        waveSpawnTimer = 0;
+                        const nextEnemySpec = waveEnemiesToSpawn.shift();
+                        enemies.push(new Enemy(nextEnemySpec));
+                    }
+                }
+
+                // Check Wave Completion
+                if (isWaveActive && waveEnemiesToSpawn.length === 0 && enemies.length === 0) {
+                    isWaveActive = false;
+                    showToast(`Golf ${currentWave} Overwon! +50 Bonus Goud`);
+                    currentGold += 50;
+                    totalGoldEarned += 50;
+                    updateStatsDisplay();
+
+                    if (currentWave >= maxWaves) {
+                        triggerGameOver(true);
+                    }
+                }
+
+                // Update Entities
+                towers.forEach(t => t.update(dt));
+                enemies.forEach(e => e.update(dt));
+                projectiles.forEach(p => p.update(dt));
+                particles.forEach(p => p.update(dt));
+                floatingTexts.forEach(ft => ft.update(dt));
+            }
+
+            // Render Frame
+            renderCanvas();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function renderCanvas() {
+            ctx.clearRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+
+            // 1. Draw Map Background & Grid Lines
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < VIRTUAL_WIDTH; x += GRID_SIZE) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, VIRTUAL_HEIGHT);
+                ctx.stroke();
+            }
+            for (let y = 0; y < VIRTUAL_HEIGHT; y += GRID_SIZE) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(VIRTUAL_WIDTH, y);
+                ctx.stroke();
+            }
+
+            // 2. Draw Road / Path
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 36;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            MAP_PATH.forEach((pt, i) => {
+                if (i === 0) ctx.moveTo(pt.x, pt.y);
+                else ctx.lineTo(pt.x, pt.y);
+            });
+            ctx.stroke();
+
+            // Inner Road Dash Line
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([8, 8]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 3. Draw Hover / Tower Preview Indicator
+            if (hoveredGridCell && !isPaused) {
+                const { x, y, gridX, gridY } = hoveredGridCell;
+                const isOnPath = isPositionOnPath(x, y);
+                const hasTower = towers.some(t => t.x === x && t.y === y);
+
+                ctx.fillStyle = (isOnPath || hasTower) ? 'rgba(239, 68, 68, 0.25)' : 'rgba(34, 197, 94, 0.25)';
+                ctx.strokeStyle = (isOnPath || hasTower) ? '#ef4444' : '#22c55e';
+                ctx.lineWidth = 1.5;
+                ctx.fillRect(gridX, gridY, GRID_SIZE, GRID_SIZE);
+                ctx.strokeRect(gridX, gridY, GRID_SIZE, GRID_SIZE);
+
+                // Range preview if shop tower selected
+                if (selectedShopTower && !isOnPath && !hasTower) {
+                    ctx.fillStyle = 'rgba(99, 102, 241, 0.15)';
+                    ctx.strokeStyle = 'rgba(99, 102, 241, 0.5)';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.arc(x, y, selectedShopTower.range, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+            }
+
+            // 4. Draw Selected Built Tower Range Indicator
+            if (selectedBuiltTower) {
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.15)';
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(selectedBuiltTower.x, selectedBuiltTower.y, selectedBuiltTower.range, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+
+            // 5. Draw Game Entities
+            towers.forEach(t => t.draw());
+            enemies.forEach(e => e.draw());
+            projectiles.forEach(p => p.draw());
+            particles.forEach(p => p.draw());
+            floatingTexts.forEach(ft => ft.draw());
+        }
+
+        function toggleGameSpeed() {
+            if (gameSpeed === 1) gameSpeed = 2;
+            else if (gameSpeed === 2) gameSpeed = 4;
+            else gameSpeed = 1;
+
+            document.getElementById('speedBtn').innerText = `${gameSpeed}x Snelheid`;
+            showToast(`Versnelling ingesteld op ${gameSpeed}x`);
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            const icon = document.getElementById('pauseIcon');
+            icon.className = isPaused ? 'fa-solid fa-play' : 'fa-solid fa-pause';
+            showToast(isPaused ? 'Spel GePauzeerd' : 'Spel Hervat');
+        }
+
+        function toggleMute() {
+            audio.muted = !audio.muted;
+            const icon = document.getElementById('muteIcon');
+            icon.className = audio.muted ? 'fa-solid fa-volume-xmark text-rose-400' : 'fa-solid fa-volume-high';
+        }
+
+        function triggerGameOver(isVictory) {
+            isPaused = true;
+            const modal = document.getElementById('endGameModal');
+            const iconContainer = document.getElementById('endGameIconContainer');
+            const icon = document.getElementById('endGameIcon');
+            const title = document.getElementById('endGameTitle');
+            const subtext = document.getElementById('endGameSubtext');
+
+            if (isVictory) {
+                iconContainer.className = "w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 bg-emerald-600 shadow-lg shadow-emerald-500/40";
+                icon.className = "fa-solid fa-trophy text-4xl text-white";
+                title.innerText = "OVERWINNING!";
+                title.className = "text-3xl font-black mb-2 text-emerald-400";
+                subtext.innerText = "Gefeliciteerd! Je hebt alle golven succesvol afgeweerd!";
+            } else {
+                iconContainer.className = "w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 bg-rose-600 shadow-lg shadow-rose-500/40";
+                icon.className = "fa-solid fa-skull text-4xl text-white";
+                title.innerText = "GAME OVER";
+                title.className = "text-3xl font-black mb-2 text-rose-400";
+                subtext.innerText = "Je levens zijn op! De vijand heeft je basis ingenomen.";
+            }
+
+            document.getElementById('statFinalWave').innerText = `${currentWave} / ${maxWaves}`;
+            document.getElementById('statKills').innerText = totalKills;
+            document.getElementById('statTotalGold').innerText = `💰 ${totalGoldEarned}`;
+
+            modal.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>

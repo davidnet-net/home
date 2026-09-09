@@ -1,29 +1,22 @@
 <script lang="ts">
 	import {
-		appState,
 		authState,
-		Avatar,
-		Flex,
-		identityState,
-		Skeleton,
-		formatUnixMsToPreferred,
 		whenAuthReady,
-		Button,
-		LinkButton,
-		getFetch,
-		sleep,
+		Flex,
 		IconButton,
-		toast,
-		Spinner
+		LinkButton,
+		Spinner,
+		sleep,
+		type iconType,
+		toast
 	} from "@davidnet-net/svelte-ui";
-	import { token } from "@davidnet-net/svelte-ui/tokens";
 
-	import { goto } from "$app/navigation";
 	import { page } from "$app/state";
 	import HorizontalCard from "$lib/components/HorizontalCard/HorizontalCard.svelte";
-	import { PUBLIC_ACCOUNT_FRONTEND_URL, PUBLIC_BACKEND_URL } from "$env/static/public";
+	import { PUBLIC_ACCOUNT_FRONTEND_URL } from "$env/static/public";
 	import Confetti from "svelte-confetti";
 
+	// Authentication Guard
 	$effect(() => {
 		(async () => {
 			await whenAuthReady();
@@ -33,21 +26,22 @@
 		})();
 	});
 
+	// Chaos & Animation State
 	let confetti = $state(false);
-	let confettiClickCount = $state(0);
-
 	let permanentDisco = $state(false);
 	let totalChaos = $state(false);
 	let gravityOut = $state(false);
-	let confettiBtnRef: HTMLDivElement;
+	let rebuilding = $state(false);
 
+	let confettiClickCount = $state(0);
 	let buttonScale = $state(1);
 	let confettiKey = $state(0);
 	let buttonDisabled = $state(false);
 
-	let wildIntervals: any[] = [];
-	let rebuilding = $state(false);
+	let confettiBtnRef: HTMLDivElement | undefined = $state(undefined);
+	let wildIntervals: NodeJS.Timeout[] = [];
 
+	// Permanent disco background interval
 	$effect(() => {
 		if (permanentDisco && !gravityOut) {
 			const interval = setInterval(() => {
@@ -89,10 +83,6 @@
 		wildIntervals.push(intervalId);
 	}
 
-	function makeWild(node: HTMLElement) {
-		goWild(node);
-	}
-
 	function resetAll() {
 		confettiClickCount = 0;
 		buttonScale = 1;
@@ -104,8 +94,7 @@
 		wildIntervals.forEach(clearInterval);
 		wildIntervals = [];
 
-		const items = document.querySelectorAll(".physics-item") as NodeListOf<HTMLElement>;
-		items.forEach((el) => {
+		document.querySelectorAll<HTMLElement>(".physics-item").forEach((el) => {
 			el.dataset.wild = "false";
 			el.style.transform = "";
 			el.style.transition = "";
@@ -123,65 +112,74 @@
 			buttonScale += 0.3;
 		}
 
-		// 5th click: Just the button goes wild
-		if (confettiClickCount === 5) {
-			permanentDisco = true;
-			confetti = true;
-			goWild(confettiBtnRef);
-			buttonDisabled = false;
-			return;
-		}
+		switch (confettiClickCount) {
+			case 5:
+				permanentDisco = true;
+				confetti = true;
+				if (confettiBtnRef) goWild(confettiBtnRef);
+				break;
+			case 6:
+				totalChaos = true;
+				document.querySelectorAll<HTMLElement>(".physics-item").forEach(goWild);
+				break;
+			case 7:
+				gravityOut = true;
+				wildIntervals.forEach(clearInterval);
+				wildIntervals = [];
 
-		// 6th click: Total Chaos kicks in
-		if (confettiClickCount === 6) {
-			totalChaos = true;
-			const items = document.querySelectorAll(".physics-item") as NodeListOf<HTMLElement>;
-			items.forEach((el) => goWild(el));
-			buttonDisabled = false;
-			return;
-		}
+				document.querySelectorAll<HTMLElement>(".physics-item").forEach((el) => {
+					el.dataset.wild = "false";
+					el.style.transition = "transform 2s cubic-bezier(0.55, 0.085, 0.68, 0.53)";
+					el.style.transform = `translateY(${window.innerHeight + 400}px) rotate(${(Math.random() - 0.5) * 180}deg)`;
+				});
 
-		// 7th click: Gravity takes over, everything falls
-		if (confettiClickCount === 7) {
-			gravityOut = true;
-
-			// Stop flying
-			wildIntervals.forEach(clearInterval);
-			wildIntervals = [];
-
-			// Drop everything
-			const items = document.querySelectorAll(".physics-item") as NodeListOf<HTMLElement>;
-			items.forEach((el) => {
-				el.dataset.wild = "false";
-				el.style.transition = "transform 2s cubic-bezier(0.55, 0.085, 0.68, 0.53)";
-				el.style.transform = `translateY(${window.innerHeight + 400}px) rotate(${(Math.random() - 0.5) * 180}deg)`;
-			});
-
-			// Wait 5 seconds, reset
-			rebuilding = true;
-			await sleep(5000);
-			rebuilding = false;
-			resetAll();
-			buttonDisabled = false;
-			return;
-		}
-
-		// First 4 clicks standard logic
-		if (confettiClickCount < 5) {
-			confetti = true;
-			await sleep(4000);
-			if (!permanentDisco) {
-				confetti = false;
-			}
+				rebuilding = true;
+				await sleep(5000);
+				rebuilding = false;
+				resetAll();
+				break;
+			default:
+				if (confettiClickCount < 5) {
+					confetti = true;
+					await sleep(4000);
+					if (!permanentDisco) confetti = false;
+				}
+				break;
 		}
 
 		buttonDisabled = false;
 	}
+
+	const games = [
+		{ title: "Roll 'N Dodge", icon: "sports_martial_arts", href: "/games/roll_dodge/" },
+		{ title: "Tower grappler", icon: "phishing", href: "/games/tower_grappler/" },
+		{ title: "Tower stacker", icon: "stacks", href: "/games/tower_stacker/" },
+		{ title: "Portal runner", icon: "sprint", href: "/games/portal_runner/" },
+		{ title: "Mini golf", icon: "golf_course", href: "/games/golf/" },
+		{ title: "Beam bender", icon: "stylus_laser_pointer", href: "/games/beam_bender/" },
+		{ title: "Falling blocks", icon: "keyboard_double_arrow_down", href: "/games/falling_blocks/" },
+		{ title: "Lava dodger", icon: "volcano", href: "/games/lava_dodger/" }
+	];
+
+	const communityGames = [
+		{
+			title: "Tower defense",
+			icon: "joystick",
+			href: "/games/community/tower_defense"
+		},
+		{
+			title: "Cola fabriek",
+			icon: "joystick",
+			href: "/games/community/cola_fabriek"
+		}
+	];
+
+	let temp1 = $state(false);
+	let temp2 = $state(false);
 </script>
 
 {#if confetti || permanentDisco}
-	<div
-		style="position: fixed; top: -50px; left: 0; height: 100vh; width: 100vw; display: flex; justify-content: center; overflow: hidden; pointer-events: none; z-index: 9999;">
+	<div class="confetti-container">
 		{#key confettiKey}
 			<Confetti
 				x={[-5, 5]}
@@ -196,49 +194,41 @@
 
 {#if totalChaos && !gravityOut}
 	{#each [1, 2, 3] as i}
-		<div
-			use:makeWild
-			class="physics-item"
-			style="position: fixed; top: 40%; left: 40%; z-index: 10000; pointer-events: none;">
-			<h2 class="temp-disco" style="font-size: 3.5rem; text-align: center;">
-				Davidnet speel eiland!
-			</h2>
+		<div use:goWild class="physics-item chaos-title-wrapper">
+			<h2 class="temp-disco chaos-heading">Davidnet speel eiland!</h2>
 		</div>
 	{/each}
 {/if}
 
 {#if rebuilding}
-	<Flex justifyContent="center" alignItems="center" gap="large" direction="column">
-		<h2 class="global-disco" style="font-size: 3.5rem; text-align: center;">
-			Davidnet speel eiland!
-		</h2>
+	<Flex
+		justifyContent="center"
+		alignItems="center"
+		gap="large"
+		direction="column"
+		class="rebuilding-container">
+		<h2 class="global-disco chaos-heading">Davidnet speel eiland!</h2>
 		<Spinner size="huge" />
 	</Flex>
 {/if}
+
 <div class:global-disco={permanentDisco} class:shake-screen={totalChaos && !gravityOut}>
 	<Flex alignItems="center" marginTop="giant" direction="column">
 		<Flex width="90%" marginTop="giant" direction="column" gap="small">
 			<Flex justifyContent="spaceBetween" height="fit-content">
-				<Flex width="fit-content" height="fit-content" gap="medium">
-					<div class="physics-item">
-						{#if confetti || permanentDisco}
-							<h2
-								class="temp-disco"
-								style={permanentDisco
-									? "font-size: 3.5rem; transition: font-size 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);"
-									: "transition: font-size 0.5s ease;"}>
-								Davidnet speel eiland!
-							</h2>
-						{:else}
-							<h2 style="transition: font-size 0.5s ease;">Games:</h2>
-						{/if}
-					</div>
-				</Flex>
+				<div class="physics-item">
+					{#if confetti || permanentDisco}
+						<h2 class="temp-disco dynamic-heading" class:disco-active={permanentDisco}>
+							Davidnet speel eiland!
+						</h2>
+					{:else}
+						<h2 class="default-heading">Games:</h2>
+					{/if}
+				</div>
 
 				<Flex width="fit-content" height="fit-content" gap="medium">
 					<div class="physics-item" bind:this={confettiBtnRef}>
-						<div
-							style="transform: scale({buttonScale}); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform-origin: center;">
+						<div class="scale-wrapper" style="transform: scale({buttonScale});">
 							<IconButton
 								disabled={buttonDisabled}
 								appearance="default"
@@ -253,38 +243,39 @@
 				</Flex>
 			</Flex>
 
+			<Flex gap="medium" height="fit-content" marginBottom="medium" flexWrap="wrap">
+				{#each games as game}
+					<div class="physics-item">
+						<HorizontalCard title={game.title} icon={game.icon as iconType} href={game.href} />
+					</div>
+				{/each}
+			</Flex>
+
+			<div class="physics-item">
+				<h2 class="default-heading" style="margin-top: 1rem;">Community Games:</h2>
+			</div>
+
 			<Flex gap="medium" height="fit-content" marginBottom="giant" flexWrap="wrap">
+				{#each communityGames as game}
+					<div class="physics-item">
+						<HorizontalCard title={game.title} icon={game.icon as iconType} href={game.href} />
+					</div>
+				{/each}
 				<div class="physics-item">
-					<HorizontalCard
-						title="Roll 'N Dodge"
-						icon="sports_martial_arts"
-						href="/games/roll_dodge/" />
-				</div>
-				<div class="physics-item">
-					<HorizontalCard title="Tower grappler" icon="phishing" href="/games/tower_grappler/" />
-				</div>
-				<div class="physics-item">
-					<HorizontalCard title="Tower stacker" icon="stacks" href="/games/tower_stacker/" />
-				</div>
-				<div class="physics-item">
-					<HorizontalCard title="Portal runner" icon="sprint" href="/games/portal_runner/" />
-				</div>
-
-				<div class="physics-item">
-					<HorizontalCard title="Mini golf" icon="golf_course" href="/games/golf/" />
-				</div>
-
-				<div class="physics-item">
-					<HorizontalCard
-						title="Beam bender"
-						icon="stylus_laser_pointer"
-						href="/games/beam_bender/" />
-				</div>
-				<div class="physics-item">
-					<HorizontalCard
-						title="Falling blocks"
-						icon="keyboard_double_arrow_down"
-						href="/games/falling_blocks/" />
+					{#if temp1 && !temp2}
+						<img src="/operation-teapot-nuke.gif" alt="" height="85px" width="300px" />
+					{:else if !temp1 && !temp2}
+						<HorizontalCard
+							title="Add community game"
+							icon="add"
+							onclick={async () => {
+								toast("3 maanden :D", undefined, "flag", 2000, "danger");
+								temp1 = true;
+								await sleep(3000);
+								temp2 = true;
+							}} />
+						<!--Gebruik sandboxing flags in iframe-->
+					{/if}
 				</div>
 			</Flex>
 		</Flex>
@@ -355,17 +346,41 @@
 		}
 	}
 
+	.confetti-container {
+		position: fixed;
+		top: -50px;
+		left: 0;
+		height: 100vh;
+		width: 100vw;
+		display: flex;
+		justify-content: center;
+		overflow: hidden;
+		pointer-events: none;
+		z-index: 9999;
+	}
+
+	.chaos-title-wrapper {
+		position: fixed;
+		top: 40%;
+		left: 40%;
+		z-index: 10000;
+		pointer-events: none;
+	}
+
+	.chaos-heading {
+		font-size: 3.5rem;
+		text-align: center;
+	}
+
 	.temp-disco {
 		animation: ultraDisco 1.5s infinite linear !important;
 	}
 
-	/* Animate everything but strictly exclude icons from the Comic Sans override */
 	:global(.global-disco *) {
 		animation: ultraDisco 1.5s infinite linear !important;
 		border-color: currentColor !important;
 	}
 
-	/* Target text elements but ignore any element with "icon" in the class, <i> tags, and SVGs */
 	:global(.global-disco *:not([class*="icon"]):not(i):not(svg)) {
 		font-family: "Comic Sans MS", "Comic Sans", cursive !important;
 	}
@@ -380,5 +395,23 @@
 		width: fit-content;
 		height: fit-content;
 		transform: translate(0, 0) rotate(0) scale(1);
+	}
+
+	.dynamic-heading {
+		transition: font-size 0.5s ease;
+	}
+
+	.disco-active {
+		font-size: 3.5rem;
+		transition: font-size 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+	}
+
+	.default-heading {
+		transition: font-size 0.5s ease;
+	}
+
+	.scale-wrapper {
+		transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+		transform-origin: center;
 	}
 </style>

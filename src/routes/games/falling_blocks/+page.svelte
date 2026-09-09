@@ -8,6 +8,7 @@
 		Icon,
 		identityState
 	} from "@davidnet-net/svelte-ui";
+	import { untrack } from "svelte";
 	import { goto } from "$app/navigation";
 	import { page } from "$app/state";
 	import { PUBLIC_ACCOUNT_FRONTEND_URL } from "$env/static/public";
@@ -237,14 +238,14 @@
 			if (rowCount > 0) {
 				lines += rowCount;
 				const lineScores = [0, 40, 100, 300, 1200];
-				score += lineScores[rowCount] * level;
+				score += lineScores[rowCount] * untrack(() => level);
 				level = Math.floor(lines / 10) + 1;
-				dropInterval = Math.max(100, 1000 - (level - 1) * 75);
+				dropInterval = Math.max(100, 1000 - (untrack(() => level) - 1) * 75);
 			}
 		}
 
 		const handleKeyDown = (e: KeyboardEvent) => {
-			if (gameOver) return;
+			if (untrack(() => gameOver)) return;
 
 			if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)) {
 				e.preventDefault();
@@ -255,7 +256,7 @@
 				return;
 			}
 
-			if (isPaused) return;
+			if (untrack(() => isPaused)) return;
 
 			switch (e.key) {
 				case "ArrowLeft":
@@ -358,7 +359,10 @@
 
 			drawMatrix(board, 0, 0, ctx);
 
-			if (!gameOver && !isPaused) {
+			const isG = untrack(() => gameOver);
+			const isP = untrack(() => isPaused);
+
+			if (!isG && !isP) {
 				let ghostY = player.y;
 				while (!collide(board, player, 0, ghostY - player.y + 1)) {
 					ghostY++;
@@ -367,7 +371,7 @@
 				drawMatrix(player.matrix, player.x, player.y, ctx);
 			}
 
-			if (isPaused) {
+			if (isP) {
 				ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
 				ctx.fillRect(0, 0, canvasRef.width, canvasRef.height);
 				ctx.fillStyle = "#ffffff";
@@ -376,7 +380,7 @@
 				ctx.fillText("PAUSED", canvasRef.width / 2, canvasRef.height / 2);
 			}
 
-			if (gameOver) {
+			if (isG) {
 				ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
 				ctx.fillRect(0, 0, canvasRef.width, canvasRef.height);
 				ctx.fillStyle = "#ff0044";
@@ -392,7 +396,10 @@
 			const deltaTime = time - lastTime;
 			lastTime = time;
 
-			if (!gameOver && !isPaused) {
+			const isG = untrack(() => gameOver);
+			const isP = untrack(() => isPaused);
+
+			if (!isG && !isP) {
 				dropCounter += deltaTime;
 				if (dropCounter > dropInterval) {
 					playerDrop();

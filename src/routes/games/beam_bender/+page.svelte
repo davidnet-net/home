@@ -5,10 +5,8 @@
 		whenAuthReady,
 		LinkButton,
 		Button,
-		Icon,
-		identityState
+		Icon
 	} from "@davidnet-net/svelte-ui";
-	import { goto } from "$app/navigation";
 	import { page } from "$app/state";
 	import { PUBLIC_ACCOUNT_FRONTEND_URL } from "$env/static/public";
 	import { token } from "@davidnet-net/svelte-ui/tokens";
@@ -29,8 +27,9 @@
 
 	let score = $state(0);
 	let level = $state(1);
-	let resetSignal = $state(0);
 	let levelWon = $state(false);
+	let isTransitioning = $state(false);
+	let fadeAlpha = $state(0);
 
 	// --- Grid Constants ---
 	const COLS = 10;
@@ -54,37 +53,85 @@
 		})();
 	});
 
-	// --- Procedural Level Generator ---
+	// --- Garandeerd Mogelijke Level Generator (Reverse-Path Bouw) ---
 	function generateLevel(lvl: number) {
 		levelWon = false;
+		isTransitioning = false;
 		grid = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
 
+		const dxMap: Record<Direction, number> = { UP: 0, RIGHT: 1, DOWN: 0, LEFT: -1 };
+		const dyMap: Record<Direction, number> = { UP: -1, RIGHT: 0, DOWN: 1, LEFT: 0 };
+		const directions: Direction[] = ["UP", "RIGHT", "DOWN", "LEFT"];
+
+		// 1. Kies willekeurige rand voor emitter
 		const edge = Math.floor(Math.random() * 4);
-		if (edge === 0) {
-			emitter = { x: 0, y: Math.floor(Math.random() * ROWS), dir: "RIGHT" };
-		} else if (edge === 1) {
+		if (edge === 0) emitter = { x: 0, y: Math.floor(Math.random() * ROWS), dir: "RIGHT" };
+		else if (edge === 1)
 			emitter = { x: COLS - 1, y: Math.floor(Math.random() * ROWS), dir: "LEFT" };
-		} else if (edge === 2) {
-			emitter = { x: Math.floor(Math.random() * COLS), y: 0, dir: "DOWN" };
-		} else {
-			emitter = { x: Math.floor(Math.random() * COLS), y: ROWS - 1, dir: "UP" };
-		}
+		else if (edge === 2) emitter = { x: Math.floor(Math.random() * COLS), y: 0, dir: "DOWN" };
+		else emitter = { x: Math.floor(Math.random() * COLS), y: ROWS - 1, dir: "UP" };
 
-		do {
-			target = {
-				x: Math.floor(Math.random() * COLS),
-				y: Math.floor(Math.random() * ROWS)
-			};
-		} while (target.x === emitter.x && target.y === emitter.y);
+		// 2. Bouw een geldig oplosbaar pad vanaf emitter naar een willekeurig doel
+		let cx = emitter.x;
+		let cy = emitter.y;
+		let cdir = emitter.dir;
 
-		const wallCount = Math.min(2 + Math.floor(lvl * 0.7), 12);
-		for (let i = 0; i < wallCount; i++) {
-			const wx = Math.floor(Math.random() * COLS);
-			const wy = Math.floor(Math.random() * ROWS);
-			if ((wx !== emitter.x || wy !== emitter.y) && (wx !== target.x || wy !== target.y)) {
-				grid[wy][wx] = 1;
+		const pathCells: { x: number; y: number }[] = [{ x: cx, y: cy }];
+		const numTurns = Math.min(2 + Math.floor(lvl * 0.5), 5);
+		let stepsTaken = 0;
+
+		while (stepsTaken < numTurns && pathCells.length < 30) {
+			cx += dxMap[cdir];
+			cy += dyMap[cdir];
+
+			if (cx < 0 || cx >= COLS || cy < 0 || cy >= ROWS) {
+				cx -= dxMap[cdir];
+				cy -= dyMap[cdir];
+				break;
+			}
+
+			pathCells.push({ x: cx, y: cy });
+
+			if (Math.random() > 0.4 && stepsTaken < numTurns - 1) {
+				const possibleTurns = directions.filter((d) => d !== cdir && d !== getOppositeDir(cdir));
+				if (possibleTurns.length > 0) {
+					const nextDir = possibleTurns[Math.floor(Math.random() * possibleTurns.length)];
+					cdir = nextDir;
+					stepsTaken++;
+				}
 			}
 		}
+
+		target = { x: cx, y: cy };
+		if (target.x === emitter.x && target.y === emitter.y) {
+			target.x = (emitter.x + 1) % COLS;
+		}
+
+		// 3. Voeg extra willekeurige muren toe die het pad NIET blokkeren
+		const wallCount = Math.min(3 + Math.floor(lvl * 1.0), 15);
+		let wallsPlaced = 0;
+		let attempts = 0;
+		while (wallsPlaced < wallCount && attempts < 100) {
+			attempts++;
+			const wx = Math.floor(Math.random() * COLS);
+			const wy = Math.floor(Math.random() * ROWS);
+
+			const isOnPath = pathCells.some((p) => p.x === wx && p.y === wy);
+			const isStartOrEnd =
+				(wx === emitter.x && wy === emitter.y) || (wx === target.x && wy === target.y);
+
+			if (!isOnPath && !isStartOrEnd && grid[wy][wx] === 0) {
+				grid[wy][wx] = 1;
+				wallsPlaced++;
+			}
+		}
+	}
+
+	function getOppositeDir(dir: Direction): Direction {
+		if (dir === "UP") return "DOWN";
+		if (dir === "DOWN") return "UP";
+		if (dir === "LEFT") return "RIGHT";
+		return "LEFT";
 	}
 
 	// --- Raycasting Laser Engine ---
@@ -99,7 +146,7 @@
 
 		let hitTarget = false;
 		let steps = 0;
-		const maxSteps = 50;
+		const maxSteps = 60;
 
 		while (steps < maxSteps) {
 			steps++;
@@ -152,18 +199,20 @@
 		return { segments, hitTarget };
 	}
 
-	// --- Main Game Effect ---
+	// Start direct het eerste level bij laden
+	generateLevel(level);
+
+	// --- Main Game Effect (Alleen voor de Canvas loop en input) ---
 	$effect(() => {
 		if (!canvasRef) return;
 		const ctx = canvasRef.getContext("2d");
 		if (!ctx) return;
 
-		const _trigger = resetSignal;
-		generateLevel(level);
-
 		let animationFrameId: number;
 
 		function handleClick(e: MouseEvent) {
+			if (isTransitioning) return;
+
 			const rect = canvasRef!.getBoundingClientRect();
 			const clickX = (e.clientX - rect.left) * (VIEW_WIDTH / rect.width);
 			const clickY = (e.clientY - rect.top) * (VIEW_HEIGHT / rect.height);
@@ -176,6 +225,10 @@
 					(gridX === emitter.x && gridY === emitter.y) ||
 					(gridX === target.x && gridY === target.y)
 				) {
+					return;
+				}
+
+				if (grid[gridY][gridX] === 1) {
 					return;
 				}
 
@@ -281,13 +334,25 @@
 			ctx.stroke();
 			ctx.shadowBlur = 0;
 
-			if (hitTarget && !levelWon) {
+			if (isTransitioning) {
+				fadeAlpha = Math.min(fadeAlpha + 0.05, 1);
+			} else {
+				fadeAlpha = Math.max(fadeAlpha - 0.05, 0);
+			}
+
+			if (fadeAlpha > 0) {
+				ctx.fillStyle = `rgba(15, 23, 42, ${fadeAlpha})`;
+				ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
+			}
+
+			if (hitTarget && !levelWon && !isTransitioning) {
 				levelWon = true;
+				isTransitioning = true;
 				score += 100;
 				setTimeout(() => {
 					level += 1;
 					generateLevel(level);
-				}, 1200);
+				}, 800);
 			}
 
 			animationFrameId = requestAnimationFrame(draw);
@@ -307,7 +372,7 @@
 		}
 		score = 0;
 		level = 1;
-		resetSignal += 1;
+		generateLevel(level);
 	}
 
 	function toggleFullscreen() {

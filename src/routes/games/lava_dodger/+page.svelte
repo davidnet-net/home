@@ -32,6 +32,10 @@
 	let gameOver = $state(false);
 	let animationFrameId: number;
 
+	// Time tracking for Hz-independence
+	let startTime = 0;
+	let lastSpawnTime = 0;
+
 	// Player position (a tiny explorer escaping the volcano)
 	let player = {
 		x: 160,
@@ -45,7 +49,6 @@
 	// Obstacles: Falling lava bombs
 	type Rock = { x: number; y: number; radius: number; speed: number };
 	let rocks: Rock[] = [];
-	let frameCount = 0;
 
 	// Controls tracking
 	let keys: { [key: string]: boolean } = {};
@@ -95,14 +98,17 @@
 		player.x = 160;
 		gameRunning = true;
 		gameOver = false;
-		frameCount = 0;
+		startTime = performance.now();
+		lastSpawnTime = startTime;
 		loop();
 	}
 
 	function loop() {
 		if (!gameRunning) return;
-		frameCount++;
-		score = Math.floor(frameCount / 10);
+
+		const currentTime = performance.now();
+		// Accurate real-time seconds calculation independent of monitor Hz (60Hz, 144Hz, etc.)
+		score = Math.floor((currentTime - startTime) / 1000);
 
 		// Update player position based on keyboard input
 		if (keys["left"]) player.x -= player.speed;
@@ -112,13 +118,14 @@
 		if (player.x < 10) player.x = 10;
 		if (player.x > canvas.width - 20) player.x = canvas.width - 20;
 
-		// Spawn volcanic rocks periodically
-		if (frameCount % 30 === 0) {
+		// Spawn volcanic rocks periodically based on elapsed time (~500ms intervals)
+		if (currentTime - lastSpawnTime > 500) {
+			lastSpawnTime = currentTime;
 			rocks.push({
 				x: Math.random() * (canvas.width - 30) + 15,
 				y: -10,
 				radius: Math.random() * 8 + 6,
-				speed: Math.random() * 2 + 2.5 + score * 0.02
+				speed: Math.random() * 2 + 2.5 + score * 0.05
 			});
 		}
 

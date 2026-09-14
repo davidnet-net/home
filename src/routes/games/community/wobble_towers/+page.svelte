@@ -46,7 +46,7 @@
 	<iframe
 		bind:this={iframeElement}
 		style="height: 80vh; width: 90%; border-radius: {token.global.radius.huge}; border: none;"
-		src="https://wobbletowers.gamer.gd/?i=1"
+		src="/community_games/wobble_towers.html"
 		title="Wobble Towers">
 	</iframe>
 	<Flex height="fit-content" width="fit-content" gap="small">
@@ -72,11 +72,11 @@
 		verticalAlign="middle">
 		<Icon icon="attribution" />Game is created by <Anchor
 			href="https://account.davidnet.net/profile/01a04237-349d-712c-85f9-e26ae5abbaae">
-			@zandzak500 and hosted externally on <Link
+			@zandzak500 view the creator's own version <Link
 				external
 				opennewtab
 				href="https://wobbletowers.gamer.gd/?i=1">
-				wobbletowers.gamer.gd
+				here
 			</Link>
 		</Anchor>
 	</Flex>

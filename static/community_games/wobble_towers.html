@@ -1,0 +1,2241 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wobble Towers</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700;800&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            background: #0f172a;
+            overflow: hidden;
+            font-family: 'Fredoka', sans-serif;
+            color: #fff;
+        }
+
+        #gameCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            display: block;
+        }
+
+        #hud {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 12px 16px;
+            pointer-events: none;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .panel {
+            background: rgba(15, 23, 42, 0.88);
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            border-radius: 16px;
+            padding: 8px 14px;
+            backdrop-filter: blur(10px);
+        }
+
+        #statBox {
+            min-width: 120px;
+        }
+
+        #statBox .label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #7dd3fc;
+            font-weight: 700;
+        }
+
+        #statBox .value {
+            font-size: 28px;
+            font-weight: 800;
+            color: #fbbf24;
+            line-height: 1;
+        }
+
+        #statBox .sub {
+            font-size: 11px;
+            color: #cbd5e1;
+            font-weight: 600;
+        }
+
+        #nextBox {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #nextBox .label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #7dd3fc;
+            font-weight: 700;
+        }
+
+        #spellBox {
+            display: flex;
+            gap: 8px;
+            pointer-events: all;
+        }
+
+        .spell-btn {
+            background: linear-gradient(180deg, #a855f7, #7e22ce);
+            border: none;
+            border-bottom: 3px solid #581c87;
+            border-radius: 12px;
+            padding: 6px 12px;
+            color: #fff;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.1s;
+        }
+
+        .spell-btn:active {
+            transform: translateY(2px);
+            border-bottom-width: 1px;
+        }
+
+        .spell-btn.depleted {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .spell-count {
+            background: rgba(0, 0, 0, 0.35);
+            border-radius: 999px;
+            padding: 1px 7px;
+            font-size: 11px;
+        }
+
+        .spell-key {
+            background: rgba(255, 255, 255, 0.25);
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-size: 10px;
+            font-weight: 900;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.25);
+            line-height: 1.5;
+            letter-spacing: 0;
+        }
+
+        #heartsBox {
+            display: none;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .heart {
+            font-size: 20px;
+            transition: all 0.3s;
+        }
+
+        .heart.lost {
+            opacity: 0.2;
+            transform: scale(0.8);
+        }
+
+        #levelBadge {
+            background: rgba(251, 191, 36, 0.18);
+            border: 2px solid #fbbf24;
+            border-radius: 12px;
+            padding: 4px 14px;
+            font-size: 13px;
+            font-weight: 800;
+            color: #fbbf24;
+            letter-spacing: 1px;
+        }
+
+        #pauseBtn {
+            pointer-events: all;
+            background: linear-gradient(180deg, #38bdf8, #0284c7);
+            border: none;
+            border-bottom: 3px solid #0369a1;
+            border-radius: 12px;
+            width: 42px;
+            height: 42px;
+            color: #fff;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        .overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+        }
+
+        .menu-card {
+            background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+            border: 5px solid #fff;
+            box-shadow: inset -6px -8px 0 rgba(0, 0, 0, 0.1), 0 10px 0 #0284c7, 0 20px 25px rgba(0, 0, 0, 0.4);
+            border-radius: 20px;
+            padding: 24px 28px 20px;
+            max-width: 650px;
+            width: 95%;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            text-align: center;
+            position: relative;
+            margin-top: 24px;
+        }
+
+        /* Cute CSS Eyes for the menu block */
+        .menu-card::before,
+        .menu-card::after {
+            content: '';
+            position: absolute;
+            top: -18px;
+            width: 32px;
+            height: 36px;
+            background: #fff;
+            border-radius: 50%;
+            background-image: radial-gradient(circle at 16px 16px, #0f172a 6px, transparent 7px);
+            background-repeat: no-repeat;
+            border: 4px solid #0ea5e9;
+            box-shadow: inset -2px -4px 0 rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.2);
+            animation: lookBlink 6s infinite;
+            z-index: 10;
+        }
+
+        .menu-card::before {
+            left: calc(50% - 44px);
+        }
+
+        .menu-card::after {
+            left: calc(50% + 12px);
+        }
+
+        @keyframes lookBlink {
+
+            0%,
+            100% {
+                background-position: 0 0;
+                transform: scaleY(1);
+            }
+
+            5%,
+            20% {
+                background-position: -6px 6px;
+                transform: scaleY(1);
+            }
+
+            22% {
+                transform: scaleY(0.1);
+                background-position: -6px 6px;
+            }
+
+            24%,
+            40% {
+                transform: scaleY(1);
+                background-position: 6px -3px;
+            }
+
+            45%,
+            90% {
+                background-position: 0 0;
+                transform: scaleY(1);
+            }
+
+            95% {
+                transform: scaleY(0.1);
+            }
+
+            97% {
+                transform: scaleY(1);
+            }
+        }
+
+        .menu-card h1,
+        .menu-card h2 {
+            font-size: 38px;
+            font-weight: 800;
+            color: #fff;
+            text-shadow: 0 4px 0 #0284c7;
+            margin: 0;
+            text-transform: uppercase;
+        }
+
+        #gameOverModal .menu-card h2 {
+            font-size: 36px;
+        }
+
+        .menu-card>p {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 800;
+            margin-top: -12px;
+            margin-bottom: 4px;
+        }
+
+        .section-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 800;
+            text-align: left;
+            margin-bottom: -6px;
+        }
+
+        .mode-btn,
+        #btnJoinLobby,
+        #btnHostGame,
+        #btnCopyCode,
+        #btnStartMulti {
+            border: 4px solid #fff;
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 16px;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.1s;
+            margin-bottom: 6px;
+            color: #fff;
+            text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .mode-btn:active,
+        #btnJoinLobby:active,
+        #btnHostGame:active,
+        #btnCopyCode:active,
+        #btnStartMulti:active {
+            transform: translateY(6px);
+            box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.1), 0 0px 0 var(--shadow-color), 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+        }
+
+        /* Distinct Button Colors */
+        .btn-campaign {
+            background: linear-gradient(180deg, #fdba74, #ea580c);
+            --shadow-color: #9a3412;
+            box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.1), 0 6px 0 var(--shadow-color), 0 8px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-race {
+            background: linear-gradient(180deg, #86efac, #16a34a);
+            --shadow-color: #14532d;
+            box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.1), 0 6px 0 var(--shadow-color), 0 8px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-survive {
+            background: linear-gradient(180deg, #fca5a5, #dc2626);
+            --shadow-color: #7f1d1d;
+            box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.1), 0 6px 0 var(--shadow-color), 0 8px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-endless {
+            background: linear-gradient(180deg, #c4b5fd, #7c3aed);
+            --shadow-color: #4c1d95;
+            box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.1), 0 6px 0 var(--shadow-color), 0 8px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-host {
+            background: linear-gradient(180deg, #fde047, #eab308);
+            --shadow-color: #a16207;
+            box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.1), 0 6px 0 var(--shadow-color), 0 8px 12px rgba(0, 0, 0, 0.2);
+            color: #713f12;
+            text-shadow: none;
+        }
+
+        .btn-join {
+            background: linear-gradient(180deg, #f9a8d4, #db2777);
+            --shadow-color: #831843;
+            box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.1), 0 6px 0 var(--shadow-color), 0 8px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        #playerNameInput::placeholder,
+        #joinCodeInput::placeholder {
+            color: rgba(255, 255, 255, 0.45);
+        }
+
+        .mode-badge {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 13px;
+            color: inherit;
+            text-shadow: none;
+        }
+
+        .controls-box {
+            background: rgba(0, 0, 0, 0.25);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 16px;
+            padding: 14px;
+            text-align: left;
+            font-size: 14px;
+            color: #fff;
+            line-height: 1.8;
+            font-weight: 700;
+            box-shadow: inset 0 6px 12px rgba(0, 0, 0, 0.2);
+            margin-top: 8px;
+        }
+
+        .controls-box b {
+            color: #fff;
+        }
+
+        kbd {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            padding: 3px 8px;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 800;
+            border-bottom: 2px solid rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-btns {
+            display: flex;
+            gap: 12px;
+        }
+
+        .modal-btns button {
+            border: 4px solid #fff;
+            border-radius: 16px;
+            box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.1), 0 6px 0 var(--shadow-color), 0 8px 12px rgba(0, 0, 0, 0.2);
+            flex: 1;
+            padding: 14px 20px;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 18px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.1s;
+            margin-bottom: 6px;
+            justify-content: center;
+            display: flex;
+            align-items: center;
+        }
+
+        .modal-btns button:active {
+            transform: translateY(6px);
+            box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.1), 0 0px 0 var(--shadow-color), 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-menu {
+            background: linear-gradient(180deg, #fca5a5, #ef4444);
+            --shadow-color: #b91c1c;
+            color: #fff;
+            text-shadow: 0 2px 0 #b91c1c;
+        }
+
+        .btn-retry {
+            background: linear-gradient(180deg, #86efac, #22c55e);
+            --shadow-color: #15803d;
+            color: #fff;
+            text-shadow: 0 2px 0 #15803d;
+        }
+
+        .btn-next {
+            background: linear-gradient(180deg, #d8b4fe, #a855f7);
+            --shadow-color: #7e22ce;
+            color: #fff;
+            text-shadow: 0 2px 0 #7e22ce;
+            display: none;
+        }
+
+        /* Level select sub-menu */
+        #levelSelect {
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .level-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: linear-gradient(180deg, #a78bfa, #7c3aed);
+            border: 4px solid #fff;
+            border-radius: 16px;
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: all 0.1s;
+            box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.15), 0 6px 0 #5b21b6, 0 8px 12px rgba(0, 0, 0, 0.2);
+            color: #fff;
+            margin-bottom: 6px;
+        }
+
+        .level-row:active {
+            transform: translateY(6px);
+            box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.15), 0 0px 0 #5b21b6, 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .level-row.locked {
+            background: linear-gradient(180deg, #94a3b8, #64748b);
+            box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.15), 0 6px 0 #475569;
+            opacity: 0.9;
+            cursor: not-allowed;
+        }
+
+        .level-row.locked:active {
+            transform: none;
+            box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.15), 0 6px 0 #475569;
+        }
+
+        .level-num {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 800;
+            flex-shrink: 0;
+        }
+
+        .level-info {
+            text-align: left;
+            flex: 1;
+        }
+
+        .level-info b {
+            display: block;
+            font-size: 15px;
+            color: #fff;
+        }
+
+        .level-info small {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 600;
+        }
+
+        .level-stars {
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- HUD -->
+    <div id="hud" style="display:none;">
+        <div class="panel" id="statBox">
+            <div class="label" id="modeLabel">Race</div>
+            <div class="value" id="heightStat">0.0m</div>
+            <div class="sub" id="secondaryStat">Target: 30m</div>
+        </div>
+        <div class="panel" id="heartsBox">
+            <span class="heart" id="h1">❤️</span>
+            <span class="heart" id="h2">❤️</span>
+            <span class="heart" id="h3">❤️</span>
+        </div>
+        <div id="levelBadge" style="display:none;">Level 1</div>
+        <div class="panel" id="spellBox">
+            <button class="spell-btn" id="btnCement" onclick="useSpell('cement')">🧱 Cement <span
+                    class="spell-key">Q</span> <span class="spell-count" id="cntCement">1</span></button>
+            <button class="spell-btn" id="btnAnvil" onclick="useSpell('anvil')">⚓ Anvil <span class="spell-key">E</span>
+                <span class="spell-count" id="cntAnvil">1</span></button>
+            <button class="spell-btn" id="btnPlank" onclick="useSpell('plank')">🌉 Plank <span
+                    class="spell-key">R</span> <span class="spell-count" id="cntPlank">1</span></button>
+        </div>
+        <div class="panel" id="attackBox" style="display:none; gap:8px;">
+            <button class="spell-btn" style="background:#93c5fd;border-color:#2563eb;color:#0f172a"
+                onclick="castAttack('wind')">💨 Wind <span class="spell-key"
+                    style="background:rgba(0,0,0,0.15)">1</span></button>
+            <button class="spell-btn" style="background:#bae6fd;border-color:#0369a1;color:#0f172a"
+                onclick="castAttack('ice')">🧊 Ice <span class="spell-key"
+                    style="background:rgba(0,0,0,0.15)">2</span></button>
+            <button class="spell-btn" style="background:#fca5a5;border-color:#b91c1c;color:#0f172a"
+                onclick="castAttack('giant')">🎈 Giant <span class="spell-key"
+                    style="background:rgba(0,0,0,0.15)">3</span></button>
+        </div>
+        <div class="panel" id="nextBox">
+            <div class="label">Next</div>
+            <canvas id="nextCanvas" width="50" height="50"></canvas>
+        </div>
+        <button id="pauseBtn" onclick="togglePause()">⏸</button>
+    </div>
+
+    <!-- Start Menu -->
+    <div class="overlay" id="startMenu">
+        <div class="menu-card">
+            <div>
+                <h1>Wobble Towers</h1>
+                <p>Solid Physics Stacker</p>
+            </div>
+
+            <!-- Main mode buttons - 2 column grid -->
+            <div id="mainModes" style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; text-align:left;">
+                <!-- Column 1: Singleplayer -->
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <div class="section-label">Campaign</div>
+                    <button class="mode-btn btn-campaign" onclick="startInfiniteCampaign()">
+                        <span>🗺️ Campaign</span><span class="mode-badge">Level 1</span>
+                    </button>
+                    <div class="section-label" style="margin-top:4px;">Quick Play</div>
+                    <button class="mode-btn btn-race" onclick="startGame('race')">
+                        <span>🏁 Race</span><span class="mode-badge">30m</span>
+                    </button>
+                    <button class="mode-btn btn-survive" onclick="startGame('survival')">
+                        <span>❤️ Survival</span><span class="mode-badge">25 Blocks</span>
+                    </button>
+                    <button class="mode-btn btn-endless" onclick="startGame('endless')">
+                        <span>♾️ Endless</span><span class="mode-badge">Highscore</span>
+                    </button>
+                </div>
+
+                <!-- Column 2: Multiplayer + Controls -->
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <div class="section-label">Multiplayer</div>
+                    <input id="playerNameInput" type="text" placeholder="👤 Your Name..." maxlength="16"
+                        style="background:rgba(0,0,0,0.25); color:#fff; border:3px solid rgba(255,255,255,0.3); padding:10px; border-radius:12px; font-family:Fredoka; font-size:15px; font-weight:700; outline:none; text-align:center; transition:0.2s;"
+                        onfocus="this.style.borderColor='#fff'"
+                        onblur="this.style.borderColor='rgba(255,255,255,0.3)'" />
+                    <button class="mode-btn btn-host" onclick="hostGame()">
+                        <span>👑 Host Game</span><span class="mode-badge">Get Code</span>
+                    </button>
+                    <div style="display:flex;gap:6px;">
+                        <input id="joinCodeInput" type="text" placeholder="Code" maxlength="6"
+                            style="flex:1; background:rgba(0,0,0,0.25); color:#fff; border:3px solid rgba(255,255,255,0.3); padding:0; border-radius:12px; font-family:Fredoka; font-size:16px; font-weight:800; letter-spacing:3px; outline:none; text-align:center; transition:0.2s;"
+                            onfocus="this.style.borderColor='#fff'"
+                            onblur="this.style.borderColor='rgba(255,255,255,0.3)'" />
+                        <button class="mode-btn btn-join" onclick="joinGame()"
+                            style="flex:none; padding:0 16px; margin:0;">
+                            <span>🤝 Join</span>
+                        </button>
+                    </div>
+                    <div class="controls-box" style="margin-top:auto; flex:1;">
+                        <b>Controls</b><br>
+                        <kbd>A</kbd><kbd>D</kbd> Move &nbsp; <kbd>W</kbd> Rotate<br>
+                        <kbd>S</kbd> Drop &nbsp; <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> Spells
+                    </div>
+                </div>
+            </div>
+
+            <!-- Level select (hidden by default) -->
+            <div id="levelSelect">
+                <button onclick="hideLevelSelect()"
+                    style="background:none;border:none;color:#94a3b8;cursor:pointer;font-family:Fredoka,sans-serif;font-size:13px;text-align:left;">←
+                    Back</button>
+                <div id="levelList"></div>
+            </div>
+
+            <!-- controls now embedded in grid column 2 -->
+            <div style="display:none"></div>
+        </div>
+    </div>
+
+    <!-- Multiplayer Lobby Modal -->
+    <div class="overlay" id="lobbyModal" style="display:none;">
+        <div class="menu-card" style="max-width: 500px;">
+            <h2>Multiplayer Lobby</h2>
+            <div
+                style="background:rgba(0,0,0,0.4); padding:10px; border-radius:12px; display:flex; align-items:center; gap:8px;">
+                <div style="flex:1;">
+                    <div
+                        style="font-size:11px;color:#94a3b8;font-weight:700;letter-spacing:1px;text-transform:uppercase;">
+                        Room Code</div>
+                    <div id="lobbyCodeDisplay" style="font-size:30px; letter-spacing:8px; font-weight:800; color:#fff;">
+                        ------</div>
+                </div>
+                <button onclick="copyRoomCode()" class="mode-btn"
+                    style="flex:none;padding:0 12px;min-width:unset;justify-content:center;font-size:13px;background:linear-gradient(180deg,#0ea5e9,#0369a1);border-bottom-color:#0c4a6e;">
+                    <span>📋 Copy Link</span>
+                </button>
+            </div>
+
+            <div class="section-label" style="margin-top:10px;">Players (<span id="lobbyPlayerCount">1</span>/8)</div>
+            <div id="lobbyPlayerList"
+                style="background:rgba(0,0,0,0.3); border-radius:12px; padding:10px; min-height:80px; max-height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;">
+                <!-- Player items injected here -->
+            </div>
+
+            <div id="lobbyHostControls" style="display:none; flex-direction:column; gap:10px; margin-top:10px;">
+                <div class="section-label">Game Mode</div>
+                <select id="lobbyModeSelect"
+                    style="background:#1e293b; color:#fff; border:2px solid #334155; padding:8px 12px; border-radius:8px; font-family:Fredoka; font-weight:600; font-size:14px; outline:none;">
+                    <option value="race">🏆 Race Mode</option>
+                    <option value="survival">❤️ Survival Mode (25 Blocks)</option>
+                </select>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <div class="section-label" style="margin:0; white-space:nowrap;">Finish Height (m):</div>
+                    <input id="lobbyTargetInput" type="number" min="5" max="200" value="30"
+                        style="flex:1; background:#1e293b; color:#fbbf24; border:2px solid #334155; padding:6px 10px; border-radius:8px; font-family:Fredoka; font-weight:800; font-size:16px; outline:none; text-align:center;" />
+                </div>
+                <button class="mode-btn" onclick="hostStartGame()"
+                    style="background: linear-gradient(180deg, #22c55e, #16a34a); border-bottom-color: #14532d; justify-content:center;">
+                    <span>▶ Start Game</span>
+                </button>
+            </div>
+
+            <div id="lobbyClientStatus"
+                style="color:#94a3b8; font-size:14px; font-weight:600; margin-top:10px; text-align:center;">
+                Waiting for host to start...
+            </div>
+
+            <button onclick="returnToMenu()"
+                style="margin-top:10px; background:none; border:none; color:#f87171; cursor:pointer; font-weight:bold; font-family:Fredoka; font-size:13px;">←
+                Leave Lobby</button>
+        </div>
+    </div>
+
+    <!-- Game Over -->
+    <div class="overlay" id="gameOverModal" style="display:none;">
+        <div class="menu-card">
+            <h2 id="modalTitle">Game Over!</h2>
+            <div id="modalBody" style="font-size:15px;color:#cbd5e1;font-weight:600;white-space:pre-line;"></div>
+            <div id="levelStarsDisplay" style="font-size:28px;display:none;"></div>
+            <div class="modal-btns">
+                <button class="btn-menu" onclick="isMultiplayer ? returnToLobby() : returnToMenu()">Menu</button>
+                <button class="btn-retry" id="btnRetry" onclick="restartCurrentGame()">Retry</button>
+                <button class="btn-next" id="btnNextLevel" onclick="nextLevel()">Next Level ▶</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { Engine, World, Bodies, Body, Composite, Query, Constraint, Vector } = Matter;
+
+        // ─── Canvas ───────────────────────────────────────────────────────────────────
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        resizeCanvas();
+        window.addEventListener('resize', () => { resizeCanvas(); if (platformBody) Body.setPosition(platformBody, { x: platformX(), y: platformY() }); });
+
+        // ─── Physics ──────────────────────────────────────────────────────────────────
+        const engine = Engine.create({ positionIterations: 60, velocityIterations: 60, constraintIterations: 20, enableSleeping: false });
+        const world = engine.world;
+        world.gravity.y = 0.8;
+
+        // ─── Constants ────────────────────────────────────────────────────────────────
+        const BS = 32;
+        const SHAPES = {
+            I: { color: '#06b6d4', cells: [[-1.5, 0], [-0.5, 0], [0.5, 0], [1.5, 0]] },
+            J: { color: '#3b82f6', cells: [[-1, -0.5], [-1, 0.5], [0, 0.5], [1, 0.5]] },
+            L: { color: '#f97316', cells: [[1, -0.5], [-1, 0.5], [0, 0.5], [1, 0.5]] },
+            O: { color: '#eab308', cells: [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]] },
+            S: { color: '#22c55e', cells: [[0, -0.5], [1, -0.5], [-1, 0.5], [0, 0.5]] },
+            T: { color: '#a855f7', cells: [[0, -0.5], [-1, 0.5], [0, 0.5], [1, 0.5]] },
+            Z: { color: '#ef4444', cells: [[-1, -0.5], [0, -0.5], [0, 0.5], [1, 0.5]] }
+        };
+        const PIECE_KEYS = Object.keys(SHAPES);
+
+        // ─── Level definitions ────────────────────────────────────────────────────────
+        let currentCampaignLevel = parseInt(localStorage.getItem('wt_level') || '1');
+        let levelStars = JSON.parse(localStorage.getItem('wt_stars') || '{}');
+
+        // ─── Game state ───────────────────────────────────────────────────────────────
+        let isPlaying = false, isPaused = false, isSpectating = false;
+        let gameMode = 'race';
+        let currentLevel = null; // null = non-level mode
+        let activePiece = null, nextType = null, platformBody = null;
+        let cameraY = 0, targetCameraY = 0;
+        let towerTopY = 9999; // World-Y of the top of the current tower (updated every frame)
+        let lives = 3, blocksPlaced = 0;
+        let spells = { cement: 1, anvil: 1, plank: 1 };
+        let towerHeightM = 0;
+        let particles = [];
+        let keys = {};
+        let lastTime = 0, accumulator = 0;
+        const FIXED_STEP = 1000 / 120; // 120Hz physics – tighter collision, less tunneling
+
+        // Lock delay state
+        const LOCK_DELAY = 60; // ms – fast crisp lock delay
+        let lockTimer = null;
+        let isLocking = false;
+        let fallMult = 1; // fall speed multiplier
+
+        // ─── Multiplayer State (MQTT) ─────────────────────────────────────────────────
+        let mqttClient = null, isMultiplayer = false, isHost = false;
+        let opponents = {}; // { 'p_123': { h: 10, blocks: [], ap: {}, name: 'Player1', dead: false } }
+        let currentRoomCode = '';
+        let syncInterval = null;
+        let myPlayerId = 'p_' + Math.random().toString(36).substr(2, 9);
+        let myName = 'Player ' + Math.floor(Math.random() * 100);
+        let lobbyPlayers = []; // { id, name, isHost }
+
+        // Spell earn tracking
+        let spellProgress = 0;
+        let attackProgress = 0;
+        let attacks = { wind: 1, ice: 1, giant: 1 };
+        let multiTargetM = 30; // synced from host in multiplayer
+
+        const MQTT_BROKER = 'wss://test.mosquitto.org:8081';
+
+        function mqttTopic(room) {
+            return 'wobble-towers/' + room + '/game';
+        }
+
+        function connectMQTT(roomCode, role, onConnected) {
+            if (mqttClient) { try { mqttClient.end(true); } catch (e) { } }
+            console.log('[MQTT] Connecting to broker for room', roomCode);
+
+            const clientId = 'wt-' + myPlayerId;
+            mqttClient = mqtt.connect(MQTT_BROKER, { clientId, clean: true, reconnectPeriod: 0 });
+
+            mqttClient.on('connect', () => {
+                console.log('[MQTT] Connected! Subscribing...');
+                mqttClient.subscribe(mqttTopic(roomCode), err => {
+                    if (err) { console.error('[MQTT] Subscribe error:', err); return; }
+                    onConnected();
+                });
+            });
+
+            mqttClient.on('message', (topic, payload) => {
+                let data;
+                try { data = JSON.parse(payload.toString()); } catch (e) { return; }
+                if (data.senderId === myPlayerId) return; // Ignore own messages
+
+                if (data.type === 'join_req' && isHost) {
+                    // New player wants to join. Add them if we're host.
+                    if (!lobbyPlayers.find(p => p.id === data.senderId)) {
+                        lobbyPlayers.push({ id: data.senderId, name: data.senderName, isHost: false });
+                        broadcastLobbyUpdate();
+                    }
+                } else if (data.type === 'lobby_update') {
+                    lobbyPlayers = data.players;
+                    updateLobbyUI();
+                    document.getElementById('lobbyClientStatus').innerText = 'Connected! Waiting for host...';
+                } else if (data.type === 'start') {
+                    isMultiplayer = true;
+                    multiTargetM = data.targetM || 30; // store globally for finish line
+                    document.getElementById('lobbyModal').style.display = 'none';
+                    opponents = {}; // Clear previous states
+                    lobbyPlayers.forEach(p => { if (p.id !== myPlayerId) opponents[p.id] = { name: p.name, dead: false }; });
+                    startGame(data.mode);
+                } else if (data.type === 'state') {
+                    if (!opponents[data.senderId]) opponents[data.senderId] = { name: data.senderName, dead: false };
+                    Object.assign(opponents[data.senderId], data.state);
+                } else if (data.type === 'attack') {
+                    receiveAttack(data.attack);
+                } else if (data.type === 'dead') {
+                    if (opponents[data.senderId]) {
+                        opponents[data.senderId].dead = true;
+                        showToast(data.senderName + ' fell! ☠️', '#f87171');
+                        checkMultiplayerWin();
+                    }
+                } else if (data.type === 'finish') {
+                    if (opponents[data.senderId]) {
+                        opponents[data.senderId].finished = true;
+                        showToast(data.senderName + ' finished!', '#4ade80');
+                        checkMultiplayerWin();
+                    }
+                } else if (data.type === 'round_over') {
+                    triggerWin(data.winnerName + ' won the game!');
+                    window.lobbyTimeout = setTimeout(() => { returnToLobby(); }, 4000);
+                }
+            });
+
+            mqttClient.on('error', err => { console.error('[MQTT] Error:', err); });
+            mqttClient.on('close', () => { console.warn('[MQTT] Connection closed'); });
+        }
+
+        function mqttSend(data) {
+            if (!mqttClient || !currentRoomCode) return;
+            data.senderId = myPlayerId;
+            data.senderName = myName;
+            mqttClient.publish(mqttTopic(currentRoomCode), JSON.stringify(data));
+        }
+
+        function showLobbyUI(roomCode) {
+            document.getElementById('startMenu').style.display = 'none';
+            document.getElementById('lobbyModal').style.display = 'flex';
+            document.getElementById('lobbyCodeDisplay').innerText = roomCode;
+            updateLobbyUI();
+        }
+
+        function updateLobbyUI() {
+            const list = document.getElementById('lobbyPlayerList');
+            list.innerHTML = '';
+            lobbyPlayers.forEach(p => {
+                const div = document.createElement('div');
+                div.style.padding = '8px 12px';
+                div.style.background = 'rgba(255,255,255,0.1)';
+                div.style.borderRadius = '8px';
+                div.innerHTML = `<b>${p.name}</b> ${p.id === myPlayerId ? '(You)' : ''} ${p.isHost ? '👑' : ''}`;
+                list.appendChild(div);
+            });
+            document.getElementById('lobbyPlayerCount').innerText = lobbyPlayers.length;
+        }
+
+        function broadcastLobbyUpdate() {
+            if (!isHost) return;
+            mqttSend({ type: 'lobby_update', players: lobbyPlayers });
+            updateLobbyUI();
+        }
+
+        function hostGame(existingCode = null) {
+            const nameInput = document.getElementById('playerNameInput');
+            if (nameInput && nameInput.value.trim()) myName = nameInput.value.trim();
+
+            currentRoomCode = existingCode || Math.floor(100000 + Math.random() * 900000).toString();
+            isHost = true;
+            lobbyPlayers = [{ id: myPlayerId, name: myName, isHost: true }];
+
+            showLobbyUI(currentRoomCode);
+            document.getElementById('lobbyHostControls').style.display = 'flex';
+            document.getElementById('lobbyClientStatus').style.display = 'none';
+
+            if (!mqttClient || mqttClient.disconnected) {
+                connectMQTT(currentRoomCode, 'host', () => {
+                    console.log('[HOST] Ready, waiting for clients...');
+                });
+            } else {
+                broadcastLobbyUpdate();
+            }
+        }
+
+        function hostStartGame() {
+            if (!isHost) return;
+            const mode = document.getElementById('lobbyModeSelect').value;
+            const targetM = parseInt(document.getElementById('lobbyTargetInput').value) || 30;
+            mqttSend({ type: 'start', mode, targetM });
+            isMultiplayer = true;
+            multiTargetM = targetM; // global for our own finish line
+            document.getElementById('lobbyModal').style.display = 'none';
+            opponents = {};
+            lobbyPlayers.forEach(p => { if (p.id !== myPlayerId) opponents[p.id] = { name: p.name, dead: false }; });
+            startGame(mode);
+        }
+
+        function copyRoomCode() {
+            const url = window.location.href.split('?')[0] + '?room=' + currentRoomCode;
+            navigator.clipboard.writeText(url).catch(() => navigator.clipboard.writeText(currentRoomCode));
+            showToast('Link copied! 📋', '#38bdf8');
+        }
+
+        function joinGame() {
+            const codeEl = document.getElementById('joinCodeInput');
+            const nameEl = document.getElementById('playerNameInput');
+
+            let id = codeEl ? codeEl.value.trim().replace(/\D/g, '') : '';
+            if (!id || id.length !== 6) { showToast('Enter a valid 6-digit code!', '#f87171'); return; }
+            if (nameEl && nameEl.value.trim()) myName = nameEl.value.trim();
+
+            currentRoomCode = id;
+            isHost = false;
+            lobbyPlayers = [{ id: myPlayerId, name: myName, isHost: false }];
+
+            showLobbyUI(currentRoomCode);
+            document.getElementById('lobbyHostControls').style.display = 'none';
+            document.getElementById('lobbyClientStatus').style.display = 'block';
+            document.getElementById('lobbyClientStatus').innerText = 'Connecting to server...';
+
+            connectMQTT(currentRoomCode, 'client', () => {
+                document.getElementById('lobbyClientStatus').innerText = 'Connected! Joining room...';
+                mqttSend({ type: 'join_req' });
+            });
+        }
+
+        function setupSyncInterval() {
+            if (syncInterval) clearInterval(syncInterval);
+            syncInterval = setInterval(() => {
+                if (!isMultiplayer || !mqttClient || !isPlaying) return;
+                // Send block coords relative to platformBody position in world-space.
+                // This is camera-independent, so the receiver can place them correctly
+                // regardless of how far their own camera has scrolled.
+                const px = platformBody.position.x;
+                const py = platformBody.position.y;
+                const blocks = Composite.allBodies(world).filter(b => b.isPlaced).map(b => ({
+                    x: b.position.x - px,
+                    y: b.position.y - py,
+                    a: b.angle, color: b.pieceColor,
+                    parts: b.localShape ? b.localShape : [{ x: 0, y: 0 }],
+                    s: b.renderScale || 1
+                }));
+                let ap = null;
+                if (activePiece) {
+                    ap = {
+                        x: activePiece.position.x - px,
+                        y: activePiece.position.y - py,
+                        a: activePiece.angle,
+                        color: activePiece.pieceColor, parts: activePiece.localShape, s: activePiece.renderScale || 1
+                    };
+                }
+                mqttSend({ type: 'state', state: { h: towerHeightM, blocks, ap, targetM: multiTargetM || 30 } });
+            }, 33);
+        }
+
+
+
+        // ─── Audio ────────────────────────────────────────────────────────────────────
+        let audioReady = false, synthMove, synthRotate, synthDrop, synthMagic, synthSplash;
+        function initAudio() {
+            if (audioReady) return;
+            try {
+                Tone.start();
+                synthMove = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: .005, decay: .05, sustain: 0, release: .05 } }).toDestination();
+                synthRotate = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: .005, decay: .08, sustain: 0, release: .05 } }).toDestination();
+                synthDrop = new Tone.MembraneSynth({ pitchDecay: .05, octaves: 4, envelope: { attack: .001, decay: .2, sustain: 0, release: .1 } }).toDestination();
+                synthMagic = new Tone.PolySynth(Tone.Synth).toDestination();
+                synthSplash = new Tone.NoiseSynth({ noise: { type: 'pink' }, envelope: { attack: .01, decay: .3, sustain: 0 } }).toDestination();
+                synthMove.volume.value = -14; synthRotate.volume.value = -12; synthDrop.volume.value = -8;
+                synthMagic.volume.value = -10; synthSplash.volume.value = -12;
+                audioReady = true;
+            } catch (e) { }
+        }
+        function sfx(t) {
+            if (!audioReady) return;
+            try {
+                const n = Tone.now();
+                if (t === 'move') synthMove.triggerAttackRelease('C4', '16n', n);
+                if (t === 'rotate') synthRotate.triggerAttackRelease('E4', '16n', n);
+                if (t === 'drop') synthDrop.triggerAttackRelease('C2', '8n', n);
+                if (t === 'magic') synthMagic.triggerAttackRelease(['G4', 'B4', 'D5'], '8n', n);
+                if (t === 'splash') synthSplash.triggerAttackRelease('8n', n);
+            } catch (e) { }
+        }
+
+        // ─── Helpers ──────────────────────────────────────────────────────────────────
+        function randPiece() { return PIECE_KEYS[Math.floor(Math.random() * PIECE_KEYS.length)]; }
+        function platformX() {
+            if (!isMultiplayer) return canvas.width / 2;
+            const n = Object.keys(opponents).length + 1; // total players (me + opponents)
+            const slotW = canvas.width / n;
+            return slotW * 0.5; // My slot is always first slot
+        }
+        function platformY() { return canvas.height - 90; }
+
+        function spawnParticles(x, y, color, n = 12) {
+            for (let i = 0; i < n; i++) particles.push({
+                x, y, vx: (Math.random() - .5) * 6, vy: (Math.random() - .5) * 6 - 2,
+                r: Math.random() * 5 + 2, color, life: 1, decay: Math.random() * .03 + .02
+            });
+        }
+
+
+        function receiveAttack(type) {
+            if (!isPlaying || !activePiece) return;
+            if (type === 'wind') {
+                const force = (Math.random() > 0.5 ? 1 : -1) * 0.08;
+                Body.applyForce(activePiece, activePiece.position, { x: force, y: 0 });
+                sfx('splash');
+                spawnParticles(activePiece.position.x, activePiece.position.y, '#93c5fd', 20);
+            } else if (type === 'ice') {
+                if (activePiece.customStyle === 'ice') return;
+                nextType = randPiece(); // Next piece becomes ice? Wait, no, current piece becomes ice!
+                activePiece.pieceColor = '#bae6fd';
+                activePiece.customStyle = 'ice';
+                Body.set(activePiece, { friction: 0.0, frictionStatic: 0.0 });
+                sfx('magic');
+                spawnParticles(activePiece.position.x, activePiece.position.y, '#e0f2fe', 15);
+            } else if (type === 'giant') {
+                if (activePiece.isGiant) return;
+                activePiece.isGiant = true;
+                activePiece.renderScale = 1.5;
+                Body.scale(activePiece, 1.5, 1.5);
+                activePiece.localShape.forEach(p => { p.x *= 1.5; p.y *= 1.5; });
+                sfx('magic');
+            }
+        }
+
+        // ─── Level menu ───────────────────────────────────────────────────────────────
+        function showLevelSelect() {
+            // Deprecated for Infinite Campaign
+        }
+        function hideLevelSelect() {
+            // Deprecated for Infinite Campaign
+        }
+
+        // ─── Game start ───────────────────────────────────────────────────────────────
+        function startInfiniteCampaign() {
+            initAudio();
+            generateCampaignLevel(currentCampaignLevel);
+            startGame('levels');
+        }
+
+        function nextLevel() {
+            if (gameMode === 'levels') {
+                currentCampaignLevel++;
+                localStorage.setItem('wt_level', currentCampaignLevel);
+                startInfiniteCampaign();
+            } else {
+                startGame(gameMode);
+            }
+        }
+
+        function generateCampaignLevel(levelNum) {
+            const names = [
+                'Stepped Ledge', 'Pedestal Peak', 'Castle Citadel', 'Stairway Spire',
+                'Split Pillars', 'Flat Platform', 'Highland Step', 'Fortress Ledge'
+            ];
+            const icons = ['🎲', '🏰', '⛰️', '⚡', '🏔️', '🌋', '🏛️', '🌀'];
+            const pTypes = ['flat', 'stepped', 'pedestal', 'castle', 'stairs', 'split'];
+            const colors = ['#38bdf8', '#fbbf24', '#f97316', '#a855f7', '#22c55e', '#ef4444'];
+
+            const randName = names[Math.floor(Math.random() * names.length)];
+            const randIcon = icons[Math.floor(Math.random() * icons.length)];
+            const randPType = pTypes[Math.floor(Math.random() * pTypes.length)];
+            const randColor = colors[Math.floor(Math.random() * colors.length)];
+
+            // Target M increases with level
+            const targetM = 5 + Math.floor(levelNum * 1.5);
+            // Platform W gets slightly smaller with level, min 140
+            const platformW = Math.max(140, 260 - levelNum * 8);
+            // Speed increases slightly
+            const fallSpeed = 0.8 + Math.min(0.5, levelNum * 0.02);
+
+            currentLevel = {
+                id: levelNum,
+                name: `${randIcon} ${randName} (Lv ${levelNum})`,
+                icon: randIcon,
+                color: randColor,
+                targetM: targetM,
+                platformW: platformW,
+                platformType: randPType,
+                fallSpeed: fallSpeed,
+                desc: `Level ${levelNum} – ${randPType.toUpperCase()} base, ${targetM}m target`
+            };
+            fallMult = fallSpeed / 0.8;
+        }
+
+        // ─── Platform Factory (100% Horizontal Flat-Top Surfaces) ────────────────────
+        function createPlatformBody(type, pw, x, y) {
+            const opts = { isStatic: true, friction: 1.0, frictionStatic: 3.0, restitution: 0.0, slop: 0.01, label: 'platform' };
+
+            if (type === 'stepped') {
+                const p1 = Bodies.rectangle(x - pw * 0.25, y - 12, pw * 0.5, 32, opts);
+                const p2 = Bodies.rectangle(x + pw * 0.25, y + 12, pw * 0.5, 32, opts);
+                const b = Body.create({ parts: [p1, p2], isStatic: true, label: 'platform' });
+                b.platformType = 'stepped';
+                return b;
+            } else if (type === 'pedestal') {
+                const mid = Bodies.rectangle(x, y - 16, pw * 0.4, 32, opts);
+                const left = Bodies.rectangle(x - pw * 0.35, y + 12, pw * 0.3, 32, opts);
+                const right = Bodies.rectangle(x + pw * 0.35, y + 12, pw * 0.3, 32, opts);
+                const b = Body.create({ parts: [mid, left, right], isStatic: true, label: 'platform' });
+                b.platformType = 'pedestal';
+                return b;
+            } else if (type === 'castle') {
+                const left = Bodies.rectangle(x - pw * 0.35, y - 16, pw * 0.3, 32, opts);
+                const right = Bodies.rectangle(x + pw * 0.35, y - 16, pw * 0.3, 32, opts);
+                const mid = Bodies.rectangle(x, y + 14, pw * 0.4, 32, opts);
+                const b = Body.create({ parts: [left, right, mid], isStatic: true, label: 'platform' });
+                b.platformType = 'castle';
+                return b;
+            } else if (type === 'stairs') {
+                const s1 = Bodies.rectangle(x - pw * 0.33, y - 18, pw * 0.33, 32, opts);
+                const s2 = Bodies.rectangle(x, y, pw * 0.33, 32, opts);
+                const s3 = Bodies.rectangle(x + pw * 0.33, y + 18, pw * 0.33, 32, opts);
+                const b = Body.create({ parts: [s1, s2, s3], isStatic: true, label: 'platform' });
+                b.platformType = 'stairs';
+                return b;
+            } else if (type === 'split') {
+                const p1 = Bodies.rectangle(x - pw * 0.3, y, pw * 0.35, 36, opts);
+                const p2 = Bodies.rectangle(x + pw * 0.3, y, pw * 0.35, 36, opts);
+                const b = Body.create({ parts: [p1, p2], isStatic: true, label: 'platform' });
+                b.platformType = 'split';
+                return b;
+            } else {
+                const b = Bodies.rectangle(x, y, pw, 36, opts);
+                b.platformType = 'flat';
+                return b;
+            }
+        }
+
+        function startGame(mode) {
+            initAudio();
+            gameMode = mode;
+            if (mode !== 'levels') { currentLevel = null; fallMult = 1; }
+            isPlaying = true; isPaused = false; isSpectating = false;
+            cameraY = 0; targetCameraY = 0; towerTopY = platformY(); // init before first spawn
+            lives = 3; blocksPlaced = 0; towerHeightM = 0;
+            spells = { cement: 0, anvil: 0, plank: 0 };
+            attacks = { wind: 1, ice: 1, giant: 1 };
+            spellProgress = 0; attackProgress = 0;
+            particles = []; keys = {};
+            cancelLock();
+            if (window.lobbyTimeout) { clearTimeout(window.lobbyTimeout); window.lobbyTimeout = null; }
+
+            World.clear(world); Engine.clear(engine);
+
+            document.getElementById('startMenu').style.display = 'none';
+            document.getElementById('gameOverModal').style.display = 'none';
+            document.getElementById('hud').style.display = 'flex';
+
+            const pw = currentLevel ? currentLevel.platformW : 280;
+            const pType = currentLevel ? (currentLevel.platformType || 'flat') : 'flat';
+            platformBody = createPlatformBody(pType, pw, platformX(), platformY());
+            World.add(world, platformBody);
+
+            // HUD
+            const hb = document.getElementById('heartsBox');
+            const lb = document.getElementById('levelBadge');
+            if (mode === 'survival' || mode === 'versus') {
+                hb.style.display = 'flex'; lb.style.display = 'none';
+                document.getElementById('modeLabel').innerText = mode === 'versus' ? 'Versus' : 'Survival';
+                document.getElementById('secondaryStat').innerText = mode === 'versus' ? 'Defeat Opponent!' : 'Goal: 25 blocks';
+            } else if (mode === 'race') {
+                hb.style.display = 'none'; lb.style.display = 'none';
+                document.getElementById('modeLabel').innerText = 'Race';
+                const raceTarget = isMultiplayer ? multiTargetM : 30;
+                document.getElementById('secondaryStat').innerText = `Target: ${raceTarget}m`;
+            } else if (mode === 'levels') {
+                hb.style.display = 'none'; lb.style.display = 'block';
+                lb.innerText = currentLevel.id === 'random' ? 'Random' : `Level ${currentLevel.id}`;
+                document.getElementById('modeLabel').innerText = currentLevel.name;
+                document.getElementById('secondaryStat').innerText = `Goal: ${currentLevel.targetM}m`;
+            } else {
+                hb.style.display = 'none'; lb.style.display = 'none';
+                document.getElementById('modeLabel').innerText = 'Endless';
+                document.getElementById('secondaryStat').innerText = 'Stack high!';
+            }
+            updateHearts(); updateSpellUI();
+            document.getElementById('attackBox').style.display = (mode === 'versus' || isMultiplayer) ? 'flex' : 'none';
+            if (isMultiplayer) setupSyncInterval();
+            nextType = randPiece(); drawNextPreview(); spawnPiece();
+            lastTime = performance.now(); accumulator = 0;
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ─── Tetromino factory ────────────────────────────────────────────────────────
+        function makeTetromino(type, sx, sy) {
+            const sh = SHAPES[type];
+            const locs = sh.cells.map(c => ({ x: c[0] * BS, y: c[1] * BS }));
+            const cx = locs.reduce((s, l) => s + l.x, 0) / locs.length;
+            const cy = locs.reduce((s, l) => s + l.y, 0) / locs.length;
+            const centered = locs.map(l => ({ x: l.x - cx, y: l.y - cy }));
+
+            const parts = centered.map(l =>
+                Bodies.rectangle(sx + l.x, sy + l.y, BS - 1, BS - 1, {
+                    chamfer: { radius: 1 }, friction: 0.8, frictionStatic: 0.7,
+                    restitution: 0.0, slop: 0.01, density: 0.015
+                })
+            );
+
+            const body = Body.create({
+                parts, friction: 0.8, frictionStatic: 0.7,
+                restitution: 0.0, slop: 0.01, density: 0.015, frictionAir: 0.02,
+                ignoreGravity: true  // Principle 2: gravity off while player controls the piece
+            });
+
+            body.localShape = body.parts.slice(1).map(part => ({
+                x: part.position.x - body.position.x,
+                y: part.position.y - body.position.y
+            }));
+
+            body.pieceType = type;
+            body.pieceColor = sh.color;
+            body.isPlaced = false;
+            body.isHardDrop = false;
+            body.targetAngle = 0;
+            return body;
+        }
+
+        function spawnPiece() {
+            if (!isPlaying) return;
+            const type = nextType; nextType = randPiece(); drawNextPreview();
+            // Spawn directly at the top of the screen (below HUD)
+            const spawnY = cameraY + 80;
+            activePiece = makeTetromino(type, platformX(), spawnY);
+            activePiece.targetAngle = 0;
+            Body.setAngle(activePiece, 0);
+            Body.setAngularVelocity(activePiece, 0);
+            World.add(world, activePiece);
+        }
+
+        function drawNextPreview() {
+            const nc = document.getElementById('nextCanvas'), nctx = nc.getContext('2d');
+            nctx.clearRect(0, 0, nc.width, nc.height);
+            if (!nextType) return;
+            const sh = SHAPES[nextType], sz = 9, cx = nc.width / 2, cy = nc.height / 2;
+            sh.cells.forEach(c => {
+                const bx = cx + c[0] * sz, by = cy + c[1] * sz;
+                nctx.fillStyle = sh.color;
+                nctx.beginPath();
+                if (nctx.roundRect) nctx.roundRect(bx - sz / 2 + .5, by - sz / 2 + .5, sz - 1, sz - 1, 2);
+                else nctx.rect(bx - sz / 2 + .5, by - sz / 2 + .5, sz - 1, sz - 1);
+                nctx.fill();
+                nctx.strokeStyle = 'rgba(0,0,0,0.3)'; nctx.lineWidth = 1; nctx.stroke();
+            });
+        }
+
+        // ─── Input ────────────────────────────────────────────────────────────────────
+        window.addEventListener('keydown', e => {
+            if (e.repeat) return;
+            keys[e.code] = true;
+            if (e.code === 'ArrowUp' || e.code === 'KeyW') rotate();
+            if (e.code === 'Space') hardDrop();
+            if (e.code === 'KeyE') useSpell('anvil');
+            if (e.code === 'KeyQ') useSpell('cement');
+            if (e.code === 'KeyR') useSpell('plank');
+            if (e.code === 'KeyP' || e.code === 'Escape') togglePause();
+            if (e.code === 'Digit1') castAttack('wind');
+            if (e.code === 'Digit2') castAttack('ice');
+            if (e.code === 'Digit3') castAttack('giant');
+        });
+        window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+        function castAttack(type) {
+            if (!isMultiplayer || !mqttClient || !isPlaying) return;
+            if ((attacks[type] || 0) <= 0) { showToast('Geen ' + type + ' spells meer!', '#f87171'); return; }
+            attacks[type]--;
+            updateSpellUI();
+            mqttSend({ type: 'attack', attack: type });
+            sfx('magic');
+        }
+
+        function rotate() {
+            if (!activePiece || !isPlaying || isPaused || activePiece.isStatic) return;
+            const origAngle = activePiece.angle, origPos = { x: activePiece.position.x, y: activePiece.position.y };
+            Body.rotate(activePiece, Math.PI / 2);
+            const others = Composite.allBodies(world).filter(b => b !== activePiece);
+            const kicks = [{ x: 0, y: 0 }, { x: -BS, y: 0 }, { x: BS, y: 0 }, { x: 0, y: -BS }, { x: -BS, y: -BS }, { x: BS, y: -BS }, { x: -BS * 1.5, y: 0 }, { x: BS * 1.5, y: 0 }];
+            let ok = false;
+            for (const k of kicks) {
+                Body.setPosition(activePiece, { x: origPos.x + k.x, y: origPos.y + k.y });
+                if (Query.collides(activePiece, others).length === 0) { ok = true; break; }
+            }
+            if (!ok) { Body.setPosition(activePiece, origPos); Body.setAngle(activePiece, origAngle); }
+            else {
+                activePiece.targetAngle = activePiece.angle;
+                Body.setAngularVelocity(activePiece, 0);
+                sfx('rotate');
+            }
+        }
+
+        let isHardDropping = false; // Voorkomt spammen volledig
+
+        function hardDrop() {
+            if (!activePiece || !isPlaying || isPaused || activePiece.isStatic || isHardDropping) return;
+
+            isHardDropping = true; // Blokkeer direct verdere inputs
+
+            const others = Composite.allBodies(world).filter(b => b !== activePiece);
+            const origY = activePiece.position.y;
+            let dy = origY;
+            const limit = cameraY + canvas.height + 600;
+
+            // Zoek de laagste veilige positie naar beneden
+            let collided = false;
+            while (dy < limit) {
+                dy += 4; // Snellere stappen
+                Body.setPosition(activePiece, { x: activePiece.position.x, y: dy });
+                if (Query.collides(activePiece, others).length > 0) {
+                    dy -= 4; // Stap terug
+                    collided = true;
+                    break;
+                }
+            }
+
+            // VEILIGHEID: Als hij om wat voor reden dan ook niet gebotst heeft of vast blijft hangen, 
+            // dwing hem dan om direct te stoppen op de huidige limiet of vloer.
+            if (!collided) {
+                dy = limit - 100; // Val desnoods naar de bodem van het scherm
+            }
+
+            // Zet definitief op de eindpositie, maar geef WEL neerwaartse snelheid mee 
+            // zodat hij de toren raakt en impact doorgeeft! Ook een minieme afwijking 
+            // om te voorkomen dat perfect spammen onmogelijk recht blijft.
+            Body.setPosition(activePiece, { x: activePiece.position.x, y: dy });
+            const randX = (Math.random() - 0.5) * 2;
+            Body.setVelocity(activePiece, { x: randX, y: 15 });
+            Body.setAngularVelocity(activePiece, (Math.random() - 0.5) * 0.05);
+
+            spawnParticles(activePiece.position.x, activePiece.position.y, activePiece.pieceColor || '#ffffff', 10);
+            sfx('drop');
+
+            cancelLock();
+            lockPiece();
+
+            // Geef na een korte pauze (0.3 seconde) de besturing weer vrij voor het VOLGENDE blok
+            setTimeout(() => {
+                isHardDropping = false;
+            }, 300);
+        }
+        function togglePause() {
+            if (!isPlaying) return;
+            isPaused = !isPaused;
+            document.getElementById('pauseBtn').innerText = isPaused ? '▶' : '⏸';
+        }
+
+        function useSpell(type) {
+            if (!isPlaying || isPaused || !activePiece || activePiece.isStatic || spells[type] <= 0) return;
+            spells[type]--;
+
+            if (type === 'cement') {
+                // Anti-cheat: block cement if piece is at or above the finish line (within 2 blocks)
+                const targetM = (gameMode === 'race') ? 30 : (gameMode === 'levels' && currentLevel) ? currentLevel.targetM : null;
+                if (targetM) {
+                    const finishY = platformBody.position.y - 20 - (targetM * BS);
+                    if (activePiece.position.y <= finishY + BS * 3) {
+                        spells[type]++; // refund the spell
+                        showToast('⛔ Te dicht bij de finish! Cement niet toegestaan.', '#f87171');
+                        updateSpellUI();
+                        return;
+                    }
+                }
+
+                // Pas stijl aan en zet het huidige blok direct vast
+                activePiece.customStyle = 'cement';
+                activePiece.pieceColor = '#94a3b8';
+                Body.setStatic(activePiece, true);
+                activePiece.isPlaced = true;
+                blocksPlaced++;
+
+                spawnParticles(activePiece.position.x, activePiece.position.y, '#cbd5e1', 20);
+                sfx('magic');
+                checkWin();
+
+                // GEBRUIK GEEN handmatige spawnPiece() hier, maar geef een seintje aan je game-loop 
+                // dat het huidige blok klaar is (bijvoorbeeld door activePiece los te koppelen zodat de loop een nieuwe pakt)
+                if (isPlaying) {
+                    cancelLock();
+                    activePiece = null;
+                    // Laat je normale game-loop of een korte timeout de volgende steen regelen, 
+                    // of roep je reguliere "lock/next piece" functie aan die de rest van je game ook gebruikt.
+                    setTimeout(() => {
+                        if (!activePiece && isPlaying) spawnPiece();
+                    }, 50);
+                }
+
+            } else if (type === 'anvil') {
+                // Anvil past alleen het huidige actieve blok aan (zwaarder maken), blijft gewoon vallen!
+                activePiece.customStyle = 'anvil';
+                activePiece.pieceColor = '#3f3f46';
+                Body.setDensity(activePiece, 0.1);
+                spawnParticles(activePiece.position.x, activePiece.position.y, '#71717a', 15);
+                sfx('magic');
+
+            } else if (type === 'plank') {
+                // Plank spawnt een extra los object onder of bij het actieve blok, actieve blok leeft gewoon door
+                const plank = Bodies.rectangle(activePiece.position.x, activePiece.position.y + 40, 200, 18,
+                    { friction: 1.0, frictionStatic: 2.0, restitution: 0.0, slop: 0.01, density: 0.02 });
+                plank.customStyle = 'wood';
+                plank.pieceColor = '#b45309';
+                plank.isPlaced = true;
+                plank.localShape = [{ x: 0, y: 0 }];
+                World.add(world, plank);
+
+                spawnParticles(plank.position.x, plank.position.y, '#b45309', 15);
+                sfx('magic');
+            }
+
+            updateSpellUI();
+        }
+
+        function updateSpellUI() {
+            ['cement', 'anvil', 'plank'].forEach(t => {
+                const k = t === 'cement' ? 'Cement' : t === 'anvil' ? 'Anvil' : 'Plank';
+                document.getElementById(`cnt${k}`).innerText = spells[t];
+                document.getElementById(`btn${k}`).className = 'spell-btn' + (spells[t] <= 0 ? ' depleted' : '');
+            });
+            const atkDefs = [
+                { type: 'wind', emoji: '💨', label: 'Wind' },
+                { type: 'ice', emoji: '🧧', label: 'Ice' },
+                { type: 'giant', emoji: '🎈', label: 'Giant' }
+            ];
+            document.querySelectorAll('#attackBox .spell-btn').forEach((btn, i) => {
+                const d = atkDefs[i]; if (!d) return;
+                const cnt = attacks[d.type] || 0;
+                btn.innerHTML = `${d.emoji} ${d.label} <span class="spell-key">${i + 1}</span> <span class="spell-count">${cnt}</span>`;
+                btn.style.opacity = cnt > 0 ? '1' : '0.4';
+            });
+        }
+        function earnSpell() {
+            spellProgress++;
+            // Every 5 blocks: earn a random regular spell
+            if (spellProgress >= 5) {
+                spellProgress = 0;
+                const types = ['cement', 'anvil', 'plank'];
+                const earned = types[Math.floor(Math.random() * types.length)];
+                spells[earned]++;
+                const names = { cement: '🧱 Cement', anvil: '⚓ Anvil', plank: '🌉 Plank' };
+                showToast(`+1 ${names[earned]} spell!`, '#fbbf24');
+                updateSpellUI();
+            }
+            // In versus: every 3 blocks earn a random attack spell
+            if (gameMode === 'versus') {
+                attackProgress++;
+                if (attackProgress >= 3) {
+                    attackProgress = 0;
+                    const atypes = ['wind', 'ice', 'giant'];
+                    const earned = atypes[Math.floor(Math.random() * atypes.length)];
+                    attacks[earned]++;
+                    const names = { wind: '💨 Wind', ice: '🧊 Ice', giant: '🎈 Giant' };
+                    showToast(`+1 ${names[earned]} attack!`, '#f87171');
+                    updateSpellUI();
+                }
+            }
+        }
+
+        function showToast(msg, color = '#38bdf8') {
+            let toast = document.getElementById('spellToast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'spellToast';
+                Object.assign(toast.style, {
+                    position: 'fixed', left: '50%', bottom: '120px',
+                    transform: 'translateX(-50%)',
+                    background: 'rgba(15,23,42,0.92)',
+                    border: '2px solid',
+                    borderRadius: '12px', padding: '8px 18px',
+                    fontFamily: 'Fredoka', fontWeight: '700', fontSize: '16px',
+                    pointerEvents: 'none', zIndex: '999',
+                    transition: 'opacity 0.3s'
+                });
+                document.body.appendChild(toast);
+            }
+            toast.innerText = msg;
+            toast.style.borderColor = color;
+            toast.style.color = color;
+            toast.style.opacity = '1';
+            clearTimeout(toast._t);
+            toast._t = setTimeout(() => { toast.style.opacity = '0'; }, 1800);
+        }
+
+        function updateHearts() {
+            for (let i = 1; i <= 3; i++) document.getElementById('h' + i).className = 'heart' + (i > lives ? ' lost' : '');
+        }
+        function checkWin() {
+            if (isSpectating) return;
+            if (gameMode === 'survival' && blocksPlaced >= 25) triggerWin('Survived 25 blocks!');
+            if (gameMode === 'levels' && towerHeightM >= currentLevel.targetM) triggerLevelWin();
+            if (gameMode === 'race' && towerHeightM >= (isMultiplayer ? multiTargetM : 30)) {
+                if (isMultiplayer) {
+                    mqttSend({ type: 'finish' });
+                    if (lobbyPlayers.length > 2) {
+                        gameOver(true, `Finished at ${towerHeightM.toFixed(1)}m! Spectating others...`);
+                    } else {
+                        triggerWin(`You reached ${multiTargetM}m!`);
+                    }
+                } else {
+                    triggerWin(`You reached ${multiTargetM || 30}m!`);
+                }
+            }
+        }
+
+        // ─── Lock delay ───────────────────────────────────────────────────────────────
+        function startLock() {
+            if (isLocking) return;
+            isLocking = true;
+            lockTimer = setTimeout(() => { if (activePiece) lockPiece(); }, LOCK_DELAY);
+        }
+        function cancelLock() {
+            if (lockTimer) { clearTimeout(lockTimer); lockTimer = null; }
+            isLocking = false;
+        }
+        function lockPiece() {
+            if (!activePiece) return;
+            cancelLock();
+            activePiece.isPlaced = true; blocksPlaced++;
+            earnSpell();
+            // Do NOT increase density artificially, otherwise it becomes too heavy to tip over
+
+            // Blocks are no longer artificially glued together. They will rest naturally on top of each other
+            // and tip if their center of mass goes past the edge.
+
+            sfx('drop');
+            spawnParticles(activePiece.position.x, activePiece.position.y, activePiece.pieceColor, 14);
+            // Principle 2: re-enable gravity so physics takes over naturally
+            activePiece.ignoreGravity = false;
+            // Principle 3: high frictionAir to settle without bouncing
+            Body.set(activePiece, { frictionAir: 0.08, friction: 0.95, frictionStatic: 0.9 });
+            activePiece.settleFrames = 0;
+            checkWin();
+            if (!isPlaying) return;
+            activePiece = null; spawnPiece();
+        }
+
+        // ─── Grounded probe helper ───────────────────────────────────────────────────
+        function checkGrounded(piece, others) {
+            if (!piece) return false;
+            const origY = piece.position.y;
+            Body.setPosition(piece, { x: piece.position.x, y: origY + 4 });
+            const collides = Query.collides(piece, others).length > 0;
+            Body.setPosition(piece, { x: piece.position.x, y: origY });
+            return collides;
+        }
+
+        // ─── Per-frame input & physics ────────────────────────────────────────────────
+        function handleInput() {
+            if (isSpectating) return;
+            if (!activePiece || !isPlaying || isPaused || activePiece.isStatic) return;
+            const others = Composite.allBodies(world).filter(b => b !== activePiece);
+            const grounded = checkGrounded(activePiece, others);
+
+            // Principle 4: Smooth rotation - interpolate toward target angle at 15°/frame
+            Body.setAngularVelocity(activePiece, 0);
+            const targetA = activePiece.targetAngle || 0;
+            const angleDiff = targetA - activePiece.angle;
+            const STEP = Math.PI / 12; // 15 degrees per frame max
+            if (Math.abs(angleDiff) > 0.01) {
+                Body.setAngle(activePiece, activePiece.angle + Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), STEP));
+            } else {
+                Body.setAngle(activePiece, targetA);
+            }
+
+            const MOVE = grounded ? 1.4 : 3.8;
+            const movingLeft = keys['KeyA'] || keys['ArrowLeft'];
+            const movingRight = keys['KeyD'] || keys['ArrowRight'];
+            let vx = 0;
+            if (movingLeft) vx -= MOVE;
+            if (movingRight) vx += MOVE;
+
+            if (!movingLeft && !movingRight) {
+                vx = 0;
+            }
+
+            let vy = activePiece.velocity.y;
+            if (keys['KeyS'] || keys['ArrowDown']) {
+                vy = 6;
+            } else if (!grounded) {
+                vy = Math.max(vy, 0.15 * fallMult);
+                cancelLock(); // airborne: cancel pending lock
+            } else {
+                vy = Math.min(vy, 1.0);
+            }
+
+            Body.setVelocity(activePiece, { x: vx, y: vy });
+
+            if (grounded) {
+                startLock();
+            }
+        }
+
+        // ─── Camera & stats ───────────────────────────────────────────────────────────
+        function updateCamera() {
+            let topY = platformBody.position.y - 20;
+
+            if (isSpectating) {
+                for (let id in opponents) {
+                    if (!opponents[id].dead && opponents[id].h) {
+                        let oppTop = platformY() - (opponents[id].h * BS) - 20;
+                        if (oppTop < topY) topY = oppTop;
+                    }
+                }
+            } else {
+                const placed = Composite.allBodies(world).filter(b => b !== platformBody && b.isPlaced);
+                placed.forEach(b => { if (b.bounds && b.bounds.min.y < topY) topY = b.bounds.min.y; });
+                const heightPx = (platformBody.position.y - 20) - topY;
+                towerHeightM = Math.max(0, heightPx / BS);
+            }
+
+            document.getElementById('heightStat').innerText = towerHeightM.toFixed(1) + 'm';
+            checkWin();
+            // Store topY globally so spawnPiece() can use it for consistent spacing
+            towerTopY = topY;
+            // Camera: keep the top of the tower at ~28% from screen top (enough headroom for new block)
+            targetCameraY = Math.min(0, topY - canvas.height * 0.60);
+            cameraY += (targetCameraY - cameraY) * 0.20; // fast catch-up
+        }
+
+        // ─── Fallen body cleanup ──────────────────────────────────────────────────────
+        function checkFallen() {
+            // Limit = well below the platform surface (not camera-based!).
+            // Using cameraY caused blocks ON the platform to be deleted when camera scrolled high.
+            const limit = platformBody.position.y + 350;
+            Composite.allBodies(world).forEach(b => {
+                if (b === platformBody || b.isStatic) return;
+                if (b.position.y > limit) {
+                    spawnParticles(b.position.x, canvas.height - 30 + cameraY, '#38bdf8', 25); sfx('splash');
+                    const wasActive = b === activePiece;
+                    World.remove(world, b);
+                    if (wasActive) {
+                        cancelLock(); activePiece = null;
+                        if (gameMode === 'survival' || gameMode === 'levels' || gameMode === 'versus') {
+                            lives--; updateHearts();
+                            if (lives <= 0) {
+                                if (isMultiplayer && mqttClient) mqttSend({ type: 'dead' });
+                                gameOver(false, 'All lives lost!'); return;
+                            }
+                        }
+                        if (isPlaying && !isSpectating) spawnPiece();
+                    } else if (gameMode === 'survival' || gameMode === 'levels' || gameMode === 'versus') {
+                        lives--; updateHearts();
+                        if (lives <= 0) {
+                            if (isMultiplayer && mqttClient) mqttSend({ type: 'dead' });
+                            gameOver(false, 'Your tower collapsed!');
+                        }
+                    }
+                }
+            });
+        }
+
+        // ─── Physics clamp ────────────────────────────────────────────────────────────
+        function clampVelocities() {
+            const VMAX = 8, WMAX = 0.08;
+            Composite.allBodies(world).forEach(b => {
+                if (b.isStatic) return;
+                const { x: vx, y: vy } = b.velocity, s2 = vx * vx + vy * vy;
+                if (s2 > VMAX * VMAX) { const s = Math.sqrt(s2); Body.setVelocity(b, { x: vx / s * VMAX, y: vy / s * VMAX }); }
+                if (Math.abs(b.angularVelocity) > WMAX) Body.setAngularVelocity(b, Math.sign(b.angularVelocity) * WMAX);
+                if (b !== activePiece && b.isPlaced && !b.isStatic) {
+                    // Only damp when nearly still — let active tipping/falling happen freely
+                    const { x: vvx, y: vvy } = b.velocity;
+                    const speed = vvx * vvx + vvy * vvy;
+                    const isSettling = speed < 0.8 && Math.abs(b.angularVelocity) < 0.06;
+                    if (isSettling) {
+                        Body.setAngularVelocity(b, b.angularVelocity * 0.75);
+                        if (speed < 0.02 && Math.abs(b.angularVelocity) < 0.01) {
+                            Body.setVelocity(b, { x: 0, y: 0 });
+                            Body.setAngularVelocity(b, 0);
+                            // Principle 5: settle-to-static after ~3 seconds of stillness
+                            b.settleFrames = (b.settleFrames || 0) + 1;
+                            if (b.settleFrames > 360) { // 3s at 120Hz
+                                Body.setStatic(b, true);
+                            }
+                        } else {
+                            b.settleFrames = 0;
+                        }
+                    } else {
+                        b.settleFrames = 0;
+                    }
+                }
+            });
+        }
+
+        function updateConstraints() {
+            for (let i = world.constraints.length - 1; i >= 0; i--) {
+                const c = world.constraints[i];
+                if (c.label === 'glue') {
+                    const d = Vector.magnitude(Vector.sub(c.bodyA.position, c.bodyB.position));
+                    if (Math.abs(d - c.length) > 18) {
+                        World.remove(world, c);
+                    }
+                }
+            }
+        }
+
+        // ─── Game loop ────────────────────────────────────────────────────────────────
+        function gameLoop(ts) {
+            if (!isPlaying) return;
+            const dt = Math.min(ts - lastTime, 50); lastTime = ts;
+            if (!isPaused) {
+                accumulator += dt; handleInput();
+                while (accumulator >= FIXED_STEP) {
+                    Engine.update(engine, FIXED_STEP);
+                    clampVelocities();
+                    updateConstraints();
+                    accumulator -= FIXED_STEP;
+                }
+                updateCamera(); checkFallen();
+            }
+            render(); requestAnimationFrame(gameLoop);
+        }
+
+        // ─── Rendering ────────────────────────────────────────────────────────────────
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save(); ctx.translate(0, -cameraY);
+            drawBg(); drawPlatform(); drawGhost();
+            Composite.allBodies(world).forEach(b => { if (b !== platformBody) drawBody(b); });
+            drawFinishLine();
+            updateParticles();
+            ctx.restore();
+            drawOpponents(); // Draw in screen space (no camera transform)
+            drawWater();
+            drawOpponentLabels(); // Draw labels in front of water
+        }
+
+        function drawOpponents() {
+            if (!isMultiplayer) return;
+            const oppIds = Object.keys(opponents);
+            if (oppIds.length === 0) return;
+
+            // Reset to clean screen-space transform — this function always draws in screen coords
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+            // Use same slot grid as platformX() — player is slot 0, opponents fill the rest
+            const totalPlayers = oppIds.length + 1;
+            const slotW = canvas.width / totalPlayers;
+
+            const py = platformY();  // where the platform base sits on screen
+            const pw = currentLevel ? currentLevel.platformW : 280;
+            const MINI_TOP = 40;      // top margin for mini-views
+            const availH = py - MINI_TOP; // available vertical pixels for each mini-view
+
+            let idx = 0;
+            for (let id of oppIds) {
+                const opp = opponents[id];
+                let oppX = slotW * (idx + 1) + slotW * 0.5;
+
+                // Scroll mini-view up as tower grows, like the player's own camera
+                // scrollY > 0 means shift content UP (tower top stays visible near MINI_TOP)
+                const towerH = (opp.h || 0) * BS;
+                const scrollY = Math.max(0, towerH - availH * 0.75);
+
+                // --- Draw tower mini-view clipped to [MINI_TOP .. py] ---
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(oppX - slotW / 2, MINI_TOP, slotW, availH);
+                ctx.clip();
+                ctx.translate(oppX, scrollY); // shift UP by scrollY
+
+                // Platform pillar
+                ctx.fillStyle = opp.dead ? '#1e293b' : '#334155';
+                ctx.beginPath();
+                if (ctx.roundRect) ctx.roundRect(-30, py + 15, 60, 160, [0, 0, 14, 14]);
+                else ctx.rect(-30, py + 15, 60, 160);
+                ctx.fill();
+
+                // Platform surface
+                ctx.fillStyle = opp.dead ? '#0f172a' : '#1e293b';
+                ctx.fillRect(-pw / 2, py - 18, pw, 36);
+                ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 2;
+                ctx.strokeRect(-pw / 2, py - 18, pw, 36);
+
+                // Blocks (b.x, b.y are world-relative to opponent's platform, negative = above platform)
+                if (opp.blocks) {
+                    opp.blocks.forEach(b => {
+                        ctx.save();
+                        ctx.translate(b.x, py + b.y);
+                        ctx.rotate(b.a);
+                        ctx.fillStyle = opp.dead ? '#475569' : (b.color || '#38bdf8');
+                        ctx.globalAlpha = 0.7;
+                        const bs = BS * (b.s || 1);
+                        b.parts.forEach(p => {
+                            ctx.fillRect(p.x - bs / 2, p.y - bs / 2, bs, bs);
+                            ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 1;
+                            ctx.strokeRect(p.x - bs / 2, p.y - bs / 2, bs, bs);
+                        });
+                        ctx.restore();
+                    });
+                }
+                // Active piece
+                if (opp.ap && !opp.dead) {
+                    const ap = opp.ap;
+                    ctx.save();
+                    ctx.translate(ap.x, py + ap.y);
+                    ctx.rotate(ap.a);
+                    ctx.fillStyle = ap.color;
+                    ctx.globalAlpha = 0.9;
+                    const bs = BS * (ap.s || 1);
+                    ap.parts.forEach(p => {
+                        ctx.fillRect(p.x - bs / 2, p.y - bs / 2, bs, bs);
+                        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+                        ctx.strokeRect(p.x - bs / 2, p.y - bs / 2, bs, bs);
+                    });
+                    ctx.restore();
+                }
+                // Finish line for this opponent
+                if (multiTargetM) {
+                    const finY = py - (multiTargetM * BS);
+                    ctx.globalAlpha = 0.85;
+                    ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 2;
+                    ctx.setLineDash([6, 4]);
+                    ctx.beginPath(); ctx.moveTo(-pw / 2 - 8, finY); ctx.lineTo(pw / 2 + 8, finY); ctx.stroke();
+                    ctx.setLineDash([]);
+                    ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 9px Fredoka';
+                    ctx.textAlign = 'center'; ctx.globalAlpha = 1;
+                    ctx.fillText(`🏁${multiTargetM}m`, 0, finY - 4);
+                }
+                ctx.restore();
+
+                idx++;
+            }
+
+            ctx.restore(); // Restore from the outer setTransform(identity) at the start of drawOpponents
+        }
+
+        function drawOpponentLabels() {
+            if (!isMultiplayer) return;
+            const oppIds = Object.keys(opponents);
+            if (oppIds.length === 0) return;
+
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+            const totalPlayers = oppIds.length + 1;
+            const slotW = canvas.width / totalPlayers;
+
+            let idx = 0;
+            for (let id of oppIds) {
+                const opp = opponents[id];
+                let oppX = slotW * (idx + 1) + slotW * 0.5;
+
+                // UI Label (screen-space)
+                const labelY = canvas.height - 80;
+                ctx.fillStyle = opp.dead ? 'rgba(239,68,68,0.9)' : 'rgba(30,41,59,0.95)';
+                if (ctx.roundRect) ctx.roundRect(oppX - 65, labelY, 130, 42, 10);
+                else ctx.fillRect(oppX - 65, labelY, 130, 42);
+                ctx.fill();
+                ctx.strokeStyle = opp.dead ? 'rgba(220,38,38,0.5)' : 'rgba(255,255,255,0.15)';
+                ctx.lineWidth = 1.5;
+                if (ctx.roundRect) ctx.roundRect(oppX - 65, labelY, 130, 42, 10);
+                else ctx.strokeRect(oppX - 65, labelY, 130, 42);
+                ctx.stroke();
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 13px Fredoka';
+                ctx.textAlign = 'center';
+                ctx.fillText(opp.name || 'Opponent', oppX, labelY + 17);
+                ctx.font = '13px Fredoka';
+                ctx.fillStyle = opp.dead ? '#fca5a5' : '#fbbf24';
+                ctx.fillText((opp.h ? opp.h.toFixed(1) : '0.0') + 'm' + (opp.dead ? ' ☠️' : ''), oppX, labelY + 33);
+
+                idx++;
+            }
+
+            // Draw our own label too (already in screen-space thanks to outer setTransform)
+            if (!isSpectating) {
+                const myX = platformX();
+                const myLabelY = canvas.height - 80;
+                ctx.fillStyle = 'rgba(30,41,59,0.95)';
+                if (ctx.roundRect) ctx.roundRect(myX - 65, myLabelY, 130, 42, 10); else ctx.fillRect(myX - 65, myLabelY, 130, 42);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(56,189,248,0.8)';
+                ctx.lineWidth = 2;
+                if (ctx.roundRect) ctx.roundRect(myX - 65, myLabelY, 130, 42, 10); else ctx.strokeRect(myX - 65, myLabelY, 130, 42);
+                ctx.stroke();
+                ctx.fillStyle = '#fff';
+                ctx.textAlign = 'center';
+                ctx.font = 'bold 13px Fredoka';
+                ctx.fillText('You (' + myName + ')', myX, myLabelY + 17);
+                ctx.font = '13px Fredoka';
+                ctx.fillStyle = '#fde047';
+                ctx.fillText(towerHeightM.toFixed(1) + 'm', myX, myLabelY + 33);
+            }
+
+            ctx.restore(); // Restore from the outer setTransform(identity) at the start of drawOpponents
+        }
+
+
+        function drawBg() {
+            // Sky color shifts redder in higher levels
+            const lvl = currentLevel ? currentLevel.id : 1;
+            const topCol = lvl >= 4 ? '#7c2d12' : lvl >= 3 ? '#0369a1' : '#0369a1';
+            const midCol = lvl >= 4 ? '#ea580c' : lvl >= 3 ? '#0284c7' : '#38bdf8';
+            const botCol = lvl >= 4 ? '#fed7aa' : '#bae6fd';
+            const grad = ctx.createLinearGradient(0, cameraY, 0, cameraY + canvas.height);
+            grad.addColorStop(0, topCol); grad.addColorStop(0.6, midCol); grad.addColorStop(1, botCol);
+            ctx.fillStyle = grad; ctx.fillRect(0, cameraY, canvas.width, canvas.height);
+            ctx.fillStyle = 'rgba(255,255,255,0.45)';
+            const co = (cameraY * 0.25) % 500;
+            drawCloud(canvas.width * 0.15, cameraY + 160 + co, 55);
+            drawCloud(canvas.width * 0.8, cameraY + 340 + co, 70);
+            drawCloud(canvas.width * 0.45, cameraY + 520 + co, 60);
+        }
+        function drawCloud(x, y, r) {
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2); ctx.arc(x + r * .65, y - r * .2, r * .72, 0, Math.PI * 2); ctx.arc(x - r * .65, y - r * .2, r * .72, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        function drawPlatform() {
+            if (!platformBody) return;
+            ctx.save();
+            const p = platformBody.position;
+
+            // Pillar / base under platform
+            ctx.fillStyle = '#334155';
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(p.x - 30, p.y + 15, 60, 160, [0, 0, 14, 14]);
+            else ctx.rect(p.x - 30, p.y + 15, 60, 160);
+            ctx.fill();
+
+            const parts = (platformBody.parts && platformBody.parts.length > 1) ? platformBody.parts.slice(1) : [platformBody];
+
+            parts.forEach(part => {
+                ctx.save();
+                ctx.translate(part.position.x, part.position.y);
+                ctx.rotate(part.angle);
+
+                const w = Math.max(20, part.bounds.max.x - part.bounds.min.x);
+                const h = Math.max(16, part.bounds.max.y - part.bounds.min.y);
+
+                // Stone base
+                ctx.fillStyle = '#1e293b';
+                ctx.fillRect(-w / 2, -h / 2, w, h);
+
+                // Grass top highlight
+                ctx.fillStyle = '#16a34a';
+                ctx.fillRect(-w / 2, -h / 2, w, 7);
+                ctx.fillStyle = '#4ade80';
+                ctx.fillRect(-w / 2, -h / 2, w, 2.5);
+
+                ctx.strokeStyle = '#0f172a';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(-w / 2, -h / 2, w, h);
+
+                ctx.restore();
+            });
+
+            ctx.restore();
+        }
+        function drawFinishLine() {
+            // In multiplayer use the synced target; else derive from game mode
+            let targetM = isMultiplayer ? (multiTargetM || 30) : null;
+            if (!targetM && gameMode === 'race') targetM = 30;
+            if (!targetM && gameMode === 'levels' && currentLevel) targetM = currentLevel.targetM;
+            if (!targetM) return;
+            const targetY = platformBody.position.y - 20 - (targetM * BS);
+            ctx.save();
+            ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 3; ctx.setLineDash([12, 7]);
+            ctx.beginPath(); ctx.moveTo(0, targetY); ctx.lineTo(canvas.width, targetY); ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 15px Fredoka';
+            ctx.fillText(`FINISH (${targetM}m)`, 18, targetY - 8);
+            ctx.restore();
+        }
+        function drawGhost() {
+            if (!activePiece || !activePiece.localShape || isPaused || activePiece.isStatic) return;
+            const origY = activePiece.position.y;
+            const others = Composite.allBodies(world).filter(b => b !== activePiece);
+            let dy = origY, limit = cameraY + canvas.height + 300;
+            while (dy < limit) { dy += 5; Body.setPosition(activePiece, { x: activePiece.position.x, y: dy }); if (Query.collides(activePiece, others).length > 0) { dy -= 5; break; } }
+            Body.setPosition(activePiece, { x: activePiece.position.x, y: origY });
+            if (dy > origY + 12) {
+                ctx.save(); ctx.translate(activePiece.position.x, activePiece.position.y + (dy - origY)); ctx.rotate(activePiece.angle);
+                ctx.setLineDash([4, 4]); ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 2;
+                const s = activePiece.renderScale || 1;
+                const bs = BS * s;
+                activePiece.localShape.forEach(l => ctx.strokeRect(l.x - bs / 2 + 2 * s, l.y - bs / 2 + 2 * s, bs - 4 * s, bs - 4 * s));
+                ctx.restore(); ctx.setLineDash([]);
+            }
+        }
+        function drawBody(body) {
+            if (!body.localShape) return;
+            ctx.save(); ctx.translate(body.position.x, body.position.y); ctx.rotate(body.angle);
+            const fill = body.pieceColor || '#38bdf8';
+            let stroke = 'rgba(0,0,0,0.25)';
+            if (body.customStyle === 'cement') stroke = '#475569';
+            if (body.customStyle === 'anvil') stroke = '#18181b';
+            if (body.customStyle === 'wood') stroke = '#78350f';
+
+            const s = body.renderScale || 1;
+            const bs = BS * s;
+
+            // Locking flash: subtle white border pulse
+            const locking = (body === activePiece && isLocking);
+            const pulse = locking ? 0.5 + 0.5 * Math.sin(Date.now() * 0.025) : 0;
+
+            body.localShape.forEach((l, i) => {
+                const x = l.x, y = l.y;
+                ctx.fillStyle = fill;
+                ctx.beginPath();
+                if (ctx.roundRect) ctx.roundRect(x - bs / 2 + 1, y - bs / 2 + 1, bs - 2, bs - 2, 6 * s); else ctx.rect(x - bs / 2 + 1, y - bs / 2 + 1, bs - 2, bs - 2);
+                ctx.fill();
+                ctx.fillStyle = 'rgba(255,255,255,0.22)';
+                ctx.fillRect(x - bs / 2 + 3 * s, y - bs / 2 + 3 * s, bs - 6 * s, 5 * s);
+                if (locking) {
+                    ctx.strokeStyle = `rgba(255,255,255,${0.5 + pulse * 0.5})`;
+                    ctx.lineWidth = (2 + pulse * 2) * s; ctx.stroke();
+                } else {
+                    ctx.strokeStyle = stroke; ctx.lineWidth = 1.5 * s; ctx.stroke();
+                }
+                if (i === 0 && body.customStyle !== 'wood') {
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath(); ctx.arc(x - 7 * s, y - 3 * s, 3.5 * s, 0, Math.PI * 2); ctx.arc(x + 7 * s, y - 3 * s, 3.5 * s, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = '#0f172a';
+                    const eo = body === activePiece ? 1 : 0;
+                    ctx.beginPath(); ctx.arc(x - 7 * s + eo, y - 3 * s + eo, 1.8 * s, 0, Math.PI * 2); ctx.arc(x + 7 * s + eo, y - 3 * s + eo, 1.8 * s, 0, Math.PI * 2); ctx.fill();
+                }
+            });
+            ctx.restore();
+        }
+        function drawWater() {
+            const wy = canvas.height - 28, t = Date.now() * .003;
+            ctx.fillStyle = 'rgba(14,165,233,0.88)';
+            ctx.beginPath(); ctx.moveTo(0, canvas.height);
+            for (let x = 0; x <= canvas.width; x += 18) ctx.lineTo(x, wy + Math.sin(x * .025 + t) * 7);
+            ctx.lineTo(canvas.width, canvas.height); ctx.closePath(); ctx.fill();
+        }
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx; p.y += p.vy; p.vy += 0.12; p.life -= p.decay;
+                if (p.life <= 0) { particles.splice(i, 1); continue; }
+                ctx.globalAlpha = p.life; ctx.fillStyle = p.color;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        // ─── Win / Game Over ──────────────────────────────────────────────────────────
+        function triggerLevelWin() {
+            if (!isPlaying) return;
+            isPlaying = false;
+            // Stars: 1 = done, 2 = no falls, 3 = no falls + no spells used
+            const noFalls = lives >= 3;
+            const noSpells = spells.cement >= 1 && spells.anvil >= 1 && spells.plank >= 1;
+            const stars = noFalls && noSpells ? 3 : noFalls ? 2 : 1;
+            const prev = levelStars[currentLevel.id] || 0;
+            if (stars > prev) { levelStars[currentLevel.id] = stars; localStorage.setItem('wt_stars', JSON.stringify(levelStars)); }
+
+            const modal = document.getElementById('gameOverModal');
+            document.getElementById('modalTitle').innerText = '🎉 Level Complete!';
+            document.getElementById('modalTitle').className = 'win';
+            document.getElementById('modalBody').innerText = `${currentLevel.name}\nHeight: ${towerHeightM.toFixed(1)}m`;
+            const sd = document.getElementById('levelStarsDisplay');
+            sd.style.display = 'block'; sd.innerText = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
+            const nb = document.getElementById('btnNextLevel');
+            nb.style.display = 'block';
+            modal.style.display = 'flex';
+        }
+
+        function triggerWin(msg) {
+            if (!isPlaying) return;
+            isPlaying = false;
+            if (isHost) checkMultiplayerWin();
+            document.getElementById('modalTitle').innerText = '🎉 Victory!';
+            document.getElementById('modalTitle').className = 'win';
+            document.getElementById('modalBody').innerText = `${msg}\nFinal height: ${towerHeightM.toFixed(1)}m`;
+            document.getElementById('levelStarsDisplay').style.display = 'none';
+            document.getElementById('btnNextLevel').style.display = 'none';
+            document.getElementById('btnRetry').style.display = isMultiplayer ? 'none' : 'block';
+            document.getElementById('gameOverModal').style.display = 'flex';
+        }
+
+        function gameOver(win, msg) {
+            if (isMultiplayer && lobbyPlayers.length > 1) {
+                if (isSpectating) return; // already spectating
+                isSpectating = true;
+                // Drop and lock the active piece immediately so it doesn't float around
+                if (activePiece) { activePiece.ignoreGravity = false; activePiece = null; cancelLock(); }
+                document.getElementById('modalTitle').innerText = win ? 'Finished!' : 'You Died!';
+                document.getElementById('modalTitle').className = win ? 'win' : 'lose';
+                document.getElementById('modalBody').innerText = msg + (win ? '' : '\nSpectating remaining players...');
+                document.getElementById('gameOverModal').style.display = 'flex';
+                document.getElementById('btnNextLevel').style.display = 'none';
+
+                // Hide modal after a few seconds to watch the game
+                setTimeout(() => { document.getElementById('gameOverModal').style.display = 'none'; }, 2500);
+                if (isHost) checkMultiplayerWin();
+                return; // Let gameLoop keep running for camera & opponents
+            }
+
+            if (!isPlaying) return;
+            isPlaying = false;
+            if (isHost) checkMultiplayerWin();
+            const title = document.getElementById('modalTitle');
+            title.innerText = win ? '🎉 Victory!' : '💀 Game Over!';
+            title.className = win ? 'win' : 'lose';
+            document.getElementById('modalBody').innerText = `${msg}\nFinal height: ${towerHeightM.toFixed(1)}m`;
+            document.getElementById('levelStarsDisplay').style.display = 'none';
+            document.getElementById('btnNextLevel').style.display = 'none';
+            document.getElementById('btnRetry').style.display = isMultiplayer ? 'none' : 'block';
+            document.getElementById('gameOverModal').style.display = 'flex';
+        }
+
+        function checkMultiplayerWin() {
+            if (!isHost) return;
+            let playingCount = 0;
+            let lastAlive = null;
+            let firstFinisher = null;
+
+            if (isPlaying && !isSpectating && lives > 0) {
+                playingCount++;
+                lastAlive = myName;
+            } else if (isSpectating && lives > 0) {
+                if (!firstFinisher) firstFinisher = myName;
+            }
+
+            for (let id in opponents) {
+                if (!opponents[id].dead) {
+                    if (!opponents[id].finished) {
+                        playingCount++;
+                        lastAlive = opponents[id].name;
+                    } else {
+                        if (!firstFinisher) firstFinisher = opponents[id].name;
+                    }
+                }
+            }
+
+            if (playingCount <= 1 && lobbyPlayers.length > 1 && !window.winTimeout) {
+                let winnerName = firstFinisher || lastAlive || 'Nobody';
+                window.winTimeout = setTimeout(() => {
+                    window.winTimeout = null;
+                    mqttSend({ type: 'round_over', winnerName: winnerName });
+                    triggerWin(winnerName + ' won the game!');
+                    window.lobbyTimeout = setTimeout(() => { returnToLobby(); }, 4000);
+                }, 2000);
+            }
+        }
+
+        function restartCurrentGame() {
+            // In multiplayer, don't let players restart on their own — host controls this via lobby
+            if (isMultiplayer) return;
+            if (gameMode === 'levels' && currentLevel) startInfiniteCampaign();
+            else startGame(gameMode);
+        }
+        function returnToLobby() {
+            isPlaying = false; cancelLock();
+            isSpectating = false;
+            if (window.winTimeout) { clearTimeout(window.winTimeout); window.winTimeout = null; }
+            if (window.lobbyTimeout) { clearTimeout(window.lobbyTimeout); window.lobbyTimeout = null; }
+            if (syncInterval) clearInterval(syncInterval);
+            // Reset opponent states for the new round
+            for (let id in opponents) { opponents[id].dead = false; opponents[id].finished = false; }
+            document.getElementById('gameOverModal').style.display = 'none';
+            document.getElementById('hud').style.display = 'none';
+            document.getElementById('startMenu').style.display = 'none';
+            document.getElementById('levelStarsDisplay').style.display = 'none';
+            document.getElementById('levelSelect').style.display = 'none';
+            document.getElementById('mainModes').style.display = 'flex';
+            World.clear(world);
+            Engine.clear(engine);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBg(); drawWater();
+
+            showLobbyUI(currentRoomCode);
+            if (isHost) {
+                document.getElementById('lobbyHostControls').style.display = 'flex';
+                document.getElementById('lobbyClientStatus').style.display = 'none';
+                broadcastLobbyUpdate();
+            } else {
+                document.getElementById('lobbyHostControls').style.display = 'none';
+                document.getElementById('lobbyClientStatus').style.display = 'block';
+                document.getElementById('lobbyClientStatus').innerText = 'Connected! Waiting for host...';
+            }
+        }
+
+        function returnToMenu() {
+            isPlaying = false; cancelLock();
+            if (mqttClient) { try { mqttClient.end(true); } catch (e) { } mqttClient = null; }
+            isMultiplayer = false; isHost = false; opponents = {}; lobbyPlayers = [];
+            if (syncInterval) clearInterval(syncInterval);
+            document.getElementById('gameOverModal').style.display = 'none';
+            if (document.getElementById('roomModal')) document.getElementById('roomModal').style.display = 'none';
+            if (document.getElementById('joinModal')) document.getElementById('joinModal').style.display = 'none';
+            if (document.getElementById('lobbyModal')) document.getElementById('lobbyModal').style.display = 'none';
+            document.getElementById('hud').style.display = 'none';
+            document.getElementById('levelStarsDisplay').style.display = 'none';
+            document.getElementById('levelSelect').style.display = 'none';
+            document.getElementById('mainModes').style.display = 'flex';
+            document.getElementById('startMenu').style.display = 'flex';
+            World.clear(world);
+        }
+
+        window.onload = () => {
+            document.getElementById('hud').style.display = 'none';
+            // Auto-fill room code from URL param (e.g. ?room=123456)
+            const urlRoom = new URLSearchParams(window.location.search).get('room');
+            if (urlRoom && /^\d{6}$/.test(urlRoom)) {
+                const codeEl = document.getElementById('joinCodeInput');
+                if (codeEl) codeEl.value = urlRoom;
+            }
+        };
+    </script>
+</body>
+
+</html>

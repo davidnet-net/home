@@ -6,7 +6,8 @@
 		LinkButton,
 		Button,
 		Icon,
-		Anchor
+		Anchor,
+		Link
 	} from "@davidnet-net/svelte-ui";
 
 	import { goto } from "$app/navigation";
@@ -46,8 +47,8 @@
 		bind:this={iframeElement}
 		sandbox="allow-scripts allow-same-origin"
 		style="height: 80vh; width: 90%; border-radius: {token.global.radius.huge}; border: none;"
-		src="/community_games/rocket.html"
-		title="Ruimte vlieger">
+		src="https://design.davidnet.net/exit?href=https%3A%2F%2Fwobbletowers.gamer.gd%2F%3Fi%3D1"
+		title="Wobble Towers">
 	</iframe>
 	<Flex height="fit-content" width="fit-content" gap="small">
 		<LinkButton href="/games" iconbefore="arrow_back">Back</LinkButton>
@@ -71,8 +72,14 @@
 		gap="xsmall"
 		verticalAlign="middle">
 		<Icon icon="attribution" />Game is created by <Anchor
-			href="https://account.davidnet.net/profile/019fe0ad-12ca-73cb-a43b-98b5fc262382">
-			@david
+			href="https://account.davidnet.net/profile/01a04237-349d-712c-85f9-e26ae5abbaae">
+			@zandzak500 and hosted externally on <Link
+				external
+				opennewtab
+				UNSAFE_showExitPage
+				href="https://wobbletowers.gamer.gd/?i=1">
+				wobbletowers.gamer.gd
+			</Link>
 		</Anchor>
 	</Flex>
 </Flex>

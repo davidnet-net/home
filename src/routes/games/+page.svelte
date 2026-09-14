@@ -177,9 +177,14 @@
 			href: "/games/community/cola_fabriek"
 		},
 		{
-			title: "Rocket",
+			title: "Ruimte vlieger",
 			icon: "rocket",
 			href: "/games/community/rocket"
+		},
+		{
+			title: "Wobble Towers",
+			icon: "bar_chart",
+			href: "/games/community/wobble_towers"
 		}
 	];
 

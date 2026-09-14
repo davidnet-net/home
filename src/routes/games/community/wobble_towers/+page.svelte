@@ -27,17 +27,17 @@
 	});
 
 	function resetGame() {
-		if (iframeElement && iframeElement.contentWindow) {
-			// Safely trigger a reset or reload inside the iframe if supported
-			iframeElement.contentWindow.location.reload();
+		if (iframeElement) {
+			// Re-assigning the src avoids cross-origin security errors when resetting cross-domain iframes
+			const currentSrc = iframeElement.src;
+			iframeElement.src = "";
+			iframeElement.src = currentSrc;
 		}
 	}
 
 	function toggleFullscreen() {
-		if (iframeElement) {
-			if (iframeElement.requestFullscreen) {
-				iframeElement.requestFullscreen();
-			}
+		if (iframeElement && iframeElement.requestFullscreen) {
+			iframeElement.requestFullscreen();
 		}
 	}
 </script>

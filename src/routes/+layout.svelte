@@ -7,12 +7,11 @@
 	const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
 </script>
 
-<!-- Als de site via HTTPS draait, dwingen we de browser om HTTP-requests te upgraden. Issue met wobble towers -->
-{#if isHttps}
-	<svelte:head>
-		<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
-	</svelte:head>
-{/if}
+<svelte:head>
+	{#if isHttps}
+		<meta http-equiv="content-security-policy" content="upgrade-insecure-requests" />
+	{/if}
+</svelte:head>
 
 <AppShell appName="Home" shortAppName="Home" {paraglideRuntime}>
 	{#snippet banners()}

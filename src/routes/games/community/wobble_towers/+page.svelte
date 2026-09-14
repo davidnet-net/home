@@ -46,7 +46,7 @@
 	<iframe
 		bind:this={iframeElement}
 		style="height: 80vh; width: 90%; border-radius: {token.global.radius.huge}; border: none;"
-		src="https://design.davidnet.net/exit?href=https%3A%2F%2Fwobbletowers.gamer.gd%2F%3Fi%3D1"
+		src="https://wobbletowers.gamer.gd/?i=1"
 		title="Wobble Towers">
 	</iframe>
 	<Flex height="fit-content" width="fit-content" gap="small">
@@ -75,7 +75,6 @@
 			@zandzak500 and hosted externally on <Link
 				external
 				opennewtab
-				UNSAFE_showExitPage
 				href="https://wobbletowers.gamer.gd/?i=1">
 				wobbletowers.gamer.gd
 			</Link>

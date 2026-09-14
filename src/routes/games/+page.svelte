@@ -168,12 +168,12 @@
 	const communityGames = [
 		{
 			title: "Tower defense",
-			icon: "joystick",
+			icon: "fort",
 			href: "/games/community/tower_defense"
 		},
 		{
 			title: "Cola fabriek",
-			icon: "joystick",
+			icon: "factory",
 			href: "/games/community/cola_fabriek"
 		},
 		{

@@ -45,7 +45,7 @@
 <Flex alignItems="center" marginTop="medium" direction="column" gap="medium">
 	<iframe
 		bind:this={iframeElement}
-		sandbox="allow-scripts allow-same-origin"
+		sandbox="allow-scripts allow-same-origin allow-forms allow-storage-access-by-user-activation"
 		style="height: 80vh; width: 90%; border-radius: {token.global.radius.huge}; border: none;"
 		src="https://design.davidnet.net/exit?href=https%3A%2F%2Fwobbletowers.gamer.gd%2F%3Fi%3D1"
 		title="Wobble Towers">

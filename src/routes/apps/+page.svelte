@@ -63,6 +63,11 @@
 				icon="view_kanban"
 				href="https://kanban.davidnet.net" />
 			<HorizontalCard title="Quiz" description="" icon="quiz" href="https://quiz.davidnet.net" />
+			<HorizontalCard
+				title="Social"
+				description=""
+				icon="emoji_people"
+				href="https://social.davidnet.net" />
 		</Flex>
 		<Flex justifyContent="spaceBetween" height="fit-content">
 			<h2>Links</h2>

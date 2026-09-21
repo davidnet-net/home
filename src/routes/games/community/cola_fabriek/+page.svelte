@@ -14,6 +14,8 @@
 	import { PUBLIC_ACCOUNT_FRONTEND_URL } from "$env/static/public";
 	import { token } from "@davidnet-net/svelte-ui/tokens";
 
+	let iframeRef: HTMLIFrameElement | undefined = $state();
+
 	$effect(() => {
 		(async () => {
 			await whenAuthReady();
@@ -22,10 +24,18 @@
 			}
 		})();
 	});
+
+	function handleFullscreen() {
+		if (iframeRef?.requestFullscreen) {
+			iframeRef.requestFullscreen();
+		}
+	}
 </script>
 
 <Flex alignItems="center" marginTop="medium" direction="column" gap="medium">
 	<iframe
+		bind:this={iframeRef}
+		allow="fullscreen"
 		sandbox="allow-scripts"
 		style="height: 90%; width: 90%; border-radius: {token.global.radius.huge};"
 		src="/community_games/cola_fabriek.html"
@@ -34,7 +44,7 @@
 	<Flex height="fit-content" width="fit-content" gap="small">
 		<LinkButton href="/games" iconbefore="arrow_back">Back</LinkButton>
 		<Button onclick={() => {}} iconbefore="refresh">Reset</Button>
-		<Button onclick={() => {}} iconbefore="fullscreen">Fullscreen</Button>
+		<Button onclick={handleFullscreen} iconbefore="fullscreen">Fullscreen</Button>
 	</Flex>
 	<Flex
 		width="fit-content"

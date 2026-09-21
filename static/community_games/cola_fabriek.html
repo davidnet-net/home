@@ -1,1 +1,2558 @@
-<h1 style="color: pink">Robin maak hem nou af :D</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Cola Fabriek v0.5 (NOT FINISHED!!!)</title>
+
+<style>
+html,body{
+    margin:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:#08090a;
+}
+
+body{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+canvas{
+    width:min(96vw,960px);
+    height:auto;
+    image-rendering:pixelated;
+    image-rendering:crisp-edges;
+    border:4px solid #151719;
+    box-shadow:0 15px 45px #000;
+}
+</style>
+
+</head>
+
+<body>
+
+<canvas id="game" width="640" height="400"></canvas>
+
+<script>
+
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+
+ctx.imageSmoothingEnabled=false;
+
+
+/* =========================================================
+   AUDIO SYSTEM (Web Audio API Sound Effects)
+========================================================= */
+
+let audioCtx = null;
+
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+}
+
+const sounds = {
+    step() {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(80, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.05);
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.05);
+    },
+    chest() {
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(261.63, now); // C4
+        osc.frequency.setValueAtTime(329.63, now + 0.08); // E4
+        osc.frequency.setValueAtTime(392.00, now + 0.16); // G4
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.3);
+    },
+    pickup() {
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.15);
+    },
+    damage() {
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.linearRampToValueAtTime(40, now + 0.2);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.2);
+    },
+    throw() {
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(300, now);
+        osc.frequency.exponentialRampToValueAtTime(100, now + 0.12);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.12);
+    },
+    spray() {
+        if (!audioCtx) return;
+        // White noise generator for water spray sound
+        const bufferSize = audioCtx.sampleRate * 0.05;
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+        }
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 1000;
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        noise.start();
+    }
+};
+
+
+/* =========================================================
+   GAME STATES
+========================================================= */
+
+let gameState = "menu"; // "menu", "playing", "gameover"
+
+
+/* =========================================================
+   PLAYER
+========================================================= */
+
+const player={
+    x:320,
+    y:205,
+    width:16,
+    height:22,
+    speed:2.7,
+    direction:"down",
+    animation:0,
+    walking:false,
+    equippedHose:null,
+    hitboxPadding: 6,
+    damageCooldownTimer: 0
+};
+
+const keys={};
+
+
+/* =========================================================
+   PLAYER HP
+========================================================= */
+
+const playerHP={
+    current:100,
+    max:100
+};
+
+
+/* =========================================================
+   INVENTORY
+========================================================= */
+
+const inventory={
+    items:[],
+    open:false
+};
+
+let inventoryKeyPressed=false;
+let pendingBottleThrow=false;
+
+
+/* =========================================================
+   CHESTS / ITEMS / PICKUPS / KEYS
+========================================================= */
+
+let chest=null;
+let roomKey = null;
+let isKeyRoom = false;
+let roomUnlocked = false;
+
+let pickupMessage="";
+let pickupMessageTimer=0;
+
+let thrownBottles=[];
+let sodaShards=[];
+
+
+/* =========================================================
+   EQUIPPED WATER HOSE / WATER STREAM
+========================================================= */
+
+let waterParticles=[];
+let waterStreamActive=false;
+let waterStreamTimer=0;
+
+const WATER_HOSE_SETTINGS={
+    maxParticles:3500,
+    particlesPerFrame:25,
+    speed:5.0,
+    spread:0.65,
+    enemyDrag:0.88,
+    streamDuration:300,
+    requiredParticles:3
+};
+
+function getDirectionVector(direction){
+    if(direction==="up") return {x:0,y:-1};
+    if(direction==="down") return {x:0,y:1};
+    if(direction==="left") return {x:-1,y:0};
+    return {x:1,y:0};
+}
+
+function solidAtPoint(x,y,padding=0){
+    const r={x:x-padding,y:y-padding,w:padding*2+1,h:padding*2+1};
+    if(x<48+padding || x>592-padding || y<60+padding || y>350-padding) return true;
+    for(const object of room.objects){
+        if(rectanglesOverlap(r,object,0)) return true;
+    }
+    if(chest && !chest.opened && rectanglesOverlap(r,chest,0)) return true;
+    return false;
+}
+
+function waterMoveAroundSolid(particle){
+    const nx=particle.x+particle.vx;
+    const ny=particle.y+particle.vy;
+
+    if(!solidAtPoint(nx,ny,1)){
+        particle.x=nx;
+        particle.y=ny;
+        return;
+    }
+
+    const candidates=[
+        {x:particle.x+particle.vx,y:particle.y,vx:particle.vx,vy:particle.vy*0.55},
+        {x:particle.x,y:particle.y+particle.vy,vx:particle.vx*0.55,vy:particle.vy},
+        {x:particle.x+particle.vx*0.35-particle.vy*0.9,y:particle.y+particle.vy*0.35+particle.vx*0.9,vx:particle.vx*0.85-particle.vy*0.15,vy:particle.vy*0.85+particle.vx*0.15},
+        {x:particle.x+particle.vx*0.35+particle.vy*0.9,y:particle.y+particle.vy*0.35-particle.vx*0.9,vx:particle.vx*0.85+particle.vy*0.15,vy:particle.vy*0.85-particle.vx*0.15}
+    ];
+
+    const free=candidates.find(c=>!solidAtPoint(c.x,c.y,1));
+
+    if(free){
+        particle.x=free.x;
+        particle.y=free.y;
+        const len=Math.hypot(free.vx,free.vy)||1;
+        particle.vx=free.vx/len*WATER_HOSE_SETTINGS.speed;
+        particle.vy=free.vy/len*WATER_HOSE_SETTINGS.speed;
+    }
+}
+
+function startWaterStream(){
+    const hose=player.equippedHose;
+
+    if(!hose || waterStreamActive){
+        return;
+    }
+
+    waterStreamActive=true;
+    waterStreamTimer=WATER_HOSE_SETTINGS.streamDuration;
+    waterParticles=[];
+    showPickupMessage("Water Hose spraying!");
+}
+
+function spawnWaterStream(){
+    const hose=player.equippedHose;
+    if(!hose || !waterStreamActive) return;
+
+    sounds.spray();
+
+    const dir=getDirectionVector(player.direction);
+    const nozzleDistance=12;
+    const baseX=player.x+dir.x*nozzleDistance;
+    const baseY=player.y+dir.y*nozzleDistance;
+
+    for(let i=0; i<WATER_HOSE_SETTINGS.particlesPerFrame; i++){
+        const spread=(Math.random()-0.5)*WATER_HOSE_SETTINGS.spread;
+        const cos=Math.cos(spread);
+        const sin=Math.sin(spread);
+        const vx=(dir.x*cos-dir.y*sin)*WATER_HOSE_SETTINGS.speed;
+        const vy=(dir.x*sin+dir.y*cos)*WATER_HOSE_SETTINGS.speed;
+
+        waterParticles.push({
+            x:baseX+(Math.random()-0.5)*2,
+            y:baseY+(Math.random()-0.5)*2,
+            vx,
+            vy,
+            size:1.5+Math.random()*2
+        });
+    }
+
+    if(waterParticles.length>WATER_HOSE_SETTINGS.maxParticles){
+        waterParticles.splice(0,waterParticles.length-WATER_HOSE_SETTINGS.maxParticles);
+    }
+}
+
+function finishWaterStream(){
+    waterStreamActive=false;
+    waterStreamTimer=0;
+    waterParticles=[];
+    player.equippedHose=null;
+    showPickupMessage("Water Hose emptied and unequipped");
+}
+
+function shatterSodaEnemy(enemy, impactVX, impactVY){
+    const pieceCount = 3 + Math.floor(Math.random() * 4);
+    const len = Math.hypot(impactVX, impactVY) || 1;
+    const baseDirX = impactVX / len;
+    const baseDirY = impactVY / len;
+
+    for(let i = 0; i < pieceCount; i++){
+        const angleOffset = (Math.random() - 0.5) * 1.5;
+        const speed = 1.5 + Math.random() * 3.5;
+        const cos = Math.cos(angleOffset);
+        const sin = Math.sin(angleOffset);
+
+        sodaShards.push({
+            x: enemy.x + (Math.random() - 0.5) * 8,
+            y: enemy.y + (Math.random() - 0.5) * 8,
+            vx: (baseDirX * cos - baseDirY * sin) * speed,
+            vy: (baseDirX * sin + baseDirY * cos) * speed,
+            size: 3 + Math.random() * 4,
+            life: 180 + Math.random() * 100,
+            color: Math.random() > 0.5 ? "#713c2d" : "#a94831"
+        });
+    }
+}
+
+function pushSodaEnemiesWithWater(){
+    for(const enemy of sodaEnemies){
+        const eRect=getSodaEnemyRect(enemy.x, enemy.y, 0);
+        let touchingCount=0;
+        let sumVX=0;
+        let sumVY=0;
+
+        for(const particle of waterParticles){
+            const pSize=particle.size;
+            if(particle.x + pSize >= eRect.x &&
+               particle.x <= eRect.x + eRect.w &&
+               particle.y + pSize >= eRect.y &&
+               particle.y <= eRect.y + eRect.h){
+                
+                touchingCount++;
+                sumVX += particle.vx;
+                sumVY += particle.vy;
+            }
+        }
+
+        if(touchingCount >= WATER_HOSE_SETTINGS.requiredParticles){
+            const avgVX = sumVX / touchingCount;
+            const avgVY = sumVY / touchingCount;
+            const len = Math.hypot(avgVX, avgVY) || 1;
+
+            enemy.waterVX = (avgVX / len) * WATER_HOSE_SETTINGS.speed * 0.9;
+            enemy.waterVY = (avgVY / len) * WATER_HOSE_SETTINGS.speed * 0.9;
+            enemy.waterHitTimer = 8;
+        }
+    }
+}
+
+function updateWater(){
+    if(waterStreamActive){
+        spawnWaterStream();
+        waterStreamTimer--;
+
+        if(waterStreamTimer<=0){
+            finishWaterStream();
+        }
+    }
+
+    for(const particle of waterParticles){
+        waterMoveAroundSolid(particle);
+    }
+
+    pushSodaEnemiesWithWater();
+
+    for(const enemy of sodaEnemies){
+        if(enemy.waterHitTimer>0){
+            enemy.waterHitTimer--;
+        }
+
+        if(enemy.waterHitTimer>0 && (enemy.waterVX || enemy.waterVY)){
+            const vx=enemy.waterVX||0;
+            const vy=enemy.waterVY||0;
+            const nextX=enemy.x+vx;
+            const nextY=enemy.y+vy;
+
+            if(enemyOverlapsSolid(nextX,nextY,0)){
+                shatterSodaEnemy(enemy, vx, vy);
+                enemy.waterVX=0;
+                enemy.waterVY=0;
+                enemy.waterHitTimer=0;
+                enemy.hp=0;
+                continue;
+            }
+
+            enemy.x=nextX;
+            enemy.y=nextY;
+            enemy.waterVX=vx*WATER_HOSE_SETTINGS.enemyDrag;
+            enemy.waterVY=vy*WATER_HOSE_SETTINGS.enemyDrag;
+            enemy.path=[];
+            enemy.pathTimer=0;
+            enemy.forceRepathTimer=0;
+            enemy.blockedTimer=0;
+        }else{
+            enemy.waterVX=0;
+            enemy.waterVY=0;
+        }
+    }
+
+    sodaEnemies=sodaEnemies.filter(enemy=>enemy.hp>0);
+}
+
+function updateSodaShards(){
+    for(let i = sodaShards.length - 1; i >= 0; i--){
+        const shard = sodaShards[i];
+        shard.life--;
+
+        if(shard.life <= 0){
+            sodaShards.splice(i, 1);
+            continue;
+        }
+
+        for(const particle of waterParticles){
+            const pSize = particle.size;
+            if(particle.x + pSize >= shard.x &&
+               particle.x <= shard.x + shard.size &&
+               particle.y + pSize >= shard.y &&
+               particle.y <= shard.y + shard.size){
+                shard.vx += particle.vx * 0.15;
+                shard.vy += particle.vy * 0.15;
+            }
+        }
+
+        const nextX = shard.x + shard.vx;
+        const nextY = shard.y + shard.vy;
+
+        if(solidAtPoint(nextX, nextY, 1)){
+            shard.vx *= -0.5;
+            shard.vy *= -0.5;
+        } else {
+            shard.x = nextX;
+            shard.y = nextY;
+        }
+
+        shard.vx *= 0.95;
+        shard.vy *= 0.95;
+
+        const pLeft = player.x - player.width / 2;
+        const pRight = player.x + player.width / 2;
+        const pTop = player.y - player.height / 2;
+        const pBottom = player.y + player.height / 2;
+
+        if(shard.x >= pLeft && shard.x <= pRight && shard.y >= pTop && shard.y <= pBottom){
+            const pushAngle = Math.atan2(shard.y - player.y, shard.x - player.x);
+            shard.vx += Math.cos(pushAngle) * 1.2;
+            shard.vy += Math.sin(pushAngle) * 1.2;
+        }
+    }
+}
+
+function drawWater(){
+    if(!waterParticles.length) return;
+    ctx.save();
+    for(const particle of waterParticles){
+        ctx.globalAlpha=1;
+        ctx.fillStyle="#b9e8f2";
+        ctx.fillRect(Math.round(particle.x), Math.round(particle.y), Math.ceil(particle.size), Math.ceil(particle.size));
+        ctx.fillStyle="#e8fbff";
+        if(particle.size>1.5){
+            ctx.fillRect(Math.round(particle.x+1), Math.round(particle.y), 1, 1);
+        }
+    }
+    ctx.restore();
+}
+
+function drawSodaShards(){
+    if(!sodaShards.length) return;
+    ctx.save();
+    for(const shard of sodaShards){
+        ctx.fillStyle = shard.color;
+        ctx.fillRect(Math.round(shard.x), Math.round(shard.y), Math.ceil(shard.size), Math.ceil(shard.size));
+    }
+    ctx.restore();
+}
+
+function drawEquippedHose(){
+    if(!player.equippedHose) return;
+
+    const dir=getDirectionVector(player.direction);
+    const x=Math.round(player.x+dir.x*8);
+    const y=Math.round(player.y+dir.y*8);
+
+    ctx.save();
+    ctx.strokeStyle="#6d9baa";
+    ctx.lineWidth=3;
+    ctx.lineCap="square";
+
+    ctx.beginPath();
+    ctx.moveTo(player.x-dir.y*5, player.y+dir.x*5);
+    ctx.lineTo(x-dir.y*4, y+dir.x*4);
+    ctx.stroke();
+
+    ctx.strokeStyle="#c7e4e8";
+    ctx.lineWidth=2;
+
+    ctx.beginPath();
+    ctx.moveTo(x-dir.y*4, y+dir.x*4);
+    ctx.lineTo(x+dir.x*6-dir.y*3, y+dir.y*6+dir.x*3);
+    ctx.stroke();
+    ctx.restore();
+}
+
+const CHEST_ITEMS=[
+    "Cola Bottle",
+    "Syrup",
+    "Water Hose",
+    "Water Bottle",
+    "Empty Water Bottle"
+];
+
+const ITEM_DESCRIPTIONS={
+    "Cola Bottle": "Restores 10 HP. Cannot raise HP above 100.",
+    "Syrup": "Temporarily increases your movement speed.",
+    "Water Hose": "Use it to spray the Glugs.",
+    "Water Bottle": "Fills one empty Water Hose when used.",
+    "Empty Water Bottle": "Throw it to distract the Glugs."
+};
+
+let speedBoostTimer=0;
+const NORMAL_SPEED=2.7;
+const BOOSTED_SPEED=4.5;
+let factoryPulse=0;
+let chestKeyPressed=false;
+
+const BOTTLE_SETTINGS={
+    speed:4.8,
+    friction:0.985,
+    minimumSpeed:0.08,
+    activeLife:300,
+    restingLife:300,
+    wallBounce:0.45,
+    obstacleBounce:0.30
+};
+
+
+/* =========================================================
+   KEYBOARD
+========================================================= */
+
+window.addEventListener("keydown",e=>{
+    initAudio();
+    const key=e.key.toLowerCase();
+
+    if(gameState === "menu"){
+        if(key === " " || key === "enter"){
+            e.preventDefault();
+            startGame();
+        }
+        return;
+    }
+
+    if(gameState === "gameover"){
+        if(key === "enter"){
+            e.preventDefault();
+            resetGame();
+        }
+        return;
+    }
+
+    if(key==="e"){
+        if(!inventoryKeyPressed){
+            if(inventory.open){
+                inventory.open=false;
+                if(pendingBottleThrow){
+                    throwEmptyBottle();
+                    pendingBottleThrow=false;
+                    showPickupMessage("Empty bottle thrown!");
+                }
+            }else{
+                inventory.open=true;
+            }
+            inventoryKeyPressed=true;
+        }
+        return;
+    }
+
+    if(key===" "){
+        e.preventDefault();
+        if(!chestKeyPressed){
+            if(player.equippedHose){
+                startWaterStream();
+            }else{
+                openNearbyChest();
+            }
+            chestKeyPressed=true;
+        }
+        return;
+    }
+
+    keys[key]=true;
+
+    if(["arrowup","arrowdown","arrowleft","arrowright"].includes(key)){
+        e.preventDefault();
+    }
+});
+
+window.addEventListener("keyup",e=>{
+    const key=e.key.toLowerCase();
+    keys[key]=false;
+    if(key==="e") inventoryKeyPressed=false;
+    if(key===" ") chestKeyPressed=false;
+});
+
+
+/* =========================================================
+   INVENTORY MOUSE
+========================================================= */
+
+const inventoryMouse={ x:-999, y:-999 };
+
+canvas.addEventListener("mousemove",e=>{
+    const rect=canvas.getBoundingClientRect();
+    inventoryMouse.x=(e.clientX-rect.left)*(canvas.width/rect.width);
+    inventoryMouse.y=(e.clientY-rect.top)*(canvas.height/rect.height);
+});
+
+canvas.addEventListener("mouseleave",()=>{
+    inventoryMouse.x=-999;
+    inventoryMouse.y=-999;
+});
+
+canvas.addEventListener("click",()=>{
+    initAudio();
+    if(gameState === "menu"){
+        startGame();
+        return;
+    }
+
+    if(gameState === "gameover"){
+        resetGame();
+        return;
+    }
+
+    if(!inventory.open) return;
+
+    const panelX=165;
+    const panelW=310;
+    let y=110;
+
+    for(let i=0; i<inventory.items.length; i++){
+        const hovered=
+            inventoryMouse.x>=panelX+15 &&
+            inventoryMouse.x<=panelX+panelW-15 &&
+            inventoryMouse.y>=y-15 &&
+            inventoryMouse.y<=y+13;
+
+        if(hovered){
+            useInventoryItem(i);
+            return;
+        }
+        y+=30;
+    }
+});
+
+
+/* =========================================================
+   ROOM SYSTEM
+========================================================= */
+
+let roomNumber=1;
+let entranceDoor=null;
+let room={
+    objects:[],
+    dirt:[],
+    cracks:[],
+    sodaStains:[],
+    pipes:[],
+    signs:[],
+    doors:null
+};
+
+let sodaEnemies=[];
+
+const SODA_ENEMY={
+    width:16,
+    height:22,
+    speed:1.15,
+    touchRadius:17,
+    damageCooldown:45,
+    pathCell:8,
+    pathClearance:3,
+    repathFrames:12
+};
+
+function getSodaEnemyStats(){
+    const stages=Math.max(0, roomNumber-10);
+    return {
+        maxHP: 30+Math.floor(stages*3),
+        damage: 20,
+        speed: 1.15+Math.min(0.75, stages*0.025)
+    };
+}
+
+function getSodaEnemyRect(x, y, clearance=0){
+    const halfW=SODA_ENEMY.width/2;
+    const halfH=SODA_ENEMY.height/2;
+    return {
+        x:x-halfW-clearance,
+        y:y-halfH-clearance,
+        w:SODA_ENEMY.width+clearance*2,
+        h:SODA_ENEMY.height+clearance*2
+    };
+}
+
+function enemyOverlapsSolid(x, y, clearance=2){
+    const e=getSodaEnemyRect(x, y, clearance);
+    if(e.x<48 || e.x+e.w>592 || e.y<60 || e.y+e.h>350) return true;
+    for(const r of room.objects){
+        if(rectanglesOverlap(e, r, 0)) return true;
+    }
+    if(chest && !chest.opened && rectanglesOverlap(e, chest, 0)) return true;
+    
+    const playerRect = {
+        x: player.x - player.width / 2,
+        y: player.y - player.height / 2,
+        w: player.width,
+        h: player.height
+    };
+    if(rectanglesOverlap(e, playerRect, -1)) return true;
+
+    return false;
+}
+
+function enemyOverlapsOtherEnemy(x, y, self=null, clearance=1){
+    const e=getSodaEnemyRect(x, y, clearance);
+    for(const other of sodaEnemies){
+        if(other===self) continue;
+        const o=getSodaEnemyRect(other.x, other.y, 0);
+        if(rectanglesOverlap(e, o, 0)) return true;
+    }
+    return false;
+}
+
+function enemyCanOccupy(x, y, self=null, clearance=1){
+    if(enemyOverlapsSolid(x, y, clearance)) return false;
+    if(enemyOverlapsOtherEnemy(x, y, self, clearance)) return false;
+    return true;
+}
+
+function enemySpawnIsOnOppositeSide(x, y){
+    if(!entranceDoor) return true;
+    const margin=85;
+    if(entranceDoor==="north") return y>=350-margin;
+    if(entranceDoor==="south") return y<=60+margin;
+    if(entranceDoor==="west") return x>=592-margin;
+    if(entranceDoor==="east") return x<=48+margin;
+    return true;
+}
+
+function findSafeEnemyPosition(){
+    for(let attempt=0; attempt<500; attempt++){
+        const x=60+Math.random()*520;
+        const y=75+Math.random()*260;
+        if(!enemySpawnIsOnOppositeSide(x, y)) continue;
+        if(!enemyCanOccupy(x, y, null, SODA_ENEMY.pathClearance)) continue;
+        const dx=x-player.x;
+        const dy=y-player.y;
+        if(Math.sqrt(dx*dx+dy*dy)<150) continue;
+        return {x, y};
+    }
+    return null;
+}
+
+function getSodaEnemyCount(){
+    if(roomNumber<10) return 0;
+    const stages=roomNumber-10;
+    const maxEnemies=Math.min(5, 1+Math.floor(stages/4));
+    const firstChance=Math.min(0.95, 0.35+stages*0.035);
+    if(Math.random()>firstChance) return 0;
+
+    let count=1;
+    for(let i=1; i<maxEnemies; i++){
+        const additionalChance=Math.min(0.75, 0.18+stages*0.025+i*0.05);
+        if(Math.random()<additionalChance) count++;
+        else break;
+    }
+    return count;
+}
+
+function spawnSodaEnemies(){
+    sodaEnemies=[];
+    const count=getSodaEnemyCount();
+    if(count<=0) return;
+
+    for(let i=0; i<count; i++){
+        const pos=findSafeEnemyPosition();
+        if(!pos) continue;
+        const stats=getSodaEnemyStats();
+
+        sodaEnemies.push({
+            x:pos.x,
+            y:pos.y,
+            width:SODA_ENEMY.width,
+            height:SODA_ENEMY.height,
+            hp:stats.maxHP,
+            maxHP:stats.maxHP,
+            damage:20,
+            speed:stats.speed,
+            damageTimer:Math.floor(Math.random()*20),
+            path:[],
+            pathTimer:Math.floor(Math.random()*SODA_ENEMY.repathFrames),
+            walkFrame:Math.floor(Math.random()*12),
+            lastX:pos.x,
+            lastY:pos.y,
+            stuckTimer:0,
+            blockedTimer:0,
+            forceRepathTimer:0,
+            waterVX:0,
+            waterVY:0,
+            waterHitTimer:0
+        });
+    }
+}
+
+function sodaGridToWorld(gx, gy){
+    const cell=SODA_ENEMY.pathCell;
+    return { x:gx*cell+cell/2, y:gy*cell+cell/2 };
+}
+
+function sodaGridInside(gx, gy){
+    return (gx>=1 && gx<=78 && gy>=7 && gy<=43);
+}
+
+function sodaPathBlocked(gx, gy, self=null){
+    const world=sodaGridToWorld(gx, gy);
+    return !enemyCanOccupy(world.x, world.y, self, SODA_ENEMY.pathClearance);
+}
+
+function findNearestSodaWalkableCell(gx, gy, maxRadius=8, self=null){
+    if(sodaGridInside(gx, gy) && !sodaPathBlocked(gx, gy, self)) return {x:gx, y:gy};
+
+    for(let radius=1; radius<=maxRadius; radius++){
+        for(let x=gx-radius; x<=gx+radius; x++){
+            const candidates=[{x, y:gy-radius},{x, y:gy+radius}];
+            for(const cell of candidates){
+                if(!sodaGridInside(cell.x, cell.y)) continue;
+                if(!sodaPathBlocked(cell.x, cell.y, self)) return cell;
+            }
+        }
+        for(let y=gy-radius+1; y<=gy+radius-1; y++){
+            const candidates=[{x:gx-radius, y},{x:gx+radius, y}];
+            for(const cell of candidates){
+                if(!sodaGridInside(cell.x, cell.y)) continue;
+                if(!sodaPathBlocked(cell.x, cell.y, self)) return cell;
+            }
+        }
+    }
+    return null;
+}
+
+function findSodaPath(startX, startY, targetX, targetY, self=null){
+    const cell=SODA_ENEMY.pathCell;
+    let sx=Math.max(1, Math.min(78, Math.floor(startX/cell)));
+    let sy=Math.max(7, Math.min(43, Math.floor(startY/cell)));
+    let tx=Math.max(1, Math.min(78, Math.floor(targetX/cell)));
+    let ty=Math.max(7, Math.min(43, Math.floor(targetY/cell)));
+
+    const startKey=sx+","+sy;
+    let goalCell=findNearestSodaWalkableCell(tx, ty, 8, self) || findNearestSodaWalkableCell(tx, ty, 14, self);
+    if(!goalCell) return [];
+
+    const finalTx=goalCell.x;
+    const finalTy=goalCell.y;
+    const goalKey=finalTx+","+finalTy;
+
+    if(sx===finalTx && sy===finalTy) return [];
+
+    const open=[{x:sx, y:sy, g:0, f:0}];
+    const came=new Map();
+    const cost=new Map([[startKey, 0]]);
+    const dirs=[[1,0,1],[-1,0,1],[0,1,1],[0,-1,1],[1,1,Math.SQRT2],[1,-1,Math.SQRT2],[-1,1,Math.SQRT2],[-1,-1,Math.SQRT2]];
+
+    let iterations=0;
+    while(open.length && iterations<5000){
+        iterations++;
+        open.sort((a,b)=>a.f-b.f);
+        const current=open.shift();
+        const currentKey=current.x+","+current.y;
+
+        if(currentKey===goalKey){
+            const cells=[];
+            let key=currentKey;
+            while(key!==startKey){
+                const parts=key.split(",").map(Number);
+                cells.push(sodaGridToWorld(parts[0], parts[1]));
+                key=came.get(key);
+                if(!key) break;
+            }
+            cells.reverse();
+            return cells;
+        }
+
+        for(const [dx, dy, moveCost] of dirs){
+            const nx=current.x+dx;
+            const ny=current.y+dy;
+
+            if(!sodaGridInside(nx, ny)) continue;
+            if(sodaPathBlocked(nx, ny, self)) continue;
+            if(dx!==0 && dy!==0 && (sodaPathBlocked(current.x+dx, current.y, self) || sodaPathBlocked(current.x, current.y+dy, self))) continue;
+
+            const neighborKey=nx+","+ny;
+            const newCost=current.g+moveCost;
+
+            if(!cost.has(neighborKey) || newCost<cost.get(neighborKey)){
+                cost.set(neighborKey, newCost);
+                const dxGoal=Math.abs(nx-finalTx);
+                const dyGoal=Math.abs(ny-finalTy);
+                const h=Math.max(dxGoal, dyGoal)+(Math.SQRT2-1)*Math.min(dxGoal, dyGoal);
+                open.push({x:nx, y:ny, g:newCost, f:newCost+h});
+                came.set(neighborKey, currentKey);
+            }
+        }
+    }
+    return [];
+}
+
+function findSodaEscapePosition(enemy){
+    if(!enemy) return null;
+    const cell=SODA_ENEMY.pathCell;
+    const currentGX=Math.floor(enemy.x/cell);
+    const currentGY=Math.floor(enemy.y/cell);
+    const candidates=[];
+
+    for(let radius=1; radius<=5; radius++){
+        for(let gy=currentGY-radius; gy<=currentGY+radius; gy++){
+            for(let gx=currentGX-radius; gx<=currentGX+radius; gx++){
+                if(!sodaGridInside(gx, gy)) continue;
+                if(sodaPathBlocked(gx, gy, enemy)) continue;
+                const pos=sodaGridToWorld(gx, gy);
+                const dx=pos.x-enemy.x;
+                const dy=pos.y-enemy.y;
+                const distance=Math.sqrt(dx*dx+dy*dy);
+                if(distance<4) continue;
+                candidates.push({x:pos.x, y:pos.y, distance});
+            }
+        }
+        if(candidates.length) break;
+    }
+    if(!candidates.length) return null;
+    candidates.sort((a,b)=>a.distance-b.distance);
+    const pool=candidates.slice(0, Math.min(5, candidates.length));
+    return pool[Math.floor(Math.random()*pool.length)];
+}
+
+function getBottleDistractionTarget(){
+    if(!thrownBottles.length) return null;
+    let closest=null;
+    let closestDistance=Infinity;
+
+    for(const bottle of thrownBottles){
+        if(bottle.life<=0) continue;
+        const dx=bottle.x-player.x;
+        const dy=bottle.y-player.y;
+        const distance=dx*dx+dy*dy;
+        if(distance<closestDistance){
+            closestDistance=distance;
+            closest=bottle;
+        }
+    }
+    return closest;
+}
+
+function updateSodaEnemy(enemy){
+    if(!enemy) return;
+    if(enemy.damageTimer>0) enemy.damageTimer--;
+    if(enemy.forceRepathTimer>0) enemy.forceRepathTimer--;
+    enemy.pathTimer--;
+
+    const distraction=getBottleDistractionTarget();
+    let targetX=player.x;
+    let targetY=player.y;
+    if(distraction){
+        targetX=distraction.x;
+        targetY=distraction.y;
+    }
+
+    if(enemy.pathTimer<=0 || enemy.path.length===0){
+        enemy.path=findSodaPath(enemy.x, enemy.y, targetX, targetY, enemy);
+        enemy.pathTimer=distraction?8:SODA_ENEMY.repathFrames;
+        enemy.forceRepathTimer=0;
+    }
+
+    if(enemy.path.length){
+        const target=enemy.path[0];
+        const dx=target.x-enemy.x;
+        const dy=target.y-enemy.y;
+        const distance=Math.sqrt(dx*dx+dy*dy);
+
+        if(distance<Math.max(2.5, enemy.speed)){
+            enemy.path.shift();
+        }else{
+            const step=Math.min(enemy.speed, distance);
+            const nextX=enemy.x+(dx/distance)*step;
+            const nextY=enemy.y+(dy/distance)*step;
+
+            if(enemyCanOccupy(nextX, nextY, enemy, 1)){
+                enemy.x=nextX;
+                enemy.y=nextY;
+                enemy.blockedTimer=0;
+                if(!inventory.open){
+                    enemy.walkFrame++;
+                }
+            }else{
+                enemy.path=[];
+                enemy.pathTimer=0;
+                enemy.forceRepathTimer=0;
+                enemy.blockedTimer++;
+            }
+        }
+    }
+
+    const movedDistance=Math.sqrt((enemy.x-enemy.lastX)*(enemy.x-enemy.lastX)+(enemy.y-enemy.lastY)*(enemy.y-enemy.lastY));
+    if(movedDistance<0.12) enemy.stuckTimer++;
+    else enemy.stuckTimer=0;
+
+    enemy.lastX=enemy.x;
+    enemy.lastY=enemy.y;
+
+    if(enemy.stuckTimer>15){
+        const escape=findSodaEscapePosition(enemy);
+        if(escape){
+            const dx=escape.x-enemy.x;
+            const dy=escape.y-enemy.y;
+            const distance=Math.sqrt(dx*dx+dy*dy);
+            if(distance>0){
+                const nudge=Math.min(4, distance);
+                const nx=enemy.x+(dx/distance)*nudge;
+                const ny=enemy.y+(dy/distance)*nudge;
+                if(enemyCanOccupy(nx, ny, enemy, 1)){
+                    enemy.x=nx;
+                    enemy.y=ny;
+                }
+            }
+        }
+        enemy.path=[];
+        enemy.pathTimer=0;
+        enemy.forceRepathTimer=0;
+        enemy.stuckTimer=0;
+        enemy.blockedTimer=0;
+    }
+
+    if(enemy.blockedTimer>=3){
+        enemy.path=[];
+        enemy.pathTimer=0;
+        enemy.forceRepathTimer=0;
+        enemy.blockedTimer=0;
+    }
+
+    if(distraction){
+        const bottleDX=distraction.x-enemy.x;
+        const bottleDY=distraction.y-enemy.y;
+        if(Math.sqrt(bottleDX*bottleDX+bottleDY*bottleDY)<14){
+            enemy.path=[];
+            enemy.pathTimer=0;
+        }
+    }else{
+        const pPad = player.hitboxPadding;
+        const extendedPlayerRect = {
+            x: player.x - player.width / 2 - pPad,
+            y: player.y - player.height / 2 - pPad,
+            w: player.width + pPad * 2,
+            h: player.height + pPad * 2
+        };
+        const enemyRect = getSodaEnemyRect(enemy.x, enemy.y, 0);
+
+        if(rectanglesOverlap(extendedPlayerRect, enemyRect, 0)){
+            if(player.damageCooldownTimer <= 0){
+                playerHP.current = Math.max(0, playerHP.current - 20);
+                player.damageCooldownTimer = 30;
+                sounds.damage();
+                showPickupMessage("-20 Cola Power");
+
+                if(playerHP.current <= 0){
+                    gameState = "gameover";
+                }
+            }
+        }
+    }
+}
+
+function drawSodaEnemy(enemy){
+    if(!enemy) return;
+    const x=Math.round(enemy.x);
+    const y=Math.round(enemy.y);
+    const bob=(enemy.walkFrame%12<6)?1:0;
+
+    ctx.save();
+    ctx.fillStyle="#0007";
+    ctx.fillRect(x-8, y+9, 16, 4);
+
+    ctx.fillStyle="#713c2d";
+    ctx.fillRect(x-7, y-8+bob, 14, 17);
+
+    ctx.fillStyle="#a94831";
+    ctx.fillRect(x-6, y-2+bob, 12, 7);
+
+    ctx.fillStyle="#d3c49a";
+    ctx.fillRect(x-3, y-11+bob, 6, 4);
+
+    ctx.fillStyle="#e0d39d";
+    ctx.fillRect(x-6, y-1+bob, 12, 3);
+
+    ctx.fillStyle="#201b19";
+    ctx.fillRect(x-4, y+1+bob, 2, 2);
+    ctx.fillRect(x+2, y+1+bob, 2, 2);
+    ctx.fillRect(x-3, y+5+bob, 6, 2);
+    ctx.restore();
+}
+
+const SPAWN_ZONES={
+    center:{x:250, y:135, w:140, h:130},
+    north:{x:250, y:290, w:140, h:70},
+    south:{x:250, y:40, w:140, h:70},
+    west:{x:40, y:135, w:100, h:130},
+    east:{x:500, y:135, w:100, h:130}
+};
+
+function rectanglesOverlap(a, b, padding=0){
+    return (a.x-padding<b.x+b.w && a.x+a.w+padding>b.x && a.y-padding<b.y+b.h && a.y+a.h+padding>b.y);
+}
+
+function propOverlapsSpawnZone(x, y, w, h){
+    const prop={x, y, w, h};
+    for(const key in SPAWN_ZONES){
+        if(rectanglesOverlap(prop, SPAWN_ZONES[key], 8)) return true;
+    }
+    return false;
+}
+
+function propOverlapsObjects(x, y, w, h){
+    const prop={x, y, w, h};
+    for(const existing of room.objects){
+        if(rectanglesOverlap(prop, existing, 6)) return true;
+    }
+    return false;
+}
+
+function findSafePropPosition(w, h){
+    for(let attempt=0; attempt<80; attempt++){
+        const x=Math.round((60+Math.random()*(500-w))/10)*10;
+        const y=Math.round((70+Math.random()*(270-h))/10)*10;
+        if(propOverlapsSpawnZone(x, y, w, h)) continue;
+        if(propOverlapsObjects(x, y, w, h)) continue;
+        return {x, y};
+    }
+    return null;
+}
+
+function generateRoom(){
+    sodaEnemies=[];
+    sodaShards=[];
+    room.objects=[];
+    room.dirt=[];
+    room.cracks=[];
+    room.sodaStains=[];
+    room.pipes=[];
+    room.signs=[];
+    chest=null;
+    roomKey=null;
+
+    isKeyRoom = (Math.random() < 0.2);
+    roomUnlocked = !isKeyRoom;
+
+    for(let i=0; i<7; i++){
+        room.dirt.push({
+            x:55+Math.random()*530,
+            y:65+Math.random()*275,
+            w:5+Math.random()*22,
+            h:3+Math.random()*7,
+            alpha:0.12+Math.random()*0.22
+        });
+    }
+
+    for(let i=0; i<2; i++){
+        room.cracks.push({
+            x:60+Math.random()*520,
+            y:65+Math.random()*270,
+            length:10+Math.random()*35,
+            angle:Math.random()*Math.PI*2
+        });
+    }
+
+    for(let i=0; i<5; i++){
+        room.sodaStains.push({
+            x:65+Math.random()*500,
+            y:70+Math.random()*260,
+            w:8+Math.random()*25,
+            h:4+Math.random()*12,
+            alpha:0.08+Math.random()*0.12
+        });
+    }
+
+    for(let i=0; i<3; i++){
+        room.pipes.push({
+            x:60+Math.random()*470,
+            y:65+Math.random()*250,
+            length:40+Math.random()*100,
+            horizontal:Math.random()<0.5
+        });
+    }
+
+    const amount=7+Math.floor(Math.random()*4);
+    for(let i=0; i<amount; i++){
+        const types=["bottles","bottles","machine","machine","conveyor","barrel","crate"];
+        const type=types[Math.floor(Math.random()*types.length)];
+        const w=30+Math.floor(Math.random()*60);
+        const h=18+Math.floor(Math.random()*35);
+        const position=findSafePropPosition(w, h);
+        if(!position) continue;
+
+        room.objects.push({ x:position.x, y:position.y, w, h, type });
+    }
+
+    if(Math.random()<0.45){
+        const chestW=32;
+        const chestH=24;
+        const position=findSafePropPosition(chestW, chestH);
+        if(position){
+            chest={ x:position.x, y:position.y, w:chestW, h:chestH, opened:false, items:[] };
+            const amount=1+Math.floor(Math.random()*3);
+            for(let i=0; i<amount; i++){
+                const item=CHEST_ITEMS[Math.floor(Math.random()*CHEST_ITEMS.length)];
+                if(item==="Water Hose" && chest.items.includes("Water Hose")){
+                    i--;
+                    continue;
+                }
+                chest.items.push(item);
+            }
+        }
+    }
+
+    if(isKeyRoom){
+        for(let attempt=0; attempt<100; attempt++){
+            const kx = 80 + Math.random() * 480;
+            const ky = 90 + Math.random() * 220;
+            const kRect = {x: kx-6, y: ky-6, w: 12, h: 12};
+            
+            let safe = true;
+            if(propOverlapsSpawnZone(kRect.x, kRect.y, kRect.w, kRect.h)) safe = false;
+            for(const obj of room.objects){
+                if(rectanglesOverlap(kRect, obj, 8)) safe = false;
+            }
+            if(chest && rectanglesOverlap(kRect, chest, 8)) safe = false;
+
+            if(safe){
+                roomKey = { x: kx, y: ky, collected: false };
+                break;
+            }
+        }
+        if(!roomKey){
+            roomKey = { x: 320, y: 200, collected: false };
+        }
+    }
+
+    if(Math.random()<0.7){
+        room.signs.push({ x:80+Math.random()*400, y:8, text:"FIZZ & CO." });
+    }
+
+    spawnSodaEnemies();
+}
+
+function getDoors(){
+    if(roomNumber===1){
+        return { north:true, south:true, west:true, east:true };
+    }
+
+    if(!room.doors){
+        room.doors={
+            north:Math.random()<0.65,
+            south:Math.random()<0.65,
+            west:Math.random()<0.65,
+            east:Math.random()<0.65
+        };
+
+        let count=Number(room.doors.north)+Number(room.doors.south)+Number(room.doors.west)+Number(room.doors.east);
+        while(count<2){
+            const sides=["north","south","west","east"];
+            const side=sides[Math.floor(Math.random()*4)];
+            if(!room.doors[side]){
+                room.doors[side]=true;
+                count++;
+            }
+        }
+    }
+
+    if(isKeyRoom && !roomUnlocked){
+        return {
+            north: entranceDoor === "north",
+            south: entranceDoor === "south",
+            west: entranceDoor === "west",
+            east: entranceDoor === "east"
+        };
+    }
+
+    return room.doors;
+}
+
+room.doors={ north:true, south:true, west:true, east:true };
+generateRoom();
+
+function objectCollision(x, y){
+    const p={ x:x-player.width/2, y:y-player.height/2, w:player.width, h:player.height };
+    const doors=getDoors();
+
+    if(p.y<60){
+        if(!doors.north || entranceDoor==="north" || p.x+p.w<285 || p.x>355) return true;
+    }
+    if(p.y+p.h>350){
+        if(!doors.south || entranceDoor==="south" || p.x+p.w<285 || p.x>355) return true;
+    }
+    if(p.x<48){
+        if(!doors.west || entranceDoor==="west" || p.y+p.h<165 || p.y>235) return true;
+    }
+    if(p.x+p.w>592){
+        if(!doors.east || entranceDoor==="east" || p.y+p.h<165 || p.y>235) return true;
+    }
+
+    for(const r of room.objects){
+        if(p.x<r.x+r.w && p.x+p.w>r.x && p.y<r.y+r.h && p.y+p.h>r.y) return true;
+    }
+
+    if(chest && !chest.opened){
+        if(p.x<chest.x+chest.w && p.x+p.w>chest.x && p.y<chest.y+chest.h && p.y+p.h>chest.y) return true;
+    }
+
+    for(const enemy of sodaEnemies){
+        const eRect = getSodaEnemyRect(enemy.x, enemy.y, 0);
+        if(rectanglesOverlap(p, eRect, 0)) return true;
+    }
+
+    return false;
+}
+
+function checkDoor(){
+    const doors=getDoors();
+    if(player.y<45 && player.x>285 && player.x<355 && doors.north && entranceDoor!=="north") enterRoom("north");
+    else if(player.y>355 && player.x>285 && player.x<355 && doors.south && entranceDoor!=="south") enterRoom("south");
+    else if(player.x<40 && player.y>165 && player.y<235 && doors.west && entranceDoor!=="west") enterRoom("west");
+    else if(player.x>600 && player.y>165 && player.y<235 && doors.east && entranceDoor!=="east") enterRoom("east");
+}
+
+function enterRoom(from){
+    thrownBottles=[];
+    waterParticles=[];
+    sodaShards=[];
+    roomNumber++;
+    entranceDoor=null;
+    roomUnlocked=false;
+    generateRoom();
+
+    const oppositeDoor={ north:"south", south:"north", west:"east", east:"west" };
+    const entrance=oppositeDoor[from];
+
+    room.doors={
+        north:Math.random()<0.65,
+        south:Math.random()<0.65,
+        west:Math.random()<0.65,
+        east:Math.random()<0.65
+    };
+    room.doors[entrance]=true;
+
+    const possibleExits=["north","south","west","east"].filter(side=>side!==entrance);
+    if(!possibleExits.some(side=>room.doors[side])){
+        room.doors[possibleExits[Math.floor(Math.random()*possibleExits.length)]]=true;
+    }
+
+    if(from==="north"){ entranceDoor="south"; player.x=320; player.y=335; player.direction="up"; }
+    if(from==="south"){ entranceDoor="north"; player.x=320; player.y=70; player.direction="down"; }
+    if(from==="west"){ entranceDoor="east"; player.x=570; player.y=200; player.direction="left"; }
+    if(from==="east"){ entranceDoor="west"; player.x=70; player.y=200; player.direction="right"; }
+
+    spawnSodaEnemies();
+    if(playerOverlapsObject()) movePlayerToSafeSpawn(from);
+}
+
+function playerOverlapsObject(){
+    const p={ x:player.x-player.width/2, y:player.y-player.height/2, w:player.width, h:player.height };
+    for(const r of room.objects){
+        if(p.x<r.x+r.w && p.x+p.w>r.x && p.y<r.y+r.h && p.y+p.h>r.y) return true;
+    }
+    if(chest && !chest.opened){
+        if(p.x<chest.x+chest.w && p.x+p.w>chest.x && p.y<chest.y+chest.h && p.y+p.h>chest.y) return true;
+    }
+    for(const enemy of sodaEnemies){
+        const eRect = getSodaEnemyRect(enemy.x, enemy.y, 0);
+        if(rectanglesOverlap(p, eRect, 0)) return true;
+    }
+    return false;
+}
+
+function movePlayerToSafeSpawn(from){
+    const positions={ north:{x:320, y:335}, south:{x:320, y:70}, west:{x:570, y:200}, east:{x:70, y:200} };
+    const pos=positions[from];
+    if(pos){ player.x=pos.x; player.y=pos.y; }
+}
+
+function isPlayerNearChest(){
+    if(!chest || chest.opened) return false;
+    const distanceX=player.x-(chest.x+chest.w/2);
+    const distanceY=player.y-(chest.y+chest.h/2);
+    return Math.sqrt(distanceX*distanceX+distanceY*distanceY)<42;
+}
+
+function openNearbyChest(){
+    if(!chest || chest.opened || !isPlayerNearChest()) return;
+    chest.opened=true;
+    sounds.chest();
+    for(const itemName of chest.items){
+        addInventoryItem(itemName);
+    }
+    chest.items=[];
+    showPickupMessage("Chest opened!");
+}
+
+function addInventoryItem(itemName){
+    sounds.pickup();
+    if(itemName==="Water Hose"){
+        const existing=inventory.items.find(item=>item.name==="Water Hose");
+        if(existing) existing.quantity++;
+        else inventory.items.push({ name:"Water Hose", quantity:1, filledQuantity:0 });
+    }else{
+        const existing=inventory.items.find(item=>item.name===itemName);
+        if(existing) existing.quantity++;
+        else inventory.items.push({ name:itemName, quantity:1 });
+    }
+    showPickupMessage(itemName+" added!");
+}
+
+function showPickupMessage(message){
+    pickupMessage=message;
+    pickupMessageTimer=150;
+}
+
+function useInventoryItem(index){
+    const item=inventory.items[index];
+    if(!item) return;
+
+    if(item.name==="Cola Bottle"){
+        if(playerHP.current>=playerHP.max){
+            showPickupMessage("Cola Power is already full");
+            return;
+        }
+        playerHP.current=Math.min(playerHP.max, playerHP.current+10);
+        removeInventoryItem(index);
+        sounds.pickup();
+        showPickupMessage("+10 Cola Power");
+        return;
+    }
+
+    if(item.name==="Syrup"){
+        speedBoostTimer=600;
+        removeInventoryItem(index);
+        sounds.pickup();
+        showPickupMessage("Syrup: SPEED BOOST!");
+        return;
+    }
+
+    if(item.name==="Water Bottle"){
+        const hose=inventory.items.find(item=>item.name==="Water Hose" && item.filledQuantity<item.quantity);
+        if(!hose){
+            showPickupMessage("You don't have an empty Water Hose");
+            return;
+        }
+        hose.filledQuantity++;
+        removeInventoryItem(index);
+        sounds.pickup();
+        showPickupMessage("Water Hose refilled!");
+        return;
+    }
+
+    if(item.name==="Water Hose"){
+        if(player.equippedHose){
+            showPickupMessage("Water Hose already equipped");
+            return;
+        }
+        if(item.filledQuantity<=0){
+            showPickupMessage("The Water Hose is empty");
+            return;
+        }
+        player.equippedHose={ filled:1 };
+        item.quantity--;
+        item.filledQuantity--;
+        if(item.quantity<=0) inventory.items.splice(index, 1);
+        inventory.open=false;
+        sounds.pickup();
+        showPickupMessage("Water Hose equipped! SPACE to spray");
+        return;
+    }
+
+    if(item.name==="Empty Water Bottle"){
+        removeInventoryItem(index);
+        pendingBottleThrow=true;
+        showPickupMessage("Bottle ready to throw");
+        return;
+    }
+}
+
+function removeInventoryItem(index){
+    const item=inventory.items[index];
+    if(!item) return;
+    if(item.quantity && item.quantity>1) item.quantity--;
+    else inventory.items.splice(index, 1);
+}
+
+function throwEmptyBottle(){
+    sounds.throw();
+    const directionVectors={ up:{x:0,y:-1}, down:{x:0,y:1}, left:{x:-1,y:0}, right:{x:1,y:0} };
+    const dir=directionVectors[player.direction];
+    const startOffset=14;
+
+    thrownBottles.push({
+        x:player.x+dir.x*startOffset,
+        y:player.y+dir.y*startOffset,
+        vx:dir.x*BOTTLE_SETTINGS.speed,
+        vy:dir.y*BOTTLE_SETTINGS.speed,
+        rotation:0,
+        state:"rolling",
+        life:BOTTLE_SETTINGS.activeLife,
+        restingLife:BOTTLE_SETTINGS.restingLife,
+        radius:7
+    });
+}
+
+function updateThrownBottles(){
+    const pLeft = player.x - player.width / 2;
+    const pRight = player.x + player.width / 2;
+    const pTop = player.y - player.height / 2;
+    const pBottom = player.y + player.height / 2;
+
+    for(let i=thrownBottles.length-1; i>=0; i--){
+        const bottle=thrownBottles[i];
+
+        const bLeft = bottle.x - bottle.radius;
+        const bRight = bottle.x + bottle.radius;
+        const bTop = bottle.y - bottle.radius;
+        const bBottom = bottle.y + bottle.radius;
+
+        if(player.walking && pRight > bLeft && pLeft < bRight && pBottom > bTop && pTop < bBottom){
+            const kickAngle = Math.atan2(bottle.y - player.y, bottle.x - player.x);
+            const kickSpeed = (speedBoostTimer > 0 ? BOOSTED_SPEED : NORMAL_SPEED) * 1.2;
+            bottle.vx = Math.cos(kickAngle) * kickSpeed;
+            bottle.vy = Math.sin(kickAngle) * kickSpeed;
+            bottle.state = "rolling";
+        }
+
+        bottle.life--;
+        if(bottle.life <= 0){
+            thrownBottles.splice(i, 1);
+            continue;
+        }
+
+        if(bottle.state==="rolling"){
+            const oldX=bottle.x;
+            const oldY=bottle.y;
+            bottle.x+=bottle.vx;
+            bottle.y+=bottle.vy;
+            let blocked=false;
+
+            for(const r of room.objects){
+                if(bottle.x>r.x-5 && bottle.x<r.x+r.w+5 && bottle.y>r.y-5 && bottle.y<r.y+r.h+5){
+                    blocked=true;
+                    break;
+                }
+            }
+
+            if(blocked){
+                bottle.x=oldX;
+                bottle.y=oldY;
+                if(Math.abs(bottle.vx)>Math.abs(bottle.vy)){
+                    bottle.vx*=-BOTTLE_SETTINGS.obstacleBounce;
+                    bottle.vy*=0.75;
+                }else{
+                    bottle.vy*=-BOTTLE_SETTINGS.obstacleBounce;
+                    bottle.vx*=0.75;
+                }
+            }
+
+            bottle.vx*=BOTTLE_SETTINGS.friction;
+            bottle.vy*=BOTTLE_SETTINGS.friction;
+            bottle.rotation+=Math.sqrt(bottle.vx*bottle.vx+bottle.vy*bottle.vy)*0.12;
+
+            if(bottle.x<55){ bottle.x=55; bottle.vx=Math.abs(bottle.vx)*BOTTLE_SETTINGS.wallBounce; }
+            if(bottle.x>585){ bottle.x=585; bottle.vx=-Math.abs(bottle.vx)*BOTTLE_SETTINGS.wallBounce; }
+            if(bottle.y<65){ bottle.y=65; bottle.vy=Math.abs(bottle.vy)*BOTTLE_SETTINGS.wallBounce; }
+            if(bottle.y>345){ bottle.y=345; bottle.vy=-Math.abs(bottle.vy)*BOTTLE_SETTINGS.wallBounce; }
+
+            const currentSpeed=Math.sqrt(bottle.vx*bottle.vx+bottle.vy*bottle.vy);
+            if(currentSpeed<BOTTLE_SETTINGS.minimumSpeed){
+                bottle.vx=0;
+                bottle.vy=0;
+                bottle.state="resting";
+            }
+        }
+    }
+}
+
+function drawThrownBottles(){
+    for(const bottle of thrownBottles){
+        ctx.save();
+        ctx.translate(bottle.x, bottle.y);
+        ctx.rotate(bottle.rotation);
+
+        ctx.fillStyle="#0007";
+        ctx.fillRect(-7, 3, 15, 4);
+
+        if(bottle.state==="resting"){
+            ctx.fillStyle="#0008";
+            ctx.fillRect(-8, 3, 17, 4);
+        }
+
+        ctx.fillStyle="#aeb7ad";
+        ctx.fillRect(-5, -3, 10, 6);
+        ctx.fillStyle="#c8cec5";
+        ctx.fillRect(-2, -5, 4, 3);
+        ctx.fillStyle="#7e8981";
+        ctx.fillRect(-5, -1, 10, 2);
+        ctx.fillStyle="#d9ddd7";
+        ctx.fillRect(-4, -2, 2, 1);
+        ctx.restore();
+    }
+}
+
+function drawFloor(){
+    ctx.fillStyle="#77736c";
+    ctx.fillRect(0, 0, 640, 400);
+
+    for(let y=60; y<350; y+=32){
+        for(let x=48; x<592; x+=48){
+            ctx.fillStyle=((x/48+y/32)%2)?"#7b7770":"#747069";
+            ctx.fillRect(x, y, 47, 31);
+            ctx.fillStyle="#68655f";
+            ctx.fillRect(x+46, y, 1, 31);
+            ctx.fillRect(x, y+30, 47, 1);
+        }
+    }
+
+    for(const d of room.dirt){
+        ctx.fillStyle=`rgba(55,53,48,${d.alpha*0.45})`;
+        ctx.fillRect(d.x, d.y, d.w, d.h);
+    }
+
+    for(const stain of room.sodaStains){
+        ctx.fillStyle=`rgba(92,42,24,${stain.alpha*0.55})`;
+        ctx.fillRect(stain.x, stain.y, stain.w, stain.h);
+    }
+
+    ctx.fillStyle="#b7a35f";
+    ctx.fillRect(58, 78, 5, 54);
+    ctx.fillRect(58, 78, 20, 5);
+    ctx.fillRect(517, 318, 5, 24);
+    ctx.fillRect(517, 337, 30, 5);
+
+    ctx.strokeStyle="#5b5852";
+    ctx.lineWidth=1;
+
+    for(const crack of room.cracks){
+        ctx.beginPath();
+        ctx.moveTo(crack.x, crack.y);
+        ctx.lineTo(crack.x+Math.cos(crack.angle)*crack.length, crack.y+Math.sin(crack.angle)*crack.length);
+        ctx.stroke();
+    }
+}
+
+function drawKey(){
+    if(!roomKey || roomKey.collected) return;
+    const kx = Math.round(roomKey.x);
+    const ky = Math.round(roomKey.y);
+
+    ctx.fillStyle = "#0005";
+    ctx.fillRect(kx - 4, ky + 4, 8, 3);
+
+    ctx.fillStyle = "#e3d99a";
+    ctx.fillRect(kx - 3, ky - 3, 6, 6);
+    ctx.fillStyle = "#302821";
+    ctx.fillRect(kx - 1, ky - 1, 2, 2);
+    ctx.fillStyle = "#e3d99a";
+    ctx.fillRect(kx + 2, ky, 5, 2);
+    ctx.fillRect(kx + 4, ky + 2, 2, 2);
+    ctx.fillRect(kx + 6, ky + 2, 2, 2);
+}
+
+function updateKey(){
+    if(!roomKey || roomKey.collected) return;
+    const dx = player.x - roomKey.x;
+    const dy = player.y - roomKey.y;
+    if(Math.hypot(dx, dy) < 16){
+        roomKey.collected = true;
+        roomUnlocked = true;
+        sounds.pickup();
+        showPickupMessage("Found Room Key! Exits unlocked.");
+    }
+}
+
+function drawPipes(){
+    for(const pipe of room.pipes){
+        ctx.lineWidth=8;
+        ctx.strokeStyle="#687071";
+        ctx.beginPath();
+
+        if(pipe.horizontal){
+            ctx.moveTo(pipe.x, pipe.y);
+            ctx.lineTo(pipe.x+pipe.length, pipe.y);
+        }else{
+            ctx.moveTo(pipe.x, pipe.y);
+            ctx.lineTo(pipe.x, pipe.y+pipe.length);
+        }
+        ctx.stroke();
+
+        ctx.lineWidth=2;
+        ctx.strokeStyle="#a1a6a5";
+        ctx.beginPath();
+
+        if(pipe.horizontal){
+            ctx.moveTo(pipe.x, pipe.y-2);
+            ctx.lineTo(pipe.x+pipe.length, pipe.y-2);
+        }else{
+            ctx.moveTo(pipe.x-2, pipe.y);
+            ctx.lineTo(pipe.x-2, pipe.y+pipe.length);
+        }
+        ctx.stroke();
+
+        ctx.fillStyle="#424849";
+        if(pipe.horizontal){
+            ctx.fillRect(pipe.x+pipe.length/2-3, pipe.y-5, 6, 10);
+            const lightX=pipe.x+pipe.length-6;
+            const lightY=pipe.y-8;
+            ctx.fillStyle=(Math.floor(factoryPulse/18)%2===0)?"#7bc36a":"#4f8d45";
+            ctx.fillRect(lightX, lightY, 4, 4);
+        }else{
+            ctx.fillRect(pipe.x-5, pipe.y+pipe.length/2-3, 10, 6);
+            const lightX=pipe.x+6;
+            const lightY=pipe.y+pipe.length-6;
+            ctx.fillStyle=(Math.floor(factoryPulse/18)%2===0)?"#7bc36a":"#4f8d45";
+            ctx.fillRect(lightX, lightY, 4, 4);
+        }
+    }
+}
+
+function drawWalls(){
+    const doors=getDoors();
+
+    ctx.fillStyle="#4a5353";
+    ctx.fillRect(0, 0, 640, 60);
+    ctx.fillStyle="#303738";
+    ctx.fillRect(0, 51, 640, 9);
+
+    for(let x=70; x<570; x+=92){
+        ctx.fillStyle="#252d2e";
+        ctx.fillRect(x, 11, 66, 31);
+        ctx.fillStyle="#789096";
+        ctx.fillRect(x+4, 15, 58, 23);
+        ctx.fillStyle="#b8d0b0";
+        ctx.fillRect(x+7, 18, 52, 17);
+
+        ctx.fillStyle="#3f4b4c";
+        for(let i=1; i<4; i++){
+            ctx.fillRect(x+4+i*14, 15, 2, 23);
+        }
+        ctx.fillStyle="#e3d99a";
+        ctx.fillRect(x+10, 17, 10, 2);
+        ctx.fillRect(x+38, 17, 10, 2);
+    }
+
+    ctx.fillStyle="#41494a";
+    if(doors.west){
+        ctx.fillRect(0, 0, 48, 165);
+        ctx.fillRect(0, 235, 48, 165);
+    }else{
+        ctx.fillRect(0, 0, 48, 400);
+    }
+
+    if(doors.east){
+        ctx.fillRect(592, 0, 48, 165);
+        ctx.fillRect(592, 235, 48, 165);
+    }else{
+        ctx.fillRect(592, 0, 48, 400);
+    }
+
+    if(doors.north){
+        ctx.fillStyle="#41494a";
+        ctx.fillRect(0, 0, 285, 60);
+        ctx.fillRect(355, 0, 285, 60);
+    }
+
+    ctx.fillStyle="#363d3e";
+    if(doors.south){
+        ctx.fillRect(0, 350, 285, 50);
+        ctx.fillRect(355, 350, 285, 50);
+    }else{
+        ctx.fillRect(0, 350, 640, 50);
+    }
+
+    ctx.fillStyle="#202526";
+    if(doors.north){
+        ctx.fillRect(280, 0, 8, 60);
+        ctx.fillRect(352, 0, 8, 60);
+        ctx.fillStyle="#8bb66f";
+        ctx.fillRect(289, 8, 3, 34);
+        ctx.fillRect(345, 8, 3, 34);
+    }
+    if(doors.south){
+        ctx.fillStyle="#202526";
+        ctx.fillRect(280, 350, 8, 50);
+        ctx.fillRect(352, 350, 8, 50);
+        ctx.fillStyle="#8bb66f";
+        ctx.fillRect(289, 358, 3, 28);
+        ctx.fillRect(345, 358, 3, 28);
+    }
+    if(doors.west){
+        ctx.fillStyle="#202526";
+        ctx.fillRect(0, 160, 48, 8);
+        ctx.fillRect(0, 232, 48, 8);
+    }
+    if(doors.east){
+        ctx.fillStyle="#202526";
+        ctx.fillRect(592, 160, 48, 8);
+        ctx.fillRect(592, 232, 48, 8);
+    }
+
+    for(const sign of room.signs){
+        ctx.fillStyle="#173b31";
+        ctx.fillRect(sign.x, sign.y, 110, 30);
+        ctx.strokeStyle="#b7c7a2";
+        ctx.lineWidth=2;
+        ctx.strokeRect(sign.x, sign.y, 110, 30);
+        ctx.fillStyle="#e0d79d";
+        ctx.font="bold 11px monospace";
+        ctx.fillText(sign.text, sign.x+13, sign.y+20);
+    }
+
+    ctx.fillStyle="#252a2a";
+    for(let x=180; x<=460; x+=70){
+        ctx.fillRect(x, 43, 30, 5);
+        ctx.fillStyle=(Math.floor(factoryPulse/24+x)%2===0)?"#e5dfac":"#c9c28f";
+        ctx.fillRect(x+5, 48, 20, 3);
+        ctx.fillStyle="#252a2a";
+    }
+}
+
+function drawObjects(){
+    for(const r of room.objects){
+        if(r.type==="bottles"){
+            ctx.fillStyle="#6c553d";
+            ctx.fillRect(r.x, r.y, r.w, r.h);
+            ctx.strokeStyle="#3c3025";
+            ctx.lineWidth=2;
+            ctx.strokeRect(r.x+2, r.y+2, r.w-4, r.h-4);
+
+            const bottleCount=Math.max(2, Math.floor(r.w/15));
+            for(let i=0; i<bottleCount; i++){
+                const bx=r.x+5+i*13;
+                if(bx+8>r.x+r.w-3) break;
+                ctx.fillStyle="#7a4a2f";
+                ctx.fillRect(bx, r.y+7, 7, Math.min(17, r.h-9));
+                ctx.fillStyle="#c5b48d";
+                ctx.fillRect(bx+1, r.y+3, 5, 2);
+                ctx.fillStyle="#a8432d";
+                ctx.fillRect(bx, r.y+11, 7, 4);
+            }
+            if(r.w>45){
+                ctx.fillStyle="#d9d09a";
+                ctx.font="6px monospace";
+                ctx.fillText("READY", r.x+4, r.y+r.h-3);
+            }
+        }else if(r.type==="machine"){
+            ctx.fillStyle="#4b5555";
+            ctx.fillRect(r.x, r.y, r.w, r.h);
+            ctx.fillStyle="#697574";
+            ctx.fillRect(r.x+4, r.y+4, r.w-8, 5);
+            ctx.fillStyle="#253030";
+            ctx.fillRect(r.x+6, r.y+11, Math.min(22, r.w-12), Math.min(18, r.h-14));
+
+            ctx.fillStyle="#b8d0c0";
+            for(let yy=r.y+14; yy<r.y+r.h-3; yy+=5){
+                ctx.fillRect(r.x+9, yy, Math.min(16, r.w-18), 2);
+            }
+
+            ctx.fillStyle="#9a4936";
+            ctx.fillRect(r.x+5, r.y+r.h-8, r.w-10, 4);
+
+            if(r.w>45){
+                ctx.fillStyle=(Math.floor(factoryPulse/18)%2===0)?"#7bc36a":"#4f8d45";
+                ctx.fillRect(r.x+r.w-17, r.y+8, 10, 10);
+                ctx.fillStyle="#dce3c2";
+                ctx.fillRect(r.x+r.w-14, r.y+10, 4, 4);
+            }
+
+            ctx.fillStyle="#2b3030";
+            ctx.fillRect(r.x+r.w-30, r.y+12, 9, 15);
+            ctx.fillStyle="#d4c875";
+            ctx.fillRect(r.x+r.w-28, r.y+15, 5, 2);
+            ctx.fillStyle="#7bc36a";
+            ctx.fillRect(r.x+r.w-28, r.y+20, 5, 2);
+        }else if(r.type==="conveyor"){
+            ctx.fillStyle="#3a4141";
+            ctx.fillRect(r.x, r.y, r.w, r.h);
+            ctx.fillStyle="#222828";
+            ctx.fillRect(r.x+3, r.y+5, r.w-6, r.h-10);
+
+            ctx.strokeStyle="#7a827f";
+            ctx.lineWidth=2;
+            for(let bx=r.x+7; bx<r.x+r.w-4; bx+=12){
+                ctx.beginPath();
+                ctx.moveTo(bx, r.y+5);
+                ctx.lineTo(bx, r.y+r.h-5);
+                ctx.stroke();
+            }
+
+            ctx.fillStyle="#c8b96a";
+            const offset=(factoryPulse/3)%16;
+            for(let bx=r.x+8-offset; bx<r.x+r.w-4; bx+=16){
+                ctx.fillRect(bx, r.y+r.h/2-2, 7, 4);
+            }
+
+            if(r.w>45){
+                const bx=r.x+8+(factoryPulse%Math.max(12, r.w-18));
+                ctx.fillStyle="#8a4b32";
+                ctx.fillRect(bx, r.y+7, 6, 11);
+                ctx.fillStyle="#d2c59a";
+                ctx.fillRect(bx+1, r.y+5, 4, 3);
+            }
+        }else if(r.type==="barrel"){
+            ctx.fillStyle="#5a4b3d";
+            ctx.fillRect(r.x+4, r.y, r.w-8, r.h);
+            ctx.strokeStyle="#292723";
+            ctx.lineWidth=3;
+            ctx.strokeRect(r.x+4, r.y+3, r.w-8, r.h-6);
+
+            ctx.fillStyle="#7f4a35";
+            ctx.fillRect(r.x+9, r.y+r.h/2-4, r.w-18, 8);
+            ctx.fillStyle="#d2c27a";
+            ctx.font="6px monospace";
+            ctx.fillText("SYRUP", r.x+8, r.y+r.h/2+2);
+        }else{
+            ctx.fillStyle="#625544";
+            ctx.fillRect(r.x, r.y, r.w, r.h);
+            ctx.strokeStyle="#3a3128";
+            ctx.lineWidth=2;
+            ctx.strokeRect(r.x+2, r.y+2, r.w-4, r.h-4);
+            ctx.beginPath();
+            ctx.moveTo(r.x, r.y);
+            ctx.lineTo(r.x+r.w, r.y+r.h);
+            ctx.moveTo(r.x+r.w, r.y);
+            ctx.lineTo(r.x, r.y+r.h);
+            ctx.stroke();
+
+            if(r.w>45){
+                ctx.fillStyle="#c0ad71";
+                ctx.font="7px monospace";
+                ctx.fillText("FIZZ", r.x+5, r.y+r.h/2);
+                ctx.fillStyle="#6fa566";
+                ctx.fillRect(r.x+r.w-12, r.y+5, 6, 3);
+            }
+        }
+    }
+}
+
+function drawChest(){
+    if(!chest) return;
+    const x=Math.round(chest.x);
+    const y=Math.round(chest.y);
+
+    ctx.fillStyle="#0007";
+    ctx.fillRect(x-2, y+chest.h-1, chest.w+4, 5);
+
+    ctx.fillStyle=chest.opened?"rgba(72,55,42,0.7)":"#604632";
+    ctx.fillRect(x, y, chest.w, chest.h);
+
+    ctx.strokeStyle="#2c211b";
+    ctx.lineWidth=2;
+    ctx.strokeRect(x+1, y+1, chest.w-2, chest.h-2);
+
+    ctx.fillStyle=chest.opened?"rgba(91,69,51,0.6)":"#76543a";
+    ctx.fillRect(x+2, y+2, chest.w-4, 7);
+
+    if(!chest.opened){
+        ctx.fillStyle="#b49a63";
+        ctx.fillRect(x+chest.w/2-3, y+8, 6, 7);
+        ctx.fillStyle="#302821";
+        ctx.fillRect(x+chest.w/2-1, y+10, 2, 3);
+    }
+
+    if(!chest.opened && isPlayerNearChest()){
+        ctx.fillStyle="#000a";
+        ctx.fillRect(x-10, y-17, chest.w+20, 13);
+        ctx.fillStyle="#d0cbc1";
+        ctx.font="9px monospace";
+        ctx.textAlign="center";
+        ctx.fillText("SPACE: OPEN", x+chest.w/2, y-8);
+        ctx.textAlign="left";
+    }
+}
+
+function drawPlayer(){
+    const x=Math.round(player.x-player.width/2);
+    const y=Math.round(player.y-player.height/2);
+    const bob=(player.walking && player.animation%12<6)?1:0;
+
+    ctx.fillStyle="#0006";
+    ctx.fillRect(x-4, y+20, 24, 4);
+
+    if(player.direction==="down"){
+        ctx.fillStyle="#263342";
+        ctx.fillRect(x+1, y+12+bob, 5, 9);
+        ctx.fillRect(x+9, y+12-bob, 5, 9);
+        ctx.fillStyle="#493536";
+        ctx.fillRect(x, y+6, 15, 10);
+        ctx.fillStyle="#9a5542";
+        ctx.fillRect(x+4, y+9, 7, 3);
+        ctx.fillStyle="#c58b62";
+        ctx.fillRect(x+2, y, 11, 9);
+        ctx.fillStyle="#39291f";
+        ctx.fillRect(x+2, y, 11, 4);
+        ctx.fillRect(x+1, y+3, 3, 6);
+        ctx.fillStyle="#202020";
+        ctx.fillRect(x+4, y+5, 2, 2);
+        ctx.fillRect(x+9, y+5, 2, 2);
+    }else if(player.direction==="up"){
+        ctx.fillStyle="#263342";
+        ctx.fillRect(x+1, y+12+bob, 5, 9);
+        ctx.fillRect(x+9, y+12-bob, 5, 9);
+        ctx.fillStyle="#493536";
+        ctx.fillRect(x, y+6, 15, 10);
+        ctx.fillStyle="#783f34";
+        ctx.fillRect(x+4, y+9, 7, 3);
+        ctx.fillStyle="#39291f";
+        ctx.fillRect(x+1, y, 13, 10);
+        ctx.fillStyle="#574538";
+        ctx.fillRect(x+3, y+2, 9, 5);
+    }else if(player.direction==="left"){
+        ctx.fillStyle="#263342";
+        ctx.fillRect(x+2, y+12+bob, 5, 9);
+        ctx.fillRect(x+8, y+12-bob, 5, 9);
+        ctx.fillStyle="#493536";
+        ctx.fillRect(x+2, y+6, 13, 10);
+        ctx.fillStyle="#9a5542";
+        ctx.fillRect(x+5, y+9, 7, 3);
+        ctx.fillStyle="#c58b62";
+        ctx.fillRect(x+3, y, 10, 10);
+        ctx.fillStyle="#39291f";
+        ctx.fillRect(x+3, y, 10, 4);
+        ctx.fillRect(x+2, y+3, 5, 7);
+        ctx.fillStyle="#202020";
+        ctx.fillRect(x+3, y+5, 2, 2);
+        ctx.fillStyle="#c58b62";
+        ctx.fillRect(x, y+8, 4, 6);
+    }else if(player.direction==="right"){
+        ctx.fillStyle="#263342";
+        ctx.fillRect(x+1, y+12+bob, 5, 9);
+        ctx.fillRect(x+8, y+12-bob, 5, 9);
+        ctx.fillStyle="#493536";
+        ctx.fillRect(x, y+6, 13, 10);
+        ctx.fillStyle="#9a5542";
+        ctx.fillRect(x+4, y+9, 7, 3);
+        ctx.fillStyle="#c58b62";
+        ctx.fillRect(x+2, y, 10, 10);
+        ctx.fillStyle="#39291f";
+        ctx.fillRect(x+2, y, 10, 4);
+        ctx.fillRect(x+9, y+3, 5, 7);
+        ctx.fillStyle="#202020";
+        ctx.fillRect(x+10, y+5, 2, 2);
+        ctx.fillStyle="#c58b62";
+        ctx.fillRect(x+12, y+8, 4, 6);
+    }
+    drawEquippedHose();
+}
+
+function drawRoomNumber(){
+    ctx.fillStyle="#0009";
+    ctx.fillRect(12, 12, 158, 25);
+    ctx.fillStyle="#9a5542";
+    ctx.fillRect(12, 12, 4, 25);
+    ctx.fillStyle="#c4c0b7";
+    ctx.font="12px monospace";
+    ctx.fillText("BOTTLING ROOM "+roomNumber, 22, 29);
+}
+
+function drawHPBar(){
+    const x=12, y=45, width=158, height=18;
+    ctx.fillStyle="#0009";
+    ctx.fillRect(x, y, width, height);
+    ctx.fillStyle="#242727";
+    ctx.fillRect(x+3, y+3, width-6, height-6);
+
+    const hpWidth=(playerHP.current/playerHP.max)*(width-6);
+    ctx.fillStyle="#9a5542";
+    ctx.fillRect(x+3, y+3, hpWidth, height-6);
+
+    ctx.fillStyle="#d0cbc1";
+    ctx.font="10px monospace";
+    ctx.fillText("Cola Power "+playerHP.current+"/"+playerHP.max, x+10, y+13);
+}
+
+function drawInventoryPrompt() {
+    ctx.fillStyle = "#0009";
+    ctx.fillRect(525, 365, 105, 24);
+    ctx.fillStyle = "#9a5542";
+    ctx.fillRect(525, 365, 4, 24);
+    ctx.fillStyle = "#d0cbc1";
+    ctx.font = "bold 11px monospace";
+    ctx.fillText("[E] INVENTORY", 536, 381);
+}
+
+function drawPickupMessage(){
+    if(pickupMessageTimer<=0) return;
+    pickupMessageTimer--;
+
+    const width=Math.max(180, pickupMessage.length*7+30);
+    const x=320-width/2;
+
+    ctx.fillStyle="#000b";
+    ctx.fillRect(x, 70, width, 25);
+    ctx.fillStyle="#9a5542";
+    ctx.fillRect(x, 70, 4, 25);
+    ctx.fillStyle="#d0cbc1";
+    ctx.font="11px monospace";
+    ctx.textAlign="center";
+    ctx.fillText(pickupMessage, 320, 87);
+    ctx.textAlign="left";
+}
+
+function drawInventory(){
+    if(!inventory.open) return;
+
+    ctx.fillStyle="rgba(0,0,0,0.65)";
+    ctx.fillRect(0, 0, 640, 400);
+
+    const panelX=165, panelY=55, panelW=310, panelH=290;
+    ctx.fillStyle="#151719";
+    ctx.fillRect(panelX, panelY, panelW, panelH);
+    ctx.fillStyle="#353838";
+    ctx.fillRect(panelX+5, panelY+5, panelW-10, panelH-10);
+
+    ctx.fillStyle="#242727";
+    ctx.fillRect(panelX+5, panelY+5, panelW-10, 40);
+    ctx.fillStyle="#9a5542";
+    ctx.fillRect(panelX+5, panelY+5, 5, 40);
+    ctx.fillStyle="#d0cbc1";
+    ctx.font="bold 16px monospace";
+    ctx.fillText("INVENTORY", panelX+22, panelY+30);
+
+    function drawInventoryIcon(name, x, y){
+        ctx.save();
+        ctx.fillStyle="#252828";
+        ctx.fillRect(x, y, 22, 22);
+        ctx.strokeStyle="#4c4e4b";
+        ctx.lineWidth=1;
+        ctx.strokeRect(x+0.5, y+0.5, 21, 21);
+
+        if(name==="Cola Bottle"){
+            ctx.fillStyle="#c7c0a2"; ctx.fillRect(x+8, y+3, 6, 3);
+            ctx.fillStyle="#75402d"; ctx.fillRect(x+6, y+6, 10, 12);
+            ctx.fillStyle="#a94732"; ctx.fillRect(x+7, y+10, 8, 5);
+            ctx.fillStyle="#d2c59a"; ctx.fillRect(x+7, y+9, 8, 2);
+        }else if(name==="Syrup"){
+            ctx.fillStyle="#c7c0a2"; ctx.fillRect(x+8, y+3, 6, 3);
+            ctx.fillStyle="#6d4030"; ctx.fillRect(x+6, y+6, 10, 12);
+            ctx.fillStyle="#8f5237"; ctx.fillRect(x+8, y+8, 6, 7);
+            ctx.fillStyle="#d2c59a"; ctx.fillRect(x+7, y+15, 8, 2);
+        }else if(name==="Water Hose"){
+            ctx.strokeStyle="#7ca4b5"; ctx.lineWidth=3;
+            ctx.beginPath(); ctx.arc(x+11, y+11, 6, 0, Math.PI*1.7); ctx.stroke();
+            ctx.fillStyle="#b8c9cc"; ctx.fillRect(x+14, y+5, 4, 4);
+            ctx.fillRect(x+15, y+14, 3, 3);
+        }else if(name==="Water Bottle"){
+            ctx.fillStyle="#d2d9d4"; ctx.fillRect(x+8, y+3, 6, 3);
+            ctx.fillStyle="#86aeb8"; ctx.fillRect(x+6, y+6, 10, 12);
+            ctx.fillStyle="#b8d0d0"; ctx.fillRect(x+8, y+8, 3, 7);
+            ctx.fillStyle="#d2d9d4"; ctx.fillRect(x+7, y+16, 8, 2);
+        }else if(name==="Empty Water Bottle"){
+            ctx.fillStyle="#c8cec5"; ctx.fillRect(x+8, y+3, 6, 3);
+            ctx.fillStyle="#8d9690"; ctx.fillRect(x+6, y+6, 10, 12);
+            ctx.fillStyle="#bfc6bf"; ctx.fillRect(x+8, y+8, 2, 7);
+            ctx.fillStyle="#6e7771"; ctx.fillRect(x+7, y+16, 8, 2);
+        }
+        ctx.restore();
+    }
+
+    if(inventory.items.length===0){
+        ctx.fillStyle="#807d76";
+        ctx.font="14px monospace";
+        ctx.textAlign="center";
+        ctx.fillText("EMPTY", 320, 180);
+        ctx.font="10px monospace";
+        ctx.fillStyle="#64625d";
+        ctx.fillText("No items collected", 320, 201);
+        ctx.textAlign="left";
+    }else{
+        let y=110;
+        let hoveredIndex=-1;
+
+        for(let i=0; i<inventory.items.length; i++){
+            const item=inventory.items[i];
+            const hovered=
+                inventoryMouse.x>=panelX+15 &&
+                inventoryMouse.x<=panelX+panelW-15 &&
+                inventoryMouse.y>=y-15 &&
+                inventoryMouse.y<=y+13;
+
+            if(hovered) hoveredIndex=i;
+
+            if(hovered){
+                ctx.fillStyle="#4b4c49";
+                ctx.fillRect(panelX+15, y-15, panelW-30, 28);
+            }
+
+            drawInventoryIcon(item.name, panelX+19, y-11);
+
+            ctx.fillStyle=hovered?"white":"#c4c0b7";
+            ctx.font="12px monospace";
+            ctx.fillText(item.name, panelX+48, y+3);
+
+            if(item.name==="Water Hose"){
+                const emptyQuantity=item.quantity-item.filledQuantity;
+                ctx.fillStyle=item.filledQuantity>0?"#7ca4b5":"#77746e";
+                if(item.filledQuantity>0 && emptyQuantity>0){
+                    ctx.fillText("FULL "+item.filledQuantity+" / EMPTY "+emptyQuantity, panelX+155, y+3);
+                }else{
+                    ctx.fillText(item.filledQuantity>0?"FULL":"EMPTY", panelX+180, y+3);
+                }
+            }
+
+            if(item.quantity){
+                ctx.fillStyle="#9a5542";
+                ctx.fillText("x"+item.quantity, panelX+250, y+3);
+            }
+            y+=30;
+        }
+
+        if(hoveredIndex!==-1){
+            const item=inventory.items[hoveredIndex];
+            const description=ITEM_DESCRIPTIONS[item.name]||"";
+            const tooltipX=panelX+15;
+            const tooltipY=panelY+panelH-55;
+            const tooltipW=panelW-30;
+            const tooltipH=39;
+
+            ctx.save();
+            ctx.fillStyle="#111313";
+            ctx.fillRect(tooltipX, tooltipY, tooltipW, tooltipH);
+            ctx.strokeStyle="#555752";
+            ctx.lineWidth=1;
+            ctx.strokeRect(tooltipX+0.5, tooltipY+0.5, tooltipW-1, tooltipH-1);
+
+            ctx.fillStyle="#aaa69d";
+            ctx.font="8px monospace";
+            const maxWidth=tooltipW-16;
+            const words=description.split(" ");
+            const lines=[];
+            let line="";
+
+            for(const word of words){
+                const test=line?line+" "+word:word;
+                if(ctx.measureText(test).width>maxWidth && line){
+                    lines.push(line);
+                    line=word;
+                }else{
+                    line=test;
+                }
+            }
+            if(line) lines.push(line);
+
+            for(let i=0; i<Math.min(lines.length, 3); i++){
+                ctx.fillText(lines[i], tooltipX+8, tooltipY+13+i*9);
+            }
+            ctx.restore();
+        }
+    }
+
+    ctx.fillStyle="#242727";
+    ctx.fillRect(panelX+5, panelY+250, panelW-10, 30);
+    ctx.fillStyle="#8b8880";
+    ctx.font="10px monospace";
+    ctx.textAlign="center";
+    ctx.fillText("CLICK ITEM TO EQUIP/USE  •  E TO CLOSE", 320, panelY+270);
+    ctx.textAlign="left";
+}
+
+
+/* =========================================================
+   SCREENS: MENU & GAMEOVER
+========================================================= */
+
+function drawMenu(){
+    ctx.fillStyle="#08090a";
+    ctx.fillRect(0, 0, 640, 400);
+
+    ctx.fillStyle="#111315";
+    for(let y=0; y<400; y+=40){
+        ctx.fillRect(0, y, 640, 1);
+    }
+    for(let x=0; x<640; x+=40){
+        ctx.fillRect(x, 0, 1, 400);
+    }
+
+    ctx.fillStyle="#151719";
+    ctx.fillRect(120, 80, 400, 200);
+    ctx.strokeStyle="#9a5542";
+    ctx.lineWidth=4;
+    ctx.strokeRect(120, 80, 400, 200);
+
+    ctx.fillStyle="#d0cbc1";
+    ctx.font="bold 36px monospace";
+    ctx.textAlign="center";
+    ctx.fillText("Cola Fabriek", 320, 145);
+
+    ctx.fillStyle="#9a5542";
+    ctx.font="bold 14px monospace";
+    ctx.fillText("VERSION 0.5 (NOT FINISHED!!!)", 320, 175);
+
+    ctx.fillStyle="#8b8880";
+    ctx.font="11px monospace";
+    ctx.fillText("Created by @tommy using ChatGPT and Gemini", 320, 215);
+
+    if(Math.floor(Date.now()/400)%2===0){
+        ctx.fillStyle="#e3d99a";
+        ctx.font="bold 12px monospace";
+        ctx.fillText("PRESS SPACE TO START", 320, 325);
+    }
+
+    ctx.textAlign="left";
+}
+
+function drawGameOver(){
+    ctx.fillStyle="rgba(8, 9, 10, 0.85)";
+    ctx.fillRect(0, 0, 640, 400);
+
+    ctx.fillStyle="#151719";
+    ctx.fillRect(120, 100, 400, 200);
+    ctx.strokeStyle="#9a5542";
+    ctx.lineWidth=4;
+    ctx.strokeRect(120, 100, 400, 200);
+
+    ctx.fillStyle="#9a5542";
+    ctx.font="bold 42px monospace";
+    ctx.textAlign="center";
+    ctx.fillText("Cola'd!", 320, 170);
+
+    ctx.fillStyle="#d0cbc1";
+    ctx.font="12px monospace";
+    ctx.fillText("You ran out of cola power!", 320, 215);
+
+    if(Math.floor(Date.now()/400)%2===0){
+        ctx.fillStyle="#e3d99a";
+        ctx.font="bold 11px monospace";
+        ctx.fillText("PRESS ENTER TO RESTART ROOM 1", 320, 260);
+    }
+
+    ctx.textAlign="left";
+}
+
+function startGame(){
+    gameState = "playing";
+    resetGame();
+}
+
+function resetGame(){
+    roomNumber = 1;
+    playerHP.current = playerHP.max;
+    player.x = 320;
+    player.y = 205;
+    player.equippedHose = null;
+    player.damageCooldownTimer = 0;
+    inventory.items = [];
+    inventory.open = false;
+    thrownBottles = [];
+    sodaShards = [];
+    waterParticles = [];
+    entranceDoor = null;
+    roomKey = null;
+    isKeyRoom = false;
+    roomUnlocked = true;
+    generateRoom();
+    gameState = "playing";
+}
+
+
+/* =========================================================
+   UPDATE
+========================================================= */
+
+let stepSoundTimer = 0;
+
+function update(){
+    if(gameState !== "playing") return;
+
+    if(!inventory.open){
+        factoryPulse++;
+    }
+
+    if(player.damageCooldownTimer > 0){
+        player.damageCooldownTimer--;
+    }
+
+    if(speedBoostTimer>0 && !inventory.open){
+        speedBoostTimer--;
+    }
+
+    if(inventory.open){
+        player.walking=false;
+        return;
+    }
+
+    let dx=0;
+    let dy=0;
+
+    if(keys.w || keys.arrowup) dy--;
+    if(keys.s || keys.arrowdown) dy++;
+    if(keys.a || keys.arrowleft) dx--;
+    if(keys.d || keys.arrowright) dx++;
+
+    if(dx && dy){
+        dx*=0.7071;
+        dy*=0.7071;
+    }
+
+    player.walking=!!(dx||dy);
+
+    if(dx || dy){
+        if(Math.abs(dx)>Math.abs(dy)){
+            player.direction=dx<0?"left":"right";
+        }else{
+            player.direction=dy<0?"up":"down";
+        }
+
+        const currentSpeed=speedBoostTimer>0?BOOSTED_SPEED:NORMAL_SPEED;
+        const nextX=player.x+dx*currentSpeed;
+        const nextY=player.y+dy*currentSpeed;
+
+        if(!objectCollision(nextX, player.y)){
+            player.x=nextX;
+        }
+        if(!objectCollision(player.x, nextY)){
+            player.y=nextY;
+        }
+
+        player.animation++;
+
+        stepSoundTimer++;
+        if (stepSoundTimer >= (speedBoostTimer > 0 ? 12 : 18)) {
+            sounds.step();
+            stepSoundTimer = 0;
+        }
+    } else {
+        stepSoundTimer = 0;
+    }
+
+    updateWater();
+    updateSodaShards();
+    updateKey();
+
+    for(const enemy of sodaEnemies){
+        if(enemy.waterHitTimer>0) continue;
+        updateSodaEnemy(enemy);
+    }
+
+    checkDoor();
+}
+
+
+/* =========================================================
+   GAME LOOP
+========================================================= */
+
+function gameLoop(){
+    if(gameState === "menu"){
+        drawMenu();
+    } else {
+        update();
+        updateThrownBottles();
+
+        drawFloor();
+        drawPipes();
+        drawWalls();
+        drawObjects();
+        drawChest();
+        drawKey();
+        drawThrownBottles();
+        drawWater();
+        drawSodaShards();
+
+        for(const enemy of sodaEnemies){
+            drawSodaEnemy(enemy);
+        }
+
+        drawPlayer();
+        drawRoomNumber();
+        drawHPBar();
+        drawInventoryPrompt();
+        drawPickupMessage();
+        drawInventory();
+
+        if(gameState === "gameover"){
+            drawGameOver();
+        }
+    }
+
+    requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+
+</script>
+
+</body>
+</html>

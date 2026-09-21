@@ -45,6 +45,7 @@
 		<LinkButton href="/games" iconbefore="arrow_back">Back</LinkButton>
 		<Button onclick={() => {}} iconbefore="refresh">Reset</Button>
 		<Button onclick={handleFullscreen} iconbefore="fullscreen">Fullscreen</Button>
+		<LinkButton href="/community_games/cola-fabriek-trailer.mp4">Trailer</LinkButton>
 	</Flex>
 	<Flex
 		width="fit-content"

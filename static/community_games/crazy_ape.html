@@ -93,7 +93,7 @@
         /* Action Buttons */
         .btn-jump { bottom: 20px; right: 20px; width: 60px; height: 60px; border-radius: 50%; font-size: 12px; }
 
-        #start-screen {
+        #start-screen, #end-screen {
             position: absolute;
             top: 0;
             left: 0;
@@ -106,6 +106,10 @@
             background: rgba(0, 0, 0, 0.8);
             z-index: 20;
             text-align: center;
+        }
+
+        #end-screen {
+            display: none; /* Verborgen tijdens het spelen */
         }
 
         .title-text { color: #f00; text-shadow: 2px 2px 0 #fff; margin-bottom: 20px; }
@@ -122,6 +126,13 @@
             <p class="text-xs mb-4">PIJLTJES / WASD = Bewegen/Klimmen</p>
             <p class="text-xs mb-8">SPATIE = Springen</p>
             <button id="start-btn" class="px-6 py-3 bg-red-600 text-white border-4 border-white text-sm hover:bg-red-500">START SPEL</button>
+        </div>
+
+        <!-- Nieuw eindscherm met replay knop -->
+        <div id="end-screen">
+            <h1 id="end-title" class="title-text text-3xl">GAME OVER</h1>
+            <p id="end-score" class="text-sm mb-8 text-white">SCORE: 0</p>
+            <button id="replay-btn" class="px-6 py-3 bg-red-600 text-white border-4 border-white text-sm hover:bg-red-500">OPNIEUW SPELEN</button>
         </div>
 
         <div id="mobile-controls">
@@ -526,9 +537,13 @@
                 }
 
                 // Win Condition
-                if (this.y < 130) {
+                if (this.y < 130 && this.state !== 'win') {
                     this.state = 'win';
                     gameState = 'WIN';
+                    document.getElementById('end-title').innerText = "GEWONNEN!";
+                    document.getElementById('end-title').style.color = "#00FF00";
+                    document.getElementById('end-score').innerText = "SCORE: " + score;
+                    document.getElementById('end-screen').style.display = 'flex';
                 }
 
                 // Death bounds (fall off)
@@ -545,6 +560,10 @@
                         resetLevel();
                     } else {
                         gameState = 'GAMEOVER';
+                        document.getElementById('end-title').innerText = "GAME OVER";
+                        document.getElementById('end-title').style.color = "#f00";
+                        document.getElementById('end-score').innerText = "SCORE: " + score;
+                        document.getElementById('end-screen').style.display = 'flex';
                     }
                 }, 1500);
             }
@@ -847,34 +866,6 @@
             for (let i = 0; i < lives; i++) {
                 ctx.drawImage(sprites.mario_idle.img, 450 + (i * 30), 40, sprites.mario_idle.w * 0.8, sprites.mario_idle.h * 0.8);
             }
-
-            // Overlays
-            if (gameState === 'GAMEOVER') {
-                ctx.fillStyle = 'rgba(0,0,0,0.7)';
-                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-                ctx.fillStyle = '#FF0000';
-                ctx.textAlign = 'center';
-                ctx.font = '32px "Press Start 2P"';
-                ctx.fillText("GAME OVER", CANVAS_WIDTH/2, CANVAS_HEIGHT/2);
-                ctx.fillStyle = '#FFFFFF';
-                ctx.font = '16px "Press Start 2P"';
-                ctx.fillText("VERVERS PAGINA OM", CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 50);
-                ctx.fillText("OPNIEUW TE SPELEN", CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 80);
-                ctx.textAlign = 'left';
-            }
-
-            if (gameState === 'WIN') {
-                ctx.fillStyle = 'rgba(0,0,0,0.7)';
-                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-                ctx.fillStyle = '#00FF00';
-                ctx.textAlign = 'center';
-                ctx.font = '32px "Press Start 2P"';
-                ctx.fillText("GEWONNEN!", CANVAS_WIDTH/2, CANVAS_HEIGHT/2);
-                ctx.fillStyle = '#FFFFFF';
-                ctx.font = '16px "Press Start 2P"';
-                ctx.fillText("SCORE: " + score, CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 50);
-                ctx.textAlign = 'left';
-            }
         }
 
         function gameLoop(timestamp) {
@@ -900,6 +891,12 @@
 
         document.getElementById('start-btn').addEventListener('click', () => {
             document.getElementById('start-screen').style.display = 'none';
+            init();
+        });
+
+        // Event listener voor de replay knop
+        document.getElementById('replay-btn').addEventListener('click', () => {
+            document.getElementById('end-screen').style.display = 'none';
             init();
         });
 

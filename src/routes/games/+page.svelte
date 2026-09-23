@@ -188,7 +188,7 @@
 		},
 		{
 			title: "Crazy ape",
-			icon: "animal",
+			icon: "pets",
 			href: "/games/community/crazy_ape"
 		}
 	];

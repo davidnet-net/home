@@ -185,6 +185,11 @@
 			title: "Wobble Towers",
 			icon: "bar_chart",
 			href: "/games/community/wobble_towers"
+		},
+		{
+			title: "Crazy ape",
+			icon: "animal",
+			href: "/games/community/crazy_ape"
 		}
 	];
 

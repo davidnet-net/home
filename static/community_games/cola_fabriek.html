@@ -137,7 +137,6 @@ const sounds = {
     },
     spray() {
         if (!audioCtx) return;
-        // White noise generator for water spray sound
         const bufferSize = audioCtx.sampleRate * 0.05;
         const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
         const data = buffer.getChannelData(0);
@@ -176,7 +175,7 @@ const player={
     y:205,
     width:16,
     height:22,
-    speed:2.7,
+    speed:160,
     direction:"down",
     animation:0,
     walking:false,
@@ -238,10 +237,10 @@ let waterStreamTimer=0;
 const WATER_HOSE_SETTINGS={
     maxParticles:3500,
     particlesPerFrame:25,
-    speed:5.0,
+    speed:300,
     spread:0.65,
-    enemyDrag:0.88,
-    streamDuration:300,
+    enemyDrag:0.001,
+    streamDuration:5.0,
     requiredParticles:3
 };
 
@@ -262,9 +261,9 @@ function solidAtPoint(x,y,padding=0){
     return false;
 }
 
-function waterMoveAroundSolid(particle){
-    const nx=particle.x+particle.vx;
-    const ny=particle.y+particle.vy;
+function waterMoveAroundSolid(particle, dt){
+    const nx=particle.x+particle.vx*dt;
+    const ny=particle.y+particle.vy*dt;
 
     if(!solidAtPoint(nx,ny,1)){
         particle.x=nx;
@@ -273,10 +272,10 @@ function waterMoveAroundSolid(particle){
     }
 
     const candidates=[
-        {x:particle.x+particle.vx,y:particle.y,vx:particle.vx,vy:particle.vy*0.55},
-        {x:particle.x,y:particle.y+particle.vy,vx:particle.vx*0.55,vy:particle.vy},
-        {x:particle.x+particle.vx*0.35-particle.vy*0.9,y:particle.y+particle.vy*0.35+particle.vx*0.9,vx:particle.vx*0.85-particle.vy*0.15,vy:particle.vy*0.85+particle.vx*0.15},
-        {x:particle.x+particle.vx*0.35+particle.vy*0.9,y:particle.y+particle.vy*0.35-particle.vx*0.9,vx:particle.vx*0.85+particle.vy*0.15,vy:particle.vy*0.85-particle.vx*0.15}
+        {x:particle.x+particle.vx*dt,y:particle.y,vx:particle.vx,vy:particle.vy*0.55},
+        {x:particle.x,y:particle.y+particle.vy*dt,vx:particle.vx*0.55,vy:particle.vy},
+        {x:particle.x+particle.vx*0.35*dt-particle.vy*0.9*dt,y:particle.y+particle.vy*0.35*dt+particle.vx*0.9*dt,vx:particle.vx*0.85-particle.vy*0.15,vy:particle.vy*0.85+particle.vx*0.15},
+        {x:particle.x+particle.vx*0.35*dt+particle.vy*0.9*dt,y:particle.y+particle.vy*0.35*dt-particle.vx*0.9*dt,vx:particle.vx*0.85+particle.vy*0.15,vy:particle.vy*0.85-particle.vx*0.15}
     ];
 
     const free=candidates.find(c=>!solidAtPoint(c.x,c.y,1));
@@ -351,7 +350,7 @@ function shatterSodaEnemy(enemy, impactVX, impactVY){
 
     for(let i = 0; i < pieceCount; i++){
         const angleOffset = (Math.random() - 0.5) * 1.5;
-        const speed = 1.5 + Math.random() * 3.5;
+        const speed = 90 + Math.random() * 210;
         const cos = Math.cos(angleOffset);
         const sin = Math.sin(angleOffset);
 
@@ -361,7 +360,7 @@ function shatterSodaEnemy(enemy, impactVX, impactVY){
             vx: (baseDirX * cos - baseDirY * sin) * speed,
             vy: (baseDirX * sin + baseDirY * cos) * speed,
             size: 3 + Math.random() * 4,
-            life: 180 + Math.random() * 100,
+            life: 3.0 + Math.random() * 1.5,
             color: Math.random() > 0.5 ? "#713c2d" : "#a94831"
         });
     }
@@ -394,15 +393,15 @@ function pushSodaEnemiesWithWater(){
 
             enemy.waterVX = (avgVX / len) * WATER_HOSE_SETTINGS.speed * 0.9;
             enemy.waterVY = (avgVY / len) * WATER_HOSE_SETTINGS.speed * 0.9;
-            enemy.waterHitTimer = 8;
+            enemy.waterHitTimer = 0.13;
         }
     }
 }
 
-function updateWater(){
+function updateWater(dt){
     if(waterStreamActive){
         spawnWaterStream();
-        waterStreamTimer--;
+        waterStreamTimer -= dt;
 
         if(waterStreamTimer<=0){
             finishWaterStream();
@@ -410,21 +409,21 @@ function updateWater(){
     }
 
     for(const particle of waterParticles){
-        waterMoveAroundSolid(particle);
+        waterMoveAroundSolid(particle, dt);
     }
 
     pushSodaEnemiesWithWater();
 
     for(const enemy of sodaEnemies){
         if(enemy.waterHitTimer>0){
-            enemy.waterHitTimer--;
+            enemy.waterHitTimer -= dt;
         }
 
         if(enemy.waterHitTimer>0 && (enemy.waterVX || enemy.waterVY)){
             const vx=enemy.waterVX||0;
             const vy=enemy.waterVY||0;
-            const nextX=enemy.x+vx;
-            const nextY=enemy.y+vy;
+            const nextX=enemy.x+vx*dt;
+            const nextY=enemy.y+vy*dt;
 
             if(enemyOverlapsSolid(nextX,nextY,0)){
                 shatterSodaEnemy(enemy, vx, vy);
@@ -437,8 +436,8 @@ function updateWater(){
 
             enemy.x=nextX;
             enemy.y=nextY;
-            enemy.waterVX=vx*WATER_HOSE_SETTINGS.enemyDrag;
-            enemy.waterVY=vy*WATER_HOSE_SETTINGS.enemyDrag;
+            enemy.waterVX *= Math.pow(WATER_HOSE_SETTINGS.enemyDrag, dt);
+            enemy.waterVY *= Math.pow(WATER_HOSE_SETTINGS.enemyDrag, dt);
             enemy.path=[];
             enemy.pathTimer=0;
             enemy.forceRepathTimer=0;
@@ -452,10 +451,10 @@ function updateWater(){
     sodaEnemies=sodaEnemies.filter(enemy=>enemy.hp>0);
 }
 
-function updateSodaShards(){
+function updateSodaShards(dt){
     for(let i = sodaShards.length - 1; i >= 0; i--){
         const shard = sodaShards[i];
-        shard.life--;
+        shard.life -= dt;
 
         if(shard.life <= 0){
             sodaShards.splice(i, 1);
@@ -473,8 +472,8 @@ function updateSodaShards(){
             }
         }
 
-        const nextX = shard.x + shard.vx;
-        const nextY = shard.y + shard.vy;
+        const nextX = shard.x + shard.vx * dt;
+        const nextY = shard.y + shard.vy * dt;
 
         if(solidAtPoint(nextX, nextY, 1)){
             shard.vx *= -0.5;
@@ -484,8 +483,8 @@ function updateSodaShards(){
             shard.y = nextY;
         }
 
-        shard.vx *= 0.95;
-        shard.vy *= 0.95;
+        shard.vx *= Math.pow(0.05, dt);
+        shard.vy *= Math.pow(0.05, dt);
 
         const pLeft = player.x - player.width / 2;
         const pRight = player.x + player.width / 2;
@@ -494,8 +493,8 @@ function updateSodaShards(){
 
         if(shard.x >= pLeft && shard.x <= pRight && shard.y >= pTop && shard.y <= pBottom){
             const pushAngle = Math.atan2(shard.y - player.y, shard.x - player.x);
-            shard.vx += Math.cos(pushAngle) * 1.2;
-            shard.vy += Math.sin(pushAngle) * 1.2;
+            shard.vx += Math.cos(pushAngle) * 70;
+            shard.vy += Math.sin(pushAngle) * 70;
         }
     }
 }
@@ -569,17 +568,17 @@ const ITEM_DESCRIPTIONS={
 };
 
 let speedBoostTimer=0;
-const NORMAL_SPEED=2.7;
-const BOOSTED_SPEED=4.5;
+const NORMAL_SPEED=160;
+const BOOSTED_SPEED=270;
 let factoryPulse=0;
 let chestKeyPressed=false;
 
 const BOTTLE_SETTINGS={
-    speed:4.8,
-    friction:0.985,
-    minimumSpeed:0.08,
-    activeLife:300,
-    restingLife:300,
+    speed:290,
+    friction:0.4,
+    minimumSpeed:5,
+    activeLife:5.0,
+    restingLife:5.0,
     wallBounce:0.45,
     obstacleBounce:0.30
 };
@@ -726,12 +725,12 @@ let sodaEnemies=[];
 const SODA_ENEMY={
     width:16,
     height:22,
-    speed:1.15,
+    speed:70,
     touchRadius:17,
-    damageCooldown:45,
+    damageCooldown:0.75,
     pathCell:8,
     pathClearance:3,
-    repathFrames:12
+    repathFrames:0.2
 };
 
 function getSodaEnemyStats(){
@@ -739,7 +738,7 @@ function getSodaEnemyStats(){
     return {
         maxHP: 30+Math.floor(stages*3),
         damage: 20,
-        speed: 1.15+Math.min(0.75, stages*0.025)
+        speed: 70+Math.min(45, stages*1.5)
     };
 }
 
@@ -848,9 +847,9 @@ function spawnSodaEnemies(){
             maxHP:stats.maxHP,
             damage:20,
             speed:stats.speed,
-            damageTimer:Math.floor(Math.random()*20),
+            damageTimer:Math.random()*0.3,
             path:[],
-            pathTimer:Math.floor(Math.random()*SODA_ENEMY.repathFrames),
+            pathTimer:Math.random()*SODA_ENEMY.repathFrames,
             walkFrame:Math.floor(Math.random()*12),
             lastX:pos.x,
             lastY:pos.y,
@@ -1012,11 +1011,11 @@ function getBottleDistractionTarget(){
     return closest;
 }
 
-function updateSodaEnemy(enemy){
+function updateSodaEnemy(enemy, dt){
     if(!enemy) return;
-    if(enemy.damageTimer>0) enemy.damageTimer--;
-    if(enemy.forceRepathTimer>0) enemy.forceRepathTimer--;
-    enemy.pathTimer--;
+    if(enemy.damageTimer>0) enemy.damageTimer -= dt;
+    if(enemy.forceRepathTimer>0) enemy.forceRepathTimer -= dt;
+    enemy.pathTimer -= dt;
 
     const distraction=getBottleDistractionTarget();
     let targetX=player.x;
@@ -1028,7 +1027,7 @@ function updateSodaEnemy(enemy){
 
     if(enemy.pathTimer<=0 || enemy.path.length===0){
         enemy.path=findSodaPath(enemy.x, enemy.y, targetX, targetY, enemy);
-        enemy.pathTimer=distraction?8:SODA_ENEMY.repathFrames;
+        enemy.pathTimer=distraction?0.13:SODA_ENEMY.repathFrames;
         enemy.forceRepathTimer=0;
     }
 
@@ -1038,10 +1037,10 @@ function updateSodaEnemy(enemy){
         const dy=target.y-enemy.y;
         const distance=Math.sqrt(dx*dx+dy*dy);
 
-        if(distance<Math.max(2.5, enemy.speed)){
+        if(distance<Math.max(2.5, enemy.speed * dt)){
             enemy.path.shift();
         }else{
-            const step=Math.min(enemy.speed, distance);
+            const step=Math.min(enemy.speed * dt, distance);
             const nextX=enemy.x+(dx/distance)*step;
             const nextY=enemy.y+(dy/distance)*step;
 
@@ -1056,19 +1055,19 @@ function updateSodaEnemy(enemy){
                 enemy.path=[];
                 enemy.pathTimer=0;
                 enemy.forceRepathTimer=0;
-                enemy.blockedTimer++;
+                enemy.blockedTimer += dt;
             }
         }
     }
 
     const movedDistance=Math.sqrt((enemy.x-enemy.lastX)*(enemy.x-enemy.lastX)+(enemy.y-enemy.lastY)*(enemy.y-enemy.lastY));
-    if(movedDistance<0.12) enemy.stuckTimer++;
+    if(movedDistance<0.12) enemy.stuckTimer += dt;
     else enemy.stuckTimer=0;
 
     enemy.lastX=enemy.x;
     enemy.lastY=enemy.y;
 
-    if(enemy.stuckTimer>15){
+    if(enemy.stuckTimer>0.25){
         const escape=findSodaEscapePosition(enemy);
         if(escape){
             const dx=escape.x-enemy.x;
@@ -1091,7 +1090,7 @@ function updateSodaEnemy(enemy){
         enemy.blockedTimer=0;
     }
 
-    if(enemy.blockedTimer>=3){
+    if(enemy.blockedTimer>=0.05){
         enemy.path=[];
         enemy.pathTimer=0;
         enemy.forceRepathTimer=0;
@@ -1118,7 +1117,7 @@ function updateSodaEnemy(enemy){
         if(rectanglesOverlap(extendedPlayerRect, enemyRect, 0)){
             if(player.damageCooldownTimer <= 0){
                 playerHP.current = Math.max(0, playerHP.current - 20);
-                player.damageCooldownTimer = 30;
+                player.damageCooldownTimer = 0.5;
                 sounds.damage();
                 showPickupMessage("-20 Cola Power");
 
@@ -1480,7 +1479,7 @@ function addInventoryItem(itemName){
 
 function showPickupMessage(message){
     pickupMessage=message;
-    pickupMessageTimer=150;
+    pickupMessageTimer=2.5;
 }
 
 function useInventoryItem(index){
@@ -1500,7 +1499,7 @@ function useInventoryItem(index){
     }
 
     if(item.name==="Syrup"){
-        speedBoostTimer=600;
+        speedBoostTimer=10.0;
         removeInventoryItem(index);
         sounds.pickup();
         showPickupMessage("Syrup: SPEED BOOST!");
@@ -1573,7 +1572,7 @@ function throwEmptyBottle(){
     });
 }
 
-function updateThrownBottles(){
+function updateThrownBottles(dt){
     const pLeft = player.x - player.width / 2;
     const pRight = player.x + player.width / 2;
     const pTop = player.y - player.height / 2;
@@ -1595,7 +1594,7 @@ function updateThrownBottles(){
             bottle.state = "rolling";
         }
 
-        bottle.life--;
+        bottle.life -= dt;
         if(bottle.life <= 0){
             thrownBottles.splice(i, 1);
             continue;
@@ -1604,8 +1603,8 @@ function updateThrownBottles(){
         if(bottle.state==="rolling"){
             const oldX=bottle.x;
             const oldY=bottle.y;
-            bottle.x+=bottle.vx;
-            bottle.y+=bottle.vy;
+            bottle.x+=bottle.vx * dt;
+            bottle.y+=bottle.vy * dt;
             let blocked=false;
 
             for(const r of room.objects){
@@ -1627,9 +1626,9 @@ function updateThrownBottles(){
                 }
             }
 
-            bottle.vx*=BOTTLE_SETTINGS.friction;
-            bottle.vy*=BOTTLE_SETTINGS.friction;
-            bottle.rotation+=Math.sqrt(bottle.vx*bottle.vx+bottle.vy*bottle.vy)*0.12;
+            bottle.vx *= Math.pow(BOTTLE_SETTINGS.friction, dt * 60);
+            bottle.vy *= Math.pow(BOTTLE_SETTINGS.friction, dt * 60);
+            bottle.rotation+=Math.sqrt(bottle.vx*bottle.vx+bottle.vy*bottle.vy)*0.12*dt;
 
             if(bottle.x<55){ bottle.x=55; bottle.vx=Math.abs(bottle.vx)*BOTTLE_SETTINGS.wallBounce; }
             if(bottle.x>585){ bottle.x=585; bottle.vx=-Math.abs(bottle.vx)*BOTTLE_SETTINGS.wallBounce; }
@@ -2046,7 +2045,7 @@ function drawChest(){
 function drawPlayer(){
     const x=Math.round(player.x-player.width/2);
     const y=Math.round(player.y-player.height/2);
-    const bob=(player.walking && player.animation%12<6)?1:0;
+    const bob=(player.walking && Math.floor(player.animation)%12<6)?1:0;
 
     ctx.fillStyle="#0006";
     ctx.fillRect(x-4, y+20, 24, 4);
@@ -2153,9 +2152,9 @@ function drawInventoryPrompt() {
     ctx.fillText("[E] INVENTORY", 536, 381);
 }
 
-function drawPickupMessage(){
+function drawPickupMessage(dt){
     if(pickupMessageTimer<=0) return;
-    pickupMessageTimer--;
+    pickupMessageTimer -= dt;
 
     const width=Math.max(180, pickupMessage.length*7+30);
     const x=320-width/2;
@@ -2433,7 +2432,7 @@ function resetGame(){
 
 let stepSoundTimer = 0;
 
-function update(){
+function update(dt){
     if(gameState !== "playing") return;
 
     if(!inventory.open){
@@ -2441,11 +2440,11 @@ function update(){
     }
 
     if(player.damageCooldownTimer > 0){
-        player.damageCooldownTimer--;
+        player.damageCooldownTimer -= dt;
     }
 
     if(speedBoostTimer>0 && !inventory.open){
-        speedBoostTimer--;
+        speedBoostTimer -= dt;
     }
 
     if(inventory.open){
@@ -2476,8 +2475,8 @@ function update(){
         }
 
         const currentSpeed=speedBoostTimer>0?BOOSTED_SPEED:NORMAL_SPEED;
-        const nextX=player.x+dx*currentSpeed;
-        const nextY=player.y+dy*currentSpeed;
+        const nextX=player.x+dx*currentSpeed*dt;
+        const nextY=player.y+dy*currentSpeed*dt;
 
         if(!objectCollision(nextX, player.y)){
             player.x=nextX;
@@ -2486,10 +2485,11 @@ function update(){
             player.y=nextY;
         }
 
-        player.animation++;
+        player.animation += dt * 60;
 
-        stepSoundTimer++;
-        if (stepSoundTimer >= (speedBoostTimer > 0 ? 12 : 18)) {
+        stepSoundTimer += dt;
+        const stepInterval = (speedBoostTimer > 0 ? 0.2 : 0.3);
+        if (stepSoundTimer >= stepInterval) {
             sounds.step();
             stepSoundTimer = 0;
         }
@@ -2497,13 +2497,13 @@ function update(){
         stepSoundTimer = 0;
     }
 
-    updateWater();
-    updateSodaShards();
+    updateWater(dt);
+    updateSodaShards(dt);
     updateKey();
 
     for(const enemy of sodaEnemies){
         if(enemy.waterHitTimer>0) continue;
-        updateSodaEnemy(enemy);
+        updateSodaEnemy(enemy, dt);
     }
 
     checkDoor();
@@ -2514,12 +2514,18 @@ function update(){
    GAME LOOP
 ========================================================= */
 
-function gameLoop(){
+let lastTime = 0;
+
+function gameLoop(timestamp){
+    if (!lastTime) lastTime = timestamp;
+    const dt = Math.min((timestamp - lastTime) / 1000, 0.1); // Max cap om grote sprongen te voorkomen
+    lastTime = timestamp;
+
     if(gameState === "menu"){
         drawMenu();
     } else {
-        update();
-        updateThrownBottles();
+        update(dt);
+        updateThrownBottles(dt);
 
         drawFloor();
         drawPipes();
@@ -2539,7 +2545,7 @@ function gameLoop(){
         drawRoomNumber();
         drawHPBar();
         drawInventoryPrompt();
-        drawPickupMessage();
+        drawPickupMessage(dt);
         drawInventory();
 
         if(gameState === "gameover"){
@@ -2550,7 +2556,7 @@ function gameLoop(){
     requestAnimationFrame(gameLoop);
 }
 
-gameLoop();
+requestAnimationFrame(gameLoop);
 
 </script>
 

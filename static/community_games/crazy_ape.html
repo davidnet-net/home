@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Crazy Ape Arcade Clone</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #111;
+            color: white;
+            font-family: 'Press Start 2P', monospace;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            touch-action: none; /* Prevent zooming and scrolling on mobile */
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            aspect-ratio: 3 / 4;
+            background-color: #000;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.2);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated; /* Ensures pixel art stays sharp */
+        }
+
+        /* Mobile controls overlay */
+        #mobile-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            height: 150px;
+            display: none; /* Hidden by default, shown on touch devices */
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        @media (hover: none) and (pointer: coarse) {
+            #mobile-controls {
+                display: flex;
+                justify-content: space-between;
+                padding: 0 20px;
+            }
+        }
+
+        .d-pad, .action-buttons {
+            pointer-events: auto;
+            position: relative;
+            width: 120px;
+            height: 120px;
+        }
+
+        .btn {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 20px;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        .btn:active {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        /* D-Pad Layout */
+        .btn-up { top: 0; left: 40px; width: 40px; height: 40px; }
+        .btn-down { bottom: 0; left: 40px; width: 40px; height: 40px; }
+        .btn-left { top: 40px; left: 0; width: 40px; height: 40px; }
+        .btn-right { top: 40px; right: 0; width: 40px; height: 40px; }
+
+        /* Action Buttons */
+        .btn-jump { bottom: 20px; right: 20px; width: 60px; height: 60px; border-radius: 50%; font-size: 12px; }
+
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 20;
+            text-align: center;
+        }
+
+        .title-text { color: #f00; text-shadow: 2px 2px 0 #fff; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="600" height="800"></canvas>
+        
+        <div id="start-screen">
+            <h1 class="title-text text-3xl">CRAZY APE</h1>
+            <p class="text-xs text-blue-400 mb-8">ARCADE CLONE</p>
+            <p class="text-xs mb-4">PIJLTJES / WASD = Bewegen/Klimmen</p>
+            <p class="text-xs mb-8">SPATIE = Springen</p>
+            <button id="start-btn" class="px-6 py-3 bg-red-600 text-white border-4 border-white text-sm hover:bg-red-500">START SPEL</button>
+        </div>
+
+        <div id="mobile-controls">
+            <div class="d-pad">
+                <div class="btn btn-up" id="btn-up">▲</div>
+                <div class="btn btn-down" id="btn-down">▼</div>
+                <div class="btn btn-left" id="btn-left">◀</div>
+                <div class="btn btn-right" id="btn-right">▶</div>
+            </div>
+            <div class="action-buttons">
+                <div class="btn btn-jump" id="btn-jump">JUMP</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        
+        // Game constants
+        const CANVAS_WIDTH = 600;
+        const CANVAS_HEIGHT = 800;
+        const SCALE = 2.5; // Sprite scaling
+        const GRAVITY = 0.5;
+        const PLAYER_SPEED = 3.5;
+        const JUMP_FORCE = -9;
+        const BARREL_SPEED = 2.5;
+        const CLIMB_SPEED = 2;
+
+        // Input state
+        const keys = {
+            ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false, Space: false
+        };
+
+        // Bind keyboard events
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA' || e.key === 'a' || e.key === 'A') keys.ArrowLeft = true;
+            if (e.code === 'ArrowRight' || e.code === 'KeyD' || e.key === 'd' || e.key === 'D') keys.ArrowRight = true;
+            if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.key === 'w' || e.key === 'W') keys.ArrowUp = true;
+            if (e.code === 'ArrowDown' || e.code === 'KeyS' || e.key === 's' || e.key === 'S') keys.ArrowDown = true;
+            if (e.code === 'Space') keys.Space = true;
+            if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) e.preventDefault();
+        });
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA' || e.key === 'a' || e.key === 'A') keys.ArrowLeft = false;
+            if (e.code === 'ArrowRight' || e.code === 'KeyD' || e.key === 'd' || e.key === 'D') keys.ArrowRight = false;
+            if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.key === 'w' || e.key === 'W') keys.ArrowUp = false;
+            if (e.code === 'ArrowDown' || e.code === 'KeyS' || e.key === 's' || e.key === 'S') keys.ArrowDown = false;
+            if (e.code === 'Space') keys.Space = false;
+        });
+
+        // Bind touch events for mobile
+        const bindTouch = (id, key) => {
+            const el = document.getElementById(id);
+            if(!el) return;
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; });
+            el.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; });
+        };
+        bindTouch('btn-left', 'ArrowLeft');
+        bindTouch('btn-right', 'ArrowRight');
+        bindTouch('btn-up', 'ArrowUp');
+        bindTouch('btn-down', 'ArrowDown');
+        bindTouch('btn-jump', 'Space');
+
+        // Colors mapping for our text-based sprite generation
+        const COLORS = {
+            '0': 'transparent',
+            'R': '#D90000', // Red
+            'B': '#0000D9', // Blue
+            'S': '#FFCC99', // Skin
+            'K': '#000000', // Black
+            'W': '#FFFFFF', // White
+            'O': '#CC6600', // Brown/Orange
+            'Y': '#FFFF00', // Yellow
+            'P': '#FF66AA', // Pink
+            'G': '#AABBCC'  // Girder Redish-pink #d52b57
+        };
+
+        // Text representation of sprites
+        const SPRITE_DATA = {
+            // Jumpman (Mario) Idle 12x15
+            mario_idle: [
+                "0000RRRR0000",
+                "000RRRRRRRR0",
+                "000SSKS00000",
+                "00SKSKSSS000",
+                "00SSSKKSSS00",
+                "000SSSSSS000",
+                "0000RRR00000",
+                "000BBRBB0000",
+                "00BBBRBBB000",
+                "0BBBBRBBBB00",
+                "0BB00R00BB00",
+                "0BB00R00BB00",
+                "0BB00R00BB00",
+                "0KK00000KK00",
+                "KKK00000KKK0"
+            ],
+            // Jumpman Walk 12x15
+            mario_walk: [
+                "0000RRRR0000",
+                "000RRRRRRRR0",
+                "000SSKS00000",
+                "00SKSKSSS000",
+                "00SSSKKSSS00",
+                "000SSSSSS000",
+                "0000RRR00000",
+                "00BBBRBBB000",
+                "00BBBBRBB000",
+                "00B0RR000000",
+                "0BB00R000000",
+                "0KK00R000000",
+                "KKK0BB000000",
+                "0000KK000000",
+                "000KKK000000"
+            ],
+            // Jumpman Climb 12x15
+            mario_climb1: [
+                "0000RRRR0000",
+                "000RRRRRR000",
+                "0000SSSS0000",
+                "0000SKSK0000",
+                "0000SSSS0000",
+                "000RRRRRR000",
+                "00RRRRRRRR00",
+                "00RRBRRBBR00",
+                "00BBBBBBBB00",
+                "000BBBBBB000",
+                "000BB00BB000",
+                "00BB0000BB00",
+                "0KK000000KK0",
+                "0KK000000KK0",
+                "000000000000"
+            ],
+            // Barrel Roll 10x10
+            barrel: [
+                "00OOOOOO00",
+                "0OYYYYYYO0",
+                "OOYOOOOYOO",
+                "OYOOOOOOYO",
+                "OYOOOOOOYO",
+                "OYOOOOOOYO",
+                "OYOOOOOOYO",
+                "OOYOOOOYOO",
+                "0OYYYYYYO0",
+                "00OOOOOO00"
+            ],
+            // Donkey Kong simplified 32x24
+            dk_idle: [
+                "000000OOOOO000000OOOOO0000000000",
+                "00000OOOOOOO0000OOOOOOO000000000",
+                "0000OOOOOOOOO00OOOOOOOOO00000000",
+                "0000OOOOOOOOOOOOOOOOOOOO00000000",
+                "000OOOOOOOOOOOOOOOOOOOOOO0000000",
+                "000OOOOOOSSSSSSSSSSOOOOOO0000000",
+                "00OOOOOOSSSKSSSSKSSSOOOOOO000000",
+                "00OOOOOSSSSKSSSSKSSSSOOOOO000000",
+                "0OOOOOOSSSSSSSSSSSSSSOOOOOO00000",
+                "0OOOOOOSSSSSSSKSSSSSSOOOOOO00000",
+                "0OOOOOOOSSSSSKSSKSSSSOOOOOO00000",
+                "0OOOOOOOSSSSSSSSSSSSSOOOOOO00000",
+                "0OOOOOOOOOSSSSSSSSOOOOOOOOO00000",
+                "00OOOOOOOOOOOOOOOOOOOOOOOO000000",
+                "000OOOOOOOOOOOOOOOOOOOOOO0000000",
+                "000OOOOOOOOOOOOOOOOOOOOOO0000000",
+                "000OOOOOOOOOOOOOOOOOOOOOO0000000",
+                "00OOOOOOOOOOOOOOOOOOOOOOOO000000",
+                "00OOOOOOSSSOOOOOOOOSSSOOOO000000",
+                "0OOOOOOSSSSSOOOOOOSSSSSOOOO00000",
+                "0OOOOOOSSSSSOOOOOOSSSSSOOOO00000",
+                "OOOOOOOSSSSSOOOOOOSSSSSOOOOO0000",
+                "OOOOOOOSSSSSOOOOOOSSSSSOOOOO0000",
+                "OOOOOOOOSSSOOOOOOOOOSSSOOOOO0000"
+            ],
+            // Pauline 16x22
+            pauline: [
+                "0000YYYYYY000000",
+                "000YYYYYYYY00000",
+                "00YYYYSYYY000000",
+                "00YYYSKSYY000000",
+                "00YYYSSSYY000000",
+                "000YYYSYY0000000",
+                "0000PPPP00000000",
+                "0000PPPP00000000",
+                "000WPPPPW0000000",
+                "00WWPPPPWW000000",
+                "00W0PPPP0W000000",
+                "0W00PPPP00W00000",
+                "0000PPPP00000000",
+                "0000PPPP00000000",
+                "0000PPPP00000000",
+                "0000PPPP00000000",
+                "000PPPPPP0000000",
+                "00PPPPPPPP000000",
+                "0000S00S00000000",
+                "0000S00S00000000",
+                "000WW00WW0000000",
+                "00WW0000WW000000"
+            ]
+        };
+
+        const sprites = {};
+        
+        // Helper to convert text array to canvas image
+        function renderSprite(data, scale = SCALE) {
+            const h = data.length;
+            const w = data[0].length;
+            const c = document.createElement('canvas');
+            c.width = w * scale;
+            c.height = h * scale;
+            const context = c.getContext('2d');
+            
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    const char = data[y][x];
+                    if (char !== '0') {
+                        context.fillStyle = COLORS[char];
+                        context.fillRect(x * scale, y * scale, scale, scale);
+                    }
+                }
+            }
+            return { img: c, w: c.width, h: c.height };
+        }
+
+        // Initialize all sprites
+        for (const [key, data] of Object.entries(SPRITE_DATA)) {
+            sprites[key] = renderSprite(data);
+        }
+
+        // Girders (Platforms) - defined by lines (x1, y1) to (x2, y2)
+        const platforms = [
+            // Ground (Slightly slanted)
+            { x1: 0, y1: 760, x2: 600, y2: 760, thickness: 20 },
+            // Platform 2 (Slanted down to right)
+            { x1: 0, y1: 640, x2: 550, y2: 670, thickness: 20 },
+            // Platform 3 (Slanted down to left)
+            { x1: 50, y1: 560, x2: 600, y2: 530, thickness: 20 },
+            // Platform 4 (Slanted down to right)
+            { x1: 0, y1: 430, x2: 550, y2: 460, thickness: 20 },
+            // Platform 5 (Slanted down to left)
+            { x1: 50, y1: 350, x2: 600, y2: 320, thickness: 20 },
+            // Platform 6 (Top, flat)
+            { x1: 150, y1: 220, x2: 450, y2: 220, thickness: 20 },
+            // Pauline Platform
+            { x1: 250, y1: 120, x2: 350, y2: 120, thickness: 15 }
+        ];
+
+        // Ladders defined by top-left (x, y) and bottom-right (x+w, y+h)
+        const ladders = [
+            { x: 480, y1: 665, y2: 760 }, // P2 to Ground
+            { x: 120, y1: 555, y2: 645 }, // P3 to P2
+            { x: 480, y1: 455, y2: 535 }, // P4 to P3
+            { x: 120, y1: 345, y2: 435 }, // P5 to P4
+            { x: 380, y1: 220, y2: 325 }, // P6 to P5
+            { x: 300, y1: 120, y2: 220 }, // Pauline to P6
+            // Broken/extra ladders for authenticity
+            { x: 250, y1: 655, y2: 690 }, // broken P2 to Ground
+            { x: 250, y1: 730, y2: 760 }, 
+            { x: 350, y1: 445, y2: 480 }, // broken P4 to P3
+            { x: 350, y1: 510, y2: 540 }
+        ];
+
+        const LADDER_WIDTH = 24;
+
+        // Helper to get platform Y at a specific X
+        function getPlatformY(platform, x) {
+            if (x < platform.x1 - 10 || x > platform.x2 + 10) return null; // Not over platform
+            const slope = (platform.y2 - platform.y1) / (platform.x2 - platform.x1);
+            return platform.y1 + slope * (x - platform.x1);
+        }
+
+        class Player {
+            constructor() {
+                this.w = sprites.mario_idle.w;
+                this.h = sprites.mario_idle.h;
+                this.reset();
+            }
+
+            reset() {
+                this.x = 50;
+                this.y = 760 - this.h;
+                this.vx = 0;
+                this.vy = 0;
+                this.isGrounded = true;
+                this.isJumping = false;
+                this.isClimbing = false;
+                this.dir = 1; // 1 = right, -1 = left
+                this.animFrame = 0;
+                this.state = 'idle'; // idle, walk, climb, die, win
+            }
+
+            update() {
+                if (this.state === 'die' || this.state === 'win') return;
+
+                let onPlatform = false;
+                let currentPlat = null;
+                let onLadder = false;
+                let activeLadder = null;
+
+                // Check Ladder collisions
+                for (let l of ladders) {
+                    // Check if horizontally aligned with ladder center
+                    let centerAligned = Math.abs((this.x + this.w/2) - (l.x + LADDER_WIDTH/2)) < 12;
+                    let verticallyOverlapping = (this.y + this.h >= l.y1 && this.y <= l.y2);
+                    
+                    if (centerAligned && verticallyOverlapping) {
+                        onLadder = true;
+                        activeLadder = l;
+                        break;
+                    }
+                }
+
+                // Handle Climbing Input
+                if (onLadder && !this.isJumping) {
+                    if (keys.ArrowUp || keys.ArrowDown) {
+                        this.isClimbing = true;
+                        this.vx = 0;
+                        // Snap to ladder center
+                        this.x = activeLadder.x + LADDER_WIDTH/2 - this.w/2;
+                    }
+                } else {
+                    this.isClimbing = false;
+                }
+
+                // Apply velocities based on state
+                if (this.isClimbing) {
+                    this.vy = 0;
+                    if (keys.ArrowUp) this.vy = -CLIMB_SPEED;
+                    if (keys.ArrowDown) this.vy = CLIMB_SPEED;
+                    
+                    this.y += this.vy;
+                    this.animFrame += Math.abs(this.vy) * 0.1;
+
+                    // Release ladder at top/bottom
+                    if (this.y + this.h < activeLadder.y1 + 5 || this.y > activeLadder.y2 - 5) {
+                        this.isClimbing = false;
+                    }
+                } else {
+                    // Horizontal movement (only allowed if grounded or jumping straight up? Arcade DK locks arc)
+                    if (this.isGrounded || !this.isJumpingArc) {
+                        this.vx = 0;
+                        if (keys.ArrowLeft) { this.vx = -PLAYER_SPEED; this.dir = -1; }
+                        if (keys.ArrowRight) { this.vx = PLAYER_SPEED; this.dir = 1; }
+                    }
+
+                    // Jumping
+                    if (keys.Space && this.isGrounded && !this.isClimbing) {
+                        this.vy = JUMP_FORCE;
+                        this.isGrounded = false;
+                        this.isJumping = true;
+                        this.isJumpingArc = this.vx !== 0; // Lock X if jumping with momentum
+                        keys.Space = false; // require release
+                        
+                        // Score sound simulation (visual)
+                        score += 10;
+                    }
+
+                    // Apply gravity
+                    this.vy += GRAVITY;
+                    
+                    // Move
+                    this.x += this.vx;
+                    this.y += this.vy;
+
+                    // Boundaries
+                    if (this.x < 0) this.x = 0;
+                    if (this.x > CANVAS_WIDTH - this.w) this.x = CANVAS_WIDTH - this.w;
+
+                    // Platform collisions (falling down)
+                    if (this.vy >= 0) {
+                        for (let p of platforms) {
+                            let py = getPlatformY(p, this.x + this.w/2);
+                            if (py !== null) {
+                                // Check if we just crossed the platform
+                                let previousYBottom = (this.y - this.vy) + this.h;
+                                let currentYBottom = this.y + this.h;
+                                
+                                if (previousYBottom <= py + 5 && currentYBottom >= py - 5) {
+                                    this.y = py - this.h;
+                                    this.vy = 0;
+                                    this.isGrounded = true;
+                                    this.isJumping = false;
+                                    this.isJumpingArc = false;
+                                    onPlatform = true;
+                                    currentPlat = p;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (!onPlatform) {
+                        this.isGrounded = false;
+                    }
+                    
+                    // Animation
+                    if (this.vx !== 0 && this.isGrounded) {
+                        this.animFrame += 0.2;
+                    } else if (!this.isGrounded) {
+                        this.animFrame = 0; // Jump pose
+                    }
+                }
+
+                // Win Condition
+                if (this.y < 130) {
+                    this.state = 'win';
+                    gameState = 'WIN';
+                }
+
+                // Death bounds (fall off)
+                if (this.y > CANVAS_HEIGHT) {
+                    this.die();
+                }
+            }
+
+            die() {
+                this.state = 'die';
+                lives--;
+                setTimeout(() => {
+                    if (lives > 0) {
+                        resetLevel();
+                    } else {
+                        gameState = 'GAMEOVER';
+                    }
+                }, 1500);
+            }
+
+            draw(ctx) {
+                if (this.state === 'die') return; // Blink or hide
+
+                let sprite = sprites.mario_idle;
+                if (this.isClimbing) {
+                    sprite = (Math.floor(this.animFrame) % 2 === 0) ? sprites.mario_climb1 : sprites.mario_idle; // Simplified climb anim
+                } else if (!this.isGrounded) {
+                    sprite = sprites.mario_walk; // Jump pose
+                } else if (Math.abs(this.vx) > 0) {
+                    sprite = (Math.floor(this.animFrame) % 2 === 0) ? sprites.mario_walk : sprites.mario_idle;
+                }
+
+                ctx.save();
+                if (this.dir === -1 && !this.isClimbing) {
+                    ctx.translate(this.x + this.w, this.y);
+                    ctx.scale(-1, 1);
+                    ctx.drawImage(sprite.img, 0, 0);
+                } else {
+                    ctx.drawImage(sprite.img, this.x, this.y);
+                }
+                ctx.restore();
+            }
+        }
+
+        class Barrel {
+            constructor(x, y) {
+                this.w = sprites.barrel.w;
+                this.h = sprites.barrel.h;
+                this.x = x;
+                this.y = y;
+                this.vx = BARREL_SPEED;
+                this.vy = 0;
+                this.angle = 0;
+                this.state = 'rolling'; // rolling, falling, climb_down
+                this.currentPlatform = null;
+            }
+
+            update() {
+                // Determine which platform we are on
+                let onPlatform = false;
+                
+                if (this.state === 'rolling' || this.state === 'falling') {
+                    this.vy += GRAVITY;
+                    
+                    // Predict next X for slant detection
+                    let nextX = this.x + this.vx;
+                    
+                    if (this.vy >= 0) {
+                        for (let p of platforms) {
+                            let py = getPlatformY(p, this.x + this.w/2);
+                            if (py !== null) {
+                                let bottom = this.y + this.h;
+                                let prevBottom = bottom - this.vy;
+                                
+                                if (prevBottom <= py + 10 && bottom >= py - 10) {
+                                    this.y = py - this.h;
+                                    this.vy = 0;
+                                    onPlatform = true;
+                                    
+                                    // Set X direction based on slope
+                                    if (p !== this.currentPlatform) {
+                                        this.currentPlatform = p;
+                                        // Slope dictates direction
+                                        let slope = p.y2 - p.y1;
+                                        if (Math.abs(slope) > 0) {
+                                            this.vx = (slope > 0) ? BARREL_SPEED : -BARREL_SPEED;
+                                        }
+                                        
+                                        // Top platform exception (roll right initially)
+                                        if (p.x1 === 150 && p.x2 === 450) {
+                                            this.vx = BARREL_SPEED;
+                                        }
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (onPlatform) {
+                        this.state = 'rolling';
+                        
+                        // Check for ladders to go down
+                        for (let l of ladders) {
+                            if (Math.abs((this.x + this.w/2) - (l.x + LADDER_WIDTH/2)) < 5) {
+                                // 25% chance to drop down ladder if it connects down
+                                if (Math.random() < 0.25 && l.y1 >= this.y + this.h - 10) {
+                                    this.state = 'climb_down';
+                                    this.x = l.x + LADDER_WIDTH/2 - this.w/2;
+                                    this.vx = 0;
+                                    this.vy = BARREL_SPEED * 1.5;
+                                    break;
+                                }
+                            }
+                        }
+                    } else {
+                        this.state = 'falling';
+                    }
+
+                    // Wall bounces
+                    if (this.x <= 0) { this.x = 0; this.vx = BARREL_SPEED; }
+                    if (this.x >= CANVAS_WIDTH - this.w) { this.x = CANVAS_WIDTH - this.w; this.vx = -BARREL_SPEED; }
+                    
+                } else if (this.state === 'climb_down') {
+                    // Check if hit platform below
+                    for (let p of platforms) {
+                        let py = getPlatformY(p, this.x + this.w/2);
+                        if (py !== null && this.y + this.h >= py - 5 && this.y + this.h <= py + 15) {
+                            this.state = 'rolling';
+                            this.currentPlatform = null; // Re-evaluate next frame
+                            this.y = py - this.h;
+                            break;
+                        }
+                    }
+                }
+
+                // Apply movement
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Rotation animation
+                if (this.state === 'rolling') {
+                    this.angle += (this.vx > 0 ? 0.1 : -0.1);
+                } else {
+                    this.angle = 0; // Front view when falling
+                }
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x + this.w/2, this.y + this.h/2);
+                ctx.rotate(this.angle);
+                ctx.drawImage(sprites.barrel.img, -this.w/2, -this.h/2);
+                ctx.restore();
+            }
+        }
+
+        let player;
+        let barrels = [];
+        let score = 0;
+        let lives = 3;
+        let level = 1;
+        let gameState = 'START'; // START, PLAYING, GAMEOVER, WIN
+        let frameCount = 0;
+
+        let lastTime = 0;
+        const TARGET_FPS = 60;
+        const FRAME_MS = 1000 / TARGET_FPS;
+        let accumulatedTime = 0;
+
+        function init() {
+            player = new Player();
+            barrels = [];
+            score = 0;
+            lives = 3;
+            level = 1;
+            gameState = 'PLAYING';
+            frameCount = 0;
+        }
+
+        function resetLevel() {
+            player.reset();
+            barrels = [];
+            gameState = 'PLAYING';
+            frameCount = 0;
+        }
+
+        // Procedural Girder Drawing
+        function drawGirder(x1, y1, x2, y2, thickness) {
+            ctx.fillStyle = '#D52B57'; // Arcade pinkish-red
+            
+            // Background rect (angled)
+            ctx.save();
+            ctx.translate(x1, y1);
+            let dx = x2 - x1;
+            let dy = y2 - y1;
+            let len = Math.sqrt(dx*dx + dy*dy);
+            let ang = Math.atan2(dy, dx);
+            ctx.rotate(ang);
+            
+            // Draw main bars
+            ctx.fillRect(0, 0, len, 4);
+            ctx.fillRect(0, thickness - 4, len, 4);
+            
+            // Draw zig zags
+            ctx.strokeStyle = '#D52B57';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            let segments = Math.floor(len / 15);
+            for(let i=0; i<segments; i++) {
+                ctx.moveTo(i * 15, 4);
+                ctx.lineTo((i+0.5) * 15, thickness - 4);
+                ctx.lineTo((i+1) * 15, 4);
+            }
+            ctx.stroke();
+            
+            ctx.restore();
+        }
+
+        function drawLadder(l) {
+            ctx.fillStyle = '#00E6E6'; // Cyan
+            // Sides
+            ctx.fillRect(l.x, l.y1, 4, l.y2 - l.y1);
+            ctx.fillRect(l.x + LADDER_WIDTH - 4, l.y1, 4, l.y2 - l.y1);
+            // Rungs
+            for(let ry = l.y1 + 10; ry < l.y2; ry += 15) {
+                ctx.fillRect(l.x, ry, LADDER_WIDTH, 4);
+            }
+        }
+
+        // Collision Check AABB
+        function checkCollision(r1, r2) {
+            // Shrink hitboxes slightly for fairness
+            let margin = 5;
+            return !(r2.x > r1.x + r1.w - margin || 
+                     r2.x + r2.w - margin < r1.x || 
+                     r2.y > r1.y + r1.h - margin ||
+                     r2.y + r2.h - margin < r1.y);
+        }
+
+        function update() {
+            if (gameState !== 'PLAYING') return;
+
+            frameCount++;
+            player.update();
+
+            // Barrel spawning logic (every ~3 seconds based on 60fps)
+            if (frameCount % 180 === 0) {
+                // Spawn barrel near DK
+                barrels.push(new Barrel(200, 180));
+            }
+
+            // Update barrels
+            for (let i = barrels.length - 1; i >= 0; i--) {
+                let b = barrels[i];
+                b.update();
+
+                // Remove offscreen barrels
+                if (b.y > CANVAS_HEIGHT) {
+                    barrels.splice(i, 1);
+                    score += 100; // Bonus for surviving a barrel
+                    continue;
+                }
+
+                // Check collision with player
+                if (player.state !== 'die' && checkCollision(player, b)) {
+                    player.die();
+                }
+            }
+        }
+
+        function draw() {
+            // Clear screen
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            // Draw Platforms
+            for (let p of platforms) {
+                drawGirder(p.x1, p.y1, p.x2, p.y2, p.thickness);
+            }
+
+            // Draw Ladders
+            for (let l of ladders) {
+                drawLadder(l);
+            }
+
+            // Draw DK and Pauline
+            ctx.drawImage(sprites.dk_idle.img, 150, 150);
+            ctx.drawImage(sprites.pauline.img, 280, 80);
+            
+            // "HELP!" text
+            if (Math.floor(Date.now() / 500) % 2 === 0) {
+                ctx.fillStyle = '#FF66AA';
+                ctx.font = '16px "Press Start 2P"';
+                ctx.fillText("HELP!", 320, 70);
+            }
+
+            // Draw Barrels
+            for (let b of barrels) {
+                b.draw(ctx);
+            }
+
+            // Draw Player
+            if (player) player.draw(ctx);
+
+            // UI
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = '16px "Press Start 2P"';
+            ctx.fillText("SCORE", 20, 30);
+            ctx.fillStyle = '#FF0000';
+            ctx.fillText(score.toString().padStart(6, '0'), 20, 55);
+
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillText("LIVES", 450, 30);
+            // Draw life icons (mini marios)
+            for (let i = 0; i < lives; i++) {
+                ctx.drawImage(sprites.mario_idle.img, 450 + (i * 30), 40, sprites.mario_idle.w * 0.8, sprites.mario_idle.h * 0.8);
+            }
+
+            // Overlays
+            if (gameState === 'GAMEOVER') {
+                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                ctx.fillStyle = '#FF0000';
+                ctx.textAlign = 'center';
+                ctx.font = '32px "Press Start 2P"';
+                ctx.fillText("GAME OVER", CANVAS_WIDTH/2, CANVAS_HEIGHT/2);
+                ctx.fillStyle = '#FFFFFF';
+                ctx.font = '16px "Press Start 2P"';
+                ctx.fillText("VERVERS PAGINA OM", CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 50);
+                ctx.fillText("OPNIEUW TE SPELEN", CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 80);
+                ctx.textAlign = 'left';
+            }
+
+            if (gameState === 'WIN') {
+                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                ctx.fillStyle = '#00FF00';
+                ctx.textAlign = 'center';
+                ctx.font = '32px "Press Start 2P"';
+                ctx.fillText("GEWONNEN!", CANVAS_WIDTH/2, CANVAS_HEIGHT/2);
+                ctx.fillStyle = '#FFFFFF';
+                ctx.font = '16px "Press Start 2P"';
+                ctx.fillText("SCORE: " + score, CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 50);
+                ctx.textAlign = 'left';
+            }
+        }
+
+        function gameLoop(timestamp) {
+            if (!timestamp) timestamp = performance.now();
+            let deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+            
+            // Voorkom 'time jumps' als de tabblad op de achtergrond staat
+            if (deltaTime > 250) deltaTime = 250;
+            
+            accumulatedTime += deltaTime;
+            
+            // Fixed timestep: Update het spel altijd alsof het 60Hz is, 
+            // ongeacht hoe snel het scherm de beelden tekent (144Hz, 240Hz, etc.)
+            while (accumulatedTime >= FRAME_MS) {
+                update();
+                accumulatedTime -= FRAME_MS;
+            }
+            
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        document.getElementById('start-btn').addEventListener('click', () => {
+            document.getElementById('start-screen').style.display = 'none';
+            init();
+        });
+
+        // Start animation loop to render initial screen immediately
+        lastTime = performance.now();
+        requestAnimationFrame(gameLoop);
+
+    </script>
+</body>
+</html>

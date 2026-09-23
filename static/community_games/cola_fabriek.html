@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Cola Fabriek v0.5 (NOT FINISHED!!!)</title>
+<title>Cola Fabriek v0.6 (NOT FINISHED!!!)</title>
 
 <style>
 html,body{
@@ -629,10 +629,10 @@ window.addEventListener("keydown",e=>{
     if(key===" "){
         e.preventDefault();
         if(!chestKeyPressed){
-            if(player.equippedHose){
-                startWaterStream();
-            }else{
+            if(isPlayerNearChest()){
                 openNearbyChest();
+            }else if(player.equippedHose){
+                startWaterStream();
             }
             chestKeyPressed=true;
         }
@@ -2358,7 +2358,7 @@ function drawMenu(){
 
     ctx.fillStyle="#9a5542";
     ctx.font="bold 14px monospace";
-    ctx.fillText("VERSION 0.5 (NOT FINISHED!!!)", 320, 175);
+    ctx.fillText("VERSION 0.6 (NOT FINISHED!!!)", 320, 175);
 
     ctx.fillStyle="#8b8880";
     ctx.font="11px monospace";

@@ -190,6 +190,11 @@
 			title: "Crazy ape",
 			icon: "pets",
 			href: "/games/community/crazy_ape"
+		},
+		{
+			title: "Clash of kingdoms",
+			icon: "swords",
+			href: "/games/community/clash_of_kingdoms"
 		}
 	];
 

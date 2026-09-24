@@ -1,0 +1,2003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Clash of Kingdoms - Strategy Game</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap');
+    
+    * {
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+    
+    body {
+      font-family: 'Montserrat', sans-serif;
+      background-color: #121826;
+      color: #ffffff;
+      overflow: hidden;
+    }
+
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(234, 179, 8, 0.5);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(234, 179, 8, 0.8);
+    }
+
+    .game-card {
+      background: linear-gradient(135deg, #1f293d 0%, #111827 100%);
+      border: 2px solid #374151;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+    }
+
+    .btn-gold {
+      background: linear-gradient(180deg, #fbbf24 0%, #d97706 100%);
+      border-bottom: 4px solid #b45309;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    }
+    .btn-gold:hover {
+      background: linear-gradient(180deg, #fcd34d 0%, #eab308 100%);
+    }
+    .btn-gold:active {
+      transform: translateY(2px);
+      border-bottom-width: 2px;
+    }
+
+    .btn-elixir {
+      background: linear-gradient(180deg, #ec4899 0%, #be185d 100%);
+      border-bottom: 4px solid #831843;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    }
+    .btn-elixir:hover {
+      background: linear-gradient(180deg, #f472b6 0%, #db2777 100%);
+    }
+    .btn-elixir:active {
+      transform: translateY(2px);
+      border-bottom-width: 2px;
+    }
+
+    .btn-blue {
+      background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+      border-bottom: 4px solid #1e40af;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    }
+    .btn-blue:hover {
+      background: linear-gradient(180deg, #60a5fa 0%, #2563eb 100%);
+    }
+    .btn-blue:active {
+      transform: translateY(2px);
+      border-bottom-width: 2px;
+    }
+
+    .btn-red {
+      background: linear-gradient(180deg, #ef4444 0%, #b91c1c 100%);
+      border-bottom: 4px solid #991b1b;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    }
+    .btn-red:hover {
+      background: linear-gradient(180deg, #f87171 0%, #dc2626 100%);
+    }
+    .btn-red:active {
+      transform: translateY(2px);
+      border-bottom-width: 2px;
+    }
+
+    .modal-backdrop {
+      background-color: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+    }
+
+    /* Icon Badge Stacking Utility */
+    .icon-badge-container {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .icon-badge-sub {
+      position: absolute;
+      bottom: -3px;
+      right: -5px;
+      font-size: 0.65em;
+      filter: drop-shadow(0px 1px 2px rgba(0,0,0,0.8));
+    }
+  </style>
+</head>
+<body class="h-screen w-screen flex flex-col select-none">
+
+  <!-- Top HUD Bar -->
+  <header class="bg-gray-900/90 border-b-2 border-amber-600/40 px-3 py-2 flex items-center justify-between gap-2 z-20 shrink-0 shadow-lg">
+    <!-- Player Level & Name -->
+    <div class="flex items-center gap-2">
+      <div class="relative flex items-center justify-center w-11 h-11 bg-gradient-to-br from-amber-500 to-amber-700 rounded-lg border-2 border-amber-300 font-black text-lg text-white shadow">
+        <span id="player-level">1</span>
+        <div class="absolute -bottom-1 -right-1 bg-blue-600 text-[10px] font-bold px-1 rounded text-white border border-blue-300">XP</div>
+      </div>
+      <div>
+        <h1 class="font-extrabold text-sm sm:text-base text-amber-400 tracking-wide leading-tight">Clash of Kingdoms</h1>
+        <div class="w-24 sm:w-32 bg-gray-800 rounded-full h-2.5 overflow-hidden border border-gray-700 mt-0.5">
+          <div id="xp-bar" class="bg-blue-500 h-full rounded-full transition-all duration-300" style="width: 25%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resource Counters -->
+    <div class="flex items-center gap-2 sm:gap-4 overflow-x-auto py-1">
+      <!-- Gold -->
+      <div class="flex items-center bg-gray-800/90 border border-amber-500/50 rounded-lg px-2 sm:px-3 py-1 shadow">
+        <i class="fa-solid fa-coins text-amber-400 text-lg mr-1.5 sm:mr-2"></i>
+        <div>
+          <div class="text-[10px] text-amber-300 font-semibold uppercase leading-none">Gold</div>
+          <div class="text-xs sm:text-sm font-extrabold text-white" id="gold-display">1,000 / 5,000</div>
+        </div>
+      </div>
+
+      <!-- Elixir -->
+      <div class="flex items-center bg-gray-800/90 border border-pink-500/50 rounded-lg px-2 sm:px-3 py-1 shadow">
+        <i class="fa-solid fa-flask-vial text-pink-400 text-lg mr-1.5 sm:mr-2"></i>
+        <div>
+          <div class="text-[10px] text-pink-300 font-semibold uppercase leading-none">Elixir</div>
+          <div class="text-xs sm:text-sm font-extrabold text-white" id="elixir-display">1,000 / 5,000</div>
+        </div>
+      </div>
+
+      <!-- Gems / Trophies -->
+      <div class="hidden md:flex items-center bg-gray-800/90 border border-emerald-500/50 rounded-lg px-3 py-1 shadow">
+        <i class="fa-solid fa-gem text-emerald-400 text-lg mr-2"></i>
+        <div>
+          <div class="text-[10px] text-emerald-300 font-semibold uppercase leading-none">Gems</div>
+          <div class="text-xs sm:text-sm font-extrabold text-white" id="gems-display">250</div>
+        </div>
+      </div>
+
+      <div class="flex items-center bg-gray-800/90 border border-yellow-600/50 rounded-lg px-2 sm:px-3 py-1 shadow">
+        <i class="fa-solid fa-trophy text-yellow-400 text-lg mr-1.5 sm:mr-2"></i>
+        <div>
+          <div class="text-[10px] text-yellow-300 font-semibold uppercase leading-none">Trophies</div>
+          <div class="text-xs sm:text-sm font-extrabold text-white" id="trophies-display">0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Audio / Options -->
+    <div class="flex items-center gap-1">
+      <button id="sound-btn" onclick="toggleAudio()" class="w-9 h-9 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-lg flex items-center justify-center text-amber-400 transition">
+        <i id="sound-icon" class="fa-solid fa-volume-high"></i>
+      </button>
+      <button onclick="openSettingsModal()" class="w-9 h-9 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-lg flex items-center justify-center text-gray-300 transition">
+        <i class="fa-solid fa-gear"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main View Area (Canvas + HUD Overlays) -->
+  <main class="relative flex-1 w-full h-full overflow-hidden bg-emerald-900">
+    <!-- Battle Info HUD (Hidden by default) -->
+    <div id="battle-hud" class="hidden absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3 bg-gray-900/90 border-2 border-red-500/70 rounded-xl px-4 py-2 shadow-2xl backdrop-blur">
+      <div class="text-center">
+        <div class="text-[10px] text-gray-400 uppercase font-bold">Destruction</div>
+        <div id="battle-damage-pct" class="text-2xl font-black text-amber-400">0%</div>
+      </div>
+      <div class="h-8 w-px bg-gray-700"></div>
+      <div class="flex gap-1 text-xl text-yellow-400">
+        <i id="star-1" class="fa-regular fa-star"></i>
+        <i id="star-2" class="fa-regular fa-star"></i>
+        <i id="star-3" class="fa-regular fa-star"></i>
+      </div>
+      <div class="h-8 w-px bg-gray-700"></div>
+      <div class="text-center">
+        <div class="text-[10px] text-gray-400 uppercase font-bold">Time Left</div>
+        <div id="battle-timer" class="text-xl font-extrabold text-white">03:00</div>
+      </div>
+    </div>
+
+    <!-- Canvas -->
+    <canvas id="gameCanvas" class="w-full h-full cursor-grab active:cursor-grabbing block"></canvas>
+
+    <!-- Selection Info Card Overlay (When clicking a building in village) -->
+    <div id="selected-building-panel" class="hidden absolute bottom-20 left-1/2 -translate-x-1/2 z-10 bg-gray-900/95 border-2 border-amber-500/80 rounded-2xl p-3 shadow-2xl flex flex-wrap items-center justify-between gap-4 max-w-lg w-11/12 backdrop-blur">
+      <div class="flex items-center gap-3">
+        <div id="bldg-icon-box" class="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-2xl text-amber-400">
+          <i class="fa-solid fa-building"></i>
+        </div>
+        <div>
+          <h3 id="bldg-title" class="font-extrabold text-base text-white leading-tight">Town Hall (Level 1)</h3>
+          <p id="bldg-subtitle" class="text-xs text-gray-300">The heart of your kingdom.</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="bldg-upgrade-btn" onclick="upgradeSelectedBuilding()" class="btn-gold px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 text-black">
+          <i class="fa-solid fa-arrow-up"></i>
+          <span id="bldg-upgrade-label">Upgrade (500)</span>
+        </button>
+        <button id="bldg-collect-btn" onclick="collectSelectedBuilding()" class="hidden btn-elixir px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 text-white">
+          <i class="fa-solid fa-hand-holding-dollar"></i>
+          <span>Collect</span>
+        </button>
+        <button onclick="deselectBuilding()" class="bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-300 w-8 h-8 rounded-xl flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Bottom Action Bar (Village Mode) -->
+  <footer id="village-footer" class="bg-gray-900 border-t-2 border-amber-600/40 p-2 sm:p-3 flex items-center justify-around gap-2 z-20 shrink-0">
+    <!-- Shop Button -->
+    <button onclick="openModal('shop-modal')" class="btn-gold flex-1 max-w-[130px] py-2 px-2 rounded-xl font-extrabold text-xs sm:text-sm text-gray-950 flex flex-col sm:flex-row items-center justify-center gap-1 shadow-lg">
+      <i class="fa-solid fa-store text-base"></i>
+      <span>Shop</span>
+    </button>
+
+    <!-- Train Army Button -->
+    <button onclick="openModal('barracks-modal')" class="btn-elixir flex-1 max-w-[150px] py-2 px-2 rounded-xl font-extrabold text-xs sm:text-sm text-white flex flex-col sm:flex-row items-center justify-center gap-1 shadow-lg relative">
+      <i class="fa-solid fa-shield-halved text-base"></i>
+      <span>Army (<span id="army-count-badge">0/20</span>)</span>
+    </button>
+
+    <!-- Attack / Battle Map Button -->
+    <button onclick="openModal('attack-modal')" class="btn-red flex-1 max-w-[150px] py-2 px-2 rounded-xl font-extrabold text-xs sm:text-sm text-white flex flex-col sm:flex-row items-center justify-center gap-1 shadow-lg">
+      <i class="fa-solid fa-swords text-base"></i>
+      <span>Attack!</span>
+    </button>
+  </footer>
+
+  <!-- Bottom Action Bar (Battle Mode) -->
+  <footer id="battle-footer" class="hidden bg-gray-900 border-t-2 border-red-600/50 p-2 sm:p-3 flex items-center justify-between gap-3 z-20 shrink-0">
+    <!-- Troop Selector List -->
+    <div id="battle-troop-selector" class="flex items-center gap-2 overflow-x-auto py-1 flex-1">
+      <!-- Generated dynamically -->
+    </div>
+
+    <!-- End / Surrender Button -->
+    <button onclick="surrenderBattle()" class="btn-red py-2.5 px-4 rounded-xl font-black text-xs sm:text-sm text-white shrink-0 shadow-lg flex items-center gap-1.5">
+      <i class="fa-solid fa-flag"></i>
+      <span>Surrender</span>
+    </button>
+  </footer>
+
+  <!-- MODALS -->
+
+  <!-- 1. SHOP MODAL -->
+  <div id="shop-modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-3">
+    <div class="game-card w-full max-w-2xl rounded-2xl overflow-hidden flex flex-col max-h-[85vh]">
+      <!-- Modal Header -->
+      <div class="bg-gray-800 px-4 py-3 border-b border-gray-700 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-store text-amber-400 text-xl"></i>
+          <h2 class="font-extrabold text-lg text-white">Royal Shop</h2>
+        </div>
+        <button onclick="closeModal('shop-modal')" class="text-gray-400 hover:text-white text-xl">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Shop Categories Tabs -->
+      <div class="flex border-b border-gray-700 bg-gray-900/60">
+        <button onclick="switchShopTab('defenses')" id="tab-defenses" class="flex-1 py-2.5 text-xs sm:text-sm font-bold text-amber-400 border-b-2 border-amber-400">Defenses</button>
+        <button onclick="switchShopTab('resources')" id="tab-resources" class="flex-1 py-2.5 text-xs sm:text-sm font-bold text-gray-400 hover:text-white">Resources</button>
+        <button onclick="switchShopTab('army')" id="tab-army" class="flex-1 py-2.5 text-xs sm:text-sm font-bold text-gray-400 hover:text-white">Army</button>
+      </div>
+
+      <!-- Shop Items List -->
+      <div id="shop-items-container" class="p-4 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
+        <!-- Dynamically rendered -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. BARRACKS / TROOP TRAINER MODAL -->
+  <div id="barracks-modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-3">
+    <div class="game-card w-full max-w-2xl rounded-2xl overflow-hidden flex flex-col max-h-[85vh]">
+      <div class="bg-gray-800 px-4 py-3 border-b border-gray-700 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-person-military-rifle text-pink-400 text-xl"></i>
+          <h2 class="font-extrabold text-lg text-white">Barracks & Troop Training</h2>
+        </div>
+        <button onclick="closeModal('barracks-modal')" class="text-gray-400 hover:text-white text-xl">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Army Capacity Banner -->
+      <div class="bg-pink-950/40 border-b border-pink-800/40 px-4 py-2 flex items-center justify-between">
+        <span class="text-xs font-bold text-pink-200">Current Army Capacity:</span>
+        <span id="barracks-capacity-text" class="text-sm font-black text-pink-400">0 / 20 Troops</span>
+      </div>
+
+      <!-- Troops Roster Grid -->
+      <div id="troop-trainer-container" class="p-4 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
+        <!-- Dynamically rendered -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. ATTACK / CAMPAIGN MODAL -->
+  <div id="attack-modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-3">
+    <div class="game-card w-full max-w-2xl rounded-2xl overflow-hidden flex flex-col max-h-[85vh]">
+      <div class="bg-gray-800 px-4 py-3 border-b border-gray-700 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-swords text-red-500 text-xl"></i>
+          <h2 class="font-extrabold text-lg text-white">Attack Map & Campaign</h2>
+        </div>
+        <button onclick="closeModal('attack-modal')" class="text-gray-400 hover:text-white text-xl">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="p-4 overflow-y-auto space-y-3 flex-1">
+        <p class="text-xs text-gray-300">Choose an enemy stronghold to raid. Loot Gold and Elixir to upgrade your kingdom!</p>
+
+        <!-- Campaign Levels Grid -->
+        <div id="campaign-list" class="space-y-3">
+          <!-- Dynamically populated campaign levels -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. BATTLE RESULTS MODAL -->
+  <div id="results-modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-3">
+    <div class="game-card w-full max-w-md rounded-2xl overflow-hidden text-center p-6 space-y-4">
+      <h2 id="result-title" class="text-3xl font-black text-amber-400 tracking-wide">VICTORY!</h2>
+
+      <!-- Stars Display -->
+      <div id="result-stars" class="flex justify-center gap-2 text-3xl text-yellow-400">
+        <i class="fa-solid fa-star"></i>
+        <i class="fa-solid fa-star"></i>
+        <i class="fa-solid fa-star"></i>
+      </div>
+
+      <div id="result-subtitle" class="text-sm font-semibold text-gray-300">Enemy village destroyed!</div>
+
+      <!-- Loot Captured -->
+      <div class="bg-gray-900/80 rounded-xl p-4 border border-gray-700 space-y-2">
+        <div class="text-xs font-bold text-gray-400 uppercase">Loot Captured</div>
+        <div class="flex justify-around items-center">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-coins text-amber-400 text-xl"></i>
+            <span id="result-gold" class="font-extrabold text-lg text-white">+0</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-flask-vial text-pink-400 text-xl"></i>
+            <span id="result-elixir" class="font-extrabold text-lg text-white">+0</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-trophy text-yellow-400 text-xl"></i>
+            <span id="result-trophies" class="font-extrabold text-lg text-white">+0</span>
+          </div>
+        </div>
+      </div>
+
+      <button onclick="finishBattleAndReturn()" class="btn-gold w-full py-3 rounded-xl font-extrabold text-black text-base shadow-lg">
+        Return to Village
+      </button>
+    </div>
+  </div>
+
+  <!-- 5. SETTINGS MODAL -->
+  <div id="settings-modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-3">
+    <div class="game-card w-full max-w-sm rounded-2xl overflow-hidden p-5 space-y-4">
+      <div class="flex items-center justify-between border-b border-gray-700 pb-3">
+        <h3 class="font-extrabold text-lg text-white">Settings</h3>
+        <button onclick="closeModal('settings-modal')" class="text-gray-400 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <button onclick="resetGameProgress()" class="btn-red w-full py-2.5 rounded-xl font-bold text-xs text-white flex items-center justify-center gap-2">
+          <i class="fa-solid fa-trash-arrow-up"></i>
+          <span>Reset Game Progress</span>
+        </button>
+        <p class="text-[11px] text-gray-400 text-center">This will permanently delete your village, troops, and resources.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ==========================================================================
+       AUDIO SYNTHESIZER (WEB AUDIO API)
+       ========================================================================== */
+    let audioEnabled = true;
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    function toggleAudio() {
+      audioEnabled = !audioEnabled;
+      const icon = document.getElementById('sound-icon');
+      if (audioEnabled) {
+        icon.className = 'fa-solid fa-volume-high';
+      } else {
+        icon.className = 'fa-solid fa-volume-xmark';
+      }
+    }
+
+    function playSound(type) {
+      if (!audioEnabled) return;
+      initAudio();
+      if (!audioCtx) return;
+
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+
+      const now = audioCtx.currentTime;
+
+      if (type === 'click') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, now);
+        osc.frequency.exponentialRampToValueAtTime(800, now + 0.05);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.linearRampToValueAtTime(0, now + 0.05);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.05);
+      } else if (type === 'coin') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(987.77, now); // B5
+        osc.frequency.setValueAtTime(1318.51, now + 0.08); // E6
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.linearRampToValueAtTime(0, now + 0.25);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.25);
+      } else if (type === 'deploy') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(250, now);
+        osc.frequency.exponentialRampToValueAtTime(120, now + 0.1);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.linearRampToValueAtTime(0, now + 0.1);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.1);
+      } else if (type === 'cannon') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.linearRampToValueAtTime(0, now + 0.15);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.15);
+      } else if (type === 'explosion') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(100, now);
+        osc.frequency.exponentialRampToValueAtTime(20, now + 0.3);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.linearRampToValueAtTime(0, now + 0.3);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.3);
+      } else if (type === 'victory') {
+        [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+          gain.gain.setValueAtTime(0.25, now + idx * 0.12);
+          gain.gain.linearRampToValueAtTime(0, now + idx * 0.12 + 0.3);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + idx * 0.12);
+          osc.stop(now + idx * 0.12 + 0.3);
+        });
+      }
+    }
+
+    /* ==========================================================================
+       GAME ENGINE & STATE MANAGEMENT
+       ========================================================================== */
+
+    // Building Data Definitions
+    const BUILDING_TYPES = {
+      townhall: {
+        name: 'Town Hall',
+        category: 'resources',
+        icon: 'fa-landmark',
+        subIcon: 'fa-crown',
+        color: '#f59e0b',
+        costType: 'gold',
+        baseCost: 0,
+        hp: 1500,
+        size: 3,
+        description: 'The heart of your kingdom. Protect it at all costs!'
+      },
+      gold_mine: {
+        name: 'Gold Mine',
+        category: 'resources',
+        icon: 'fa-hammer',
+        subIcon: 'fa-coins',
+        color: '#fbbf24',
+        costType: 'elixir',
+        baseCost: 150,
+        hp: 400,
+        size: 2,
+        rate: 5, // Gold generated per sec
+        maxCollect: 300,
+        description: 'Digs gold out of the ground with pickaxes and hammers.'
+      },
+      elixir_collector: {
+        name: 'Elixir Collector',
+        category: 'resources',
+        icon: 'fa-droplet',
+        subIcon: 'fa-flask',
+        color: '#ec4899',
+        costType: 'gold',
+        baseCost: 150,
+        hp: 400,
+        size: 2,
+        rate: 5, // Elixir generated per sec
+        maxCollect: 300,
+        description: 'Pumps magical elixir droplets from deep underground.'
+      },
+      gold_storage: {
+        name: 'Gold Storage',
+        category: 'resources',
+        icon: 'fa-coins',
+        subIcon: null,
+        color: '#d97706',
+        costType: 'elixir',
+        baseCost: 300,
+        hp: 800,
+        size: 2,
+        capacity: 4000,
+        description: 'Increases maximum gold capacity with a heavy coin vault.'
+      },
+      elixir_storage: {
+        name: 'Elixir Storage',
+        category: 'resources',
+        icon: 'fa-flask',
+        subIcon: null,
+        color: '#be185d',
+        costType: 'gold',
+        baseCost: 300,
+        hp: 800,
+        size: 2,
+        capacity: 4000,
+        description: 'Stores large amounts of pink elixir in magical vats.'
+      },
+      cannon: {
+        name: 'Cannon',
+        category: 'defenses',
+        icon: 'fa-bomb',
+        subIcon: 'fa-bullseye',
+        color: '#f97316',
+        costType: 'gold',
+        baseCost: 250,
+        hp: 600,
+        range: 4.5,
+        damage: 25,
+        attackSpeed: 1.0, // Attack interval in sec
+        size: 2,
+        description: 'Fires heavy cast-iron cannonballs at ground troops.'
+      },
+      archer_tower: {
+        name: 'Archer Tower',
+        category: 'defenses',
+        icon: 'fa-tower-observation',
+        subIcon: 'fa-crosshairs',
+        color: '#10b981',
+        costType: 'gold',
+        baseCost: 400,
+        hp: 550,
+        range: 6.0,
+        damage: 18,
+        attackSpeed: 0.6,
+        size: 2,
+        description: 'Longer range with fast bow-and-arrow archers.'
+      },
+      wizard_tower: {
+        name: 'Wizard Tower',
+        category: 'defenses',
+        icon: 'fa-hat-wizard',
+        subIcon: 'fa-wand-magic-sparkles',
+        color: '#8b5cf6',
+        costType: 'gold',
+        baseCost: 800,
+        hp: 700,
+        range: 4.0,
+        damage: 35,
+        attackSpeed: 1.2,
+        size: 2,
+        description: 'Deals splash damage to multiple enemies using magic.'
+      },
+      wall: {
+        name: 'Defensive Wall',
+        category: 'defenses',
+        icon: 'fa-cubes',
+        subIcon: null,
+        color: '#9ca3af',
+        costType: 'gold',
+        baseCost: 50,
+        hp: 1200,
+        size: 1,
+        description: 'Slows down incoming enemy forces.'
+      },
+      barracks: {
+        name: 'Barracks',
+        category: 'army',
+        icon: 'fa-shield-halved',
+        subIcon: 'fa-person-military-rifle',
+        color: '#ef4444',
+        costType: 'elixir',
+ baseCost: 200,
+        hp: 500,
+        size: 2,
+        description: 'Allows you to train stronger army troops.'
+      },
+      army_camp: {
+        name: 'Army Camp',
+        category: 'army',
+        icon: 'fa-tent',
+        subIcon: 'fa-users',
+        color: '#3b82f6',
+        costType: 'elixir',
+        baseCost: 250,
+        hp: 450,
+        size: 3,
+        capacity: 10,
+        description: 'Houses your trained military troops in tipi tents.'
+      }
+    };
+
+    // Troop Data Definitions
+    const TROOP_TYPES = {
+      barbarian: {
+        name: 'Barbarian',
+        icon: 'fa-hand-fist',
+        color: '#f59e0b',
+        cost: 50,
+        hp: 120,
+        damage: 18,
+        range: 0.8,
+        speed: 1.8,
+        housing: 1,
+        targetPref: 'any',
+        description: 'Fierce warrior that deals close-range damage.'
+      },
+      archer: {
+        name: 'Archer',
+        icon: 'fa-crosshairs',
+        color: '#10b981',
+        cost: 80,
+        hp: 60,
+        damage: 15,
+        range: 4.0,
+        speed: 2.0,
+        housing: 1,
+        targetPref: 'any',
+        description: 'Shoots arrows from a safe distance.'
+      },
+      giant: {
+        name: 'Giant',
+        icon: 'fa-shield-cat',
+        color: '#d97706',
+        cost: 250,
+        hp: 600,
+        damage: 22,
+        range: 0.8,
+        speed: 1.0,
+        housing: 5,
+        targetPref: 'defense',
+        description: 'Targets defensive structures first. High HP.'
+      },
+      goblin: {
+        name: 'Goblin',
+        icon: 'fa-hand-holding-dollar',
+        color: '#84cc16',
+        cost: 60,
+        hp: 75,
+        damage: 20, // 2x to resource buildings
+        range: 0.8,
+        speed: 2.8,
+        housing: 1,
+        targetPref: 'resource',
+        description: 'Lightning fast and deals double damage to resource vaults.'
+      },
+      wizard: {
+        name: 'Wizard',
+        icon: 'fa-hat-wizard',
+        color: '#a855f7',
+        cost: 350,
+        hp: 140,
+        damage: 55,
+        range: 3.5,
+        speed: 1.6,
+        housing: 4,
+        targetPref: 'any',
+        description: 'Unleashes devastating magical fireballs.'
+      }
+    };
+
+    // Campaign Map Stages
+    const CAMPAIGN_STAGES = [
+      {
+        id: 1,
+        name: '1. Goblin Outpost',
+        difficulty: 'Easy',
+        goldReward: 800,
+        elixirReward: 800,
+        trophies: 10,
+        layout: [
+          { type: 'townhall', x: 10, y: 10, level: 1 },
+          { type: 'gold_storage', x: 7, y: 10, level: 1 },
+          { type: 'cannon', x: 13, y: 10, level: 1 }
+        ]
+      },
+      {
+        id: 2,
+        name: '2. Skull Fortress',
+        difficulty: 'Medium',
+        goldReward: 2000,
+        elixirReward: 2000,
+        trophies: 18,
+        layout: [
+          { type: 'townhall', x: 10, y: 10, level: 1 },
+          { type: 'gold_storage', x: 8, y: 8, level: 1 },
+          { type: 'elixir_storage', x: 12, y: 8, level: 1 },
+          { type: 'cannon', x: 8, y: 12, level: 1 },
+          { type: 'archer_tower', x: 12, y: 12, level: 1 },
+          { type: 'wall', x: 6, y: 6, level: 1 },
+          { type: 'wall', x: 7, y: 6, level: 1 },
+          { type: 'wall', x: 8, y: 6, level: 1 },
+          { type: 'wall', x: 12, y: 6, level: 1 },
+          { type: 'wall', x: 13, y: 6, level: 1 },
+          { type: 'wall', x: 14, y: 6, level: 1 }
+        ]
+      },
+      {
+        id: 3,
+        name: '3. Dragon Citadel',
+        difficulty: 'Hard',
+        goldReward: 4500,
+        elixirReward: 4500,
+        trophies: 30,
+        layout: [
+          { type: 'townhall', x: 10, y: 10, level: 2 },
+          { type: 'gold_storage', x: 7, y: 8, level: 2 },
+          { type: 'elixir_storage', x: 13, y: 8, level: 2 },
+          { type: 'cannon', x: 7, y: 12, level: 2 },
+          { type: 'archer_tower', x: 13, y: 12, level: 2 },
+          { type: 'wizard_tower', x: 10, y: 6, level: 1 },
+          { type: 'cannon', x: 10, y: 14, level: 1 }
+        ]
+      }
+    ];
+
+    // Global Player State
+    let gameState = {
+      level: 1,
+      xp: 0,
+      gold: 1500,
+      elixir: 1500,
+      gems: 250,
+      trophies: 0,
+      buildings: [], // Array of placed buildings
+      army: {
+        barbarian: 4,
+        archer: 4,
+        giant: 1,
+        goblin: 2,
+        wizard: 0
+      }
+    };
+
+    // Mode: 'VILLAGE' or 'BATTLE'
+    let currentMode = 'VILLAGE';
+    let selectedBuildingId = null;
+    let shopPlacementType = null; // Type of building currently placing
+
+    // Battle Mode Specific State
+    let battleState = {
+      stageData: null,
+      buildings: [], // Enemy buildings cloned
+      troops: [],    // Deployed troops
+      projectiles: [],
+      particles: [],
+      floatingTexts: [],
+      selectedTroopType: null,
+      remainingArmy: {},
+      totalLootGold: 0,
+      totalLootElixir: 0,
+      lootedGold: 0,
+      lootedElixir: 0,
+      totalBuildingsCount: 0,
+      destroyedBuildingsCount: 0,
+      townHallDestroyed: false,
+      battleTimeLeft: 180,
+      timerInterval: null
+    };
+
+    // Canvas Settings & Camera
+    const GRID_SIZE = 22; // 22x22 Tiles
+    let canvas, ctx;
+    let tileSize = 32;
+    let cameraOffset = { x: 0, y: 0 };
+    let isDragging = false;
+    let dragStart = { x: 0, y: 0 };
+
+    window.onload = function() {
+      canvas = document.getElementById('gameCanvas');
+      ctx = canvas.getContext('2d');
+
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+
+      loadSavedGame();
+      if (gameState.buildings.length === 0) {
+        setupDefaultVillage();
+      }
+
+      setupInputListeners();
+      renderShopItems();
+      renderTroopTrainer();
+      renderCampaignList();
+
+      // Start Game Loop
+      lastTime = performance.now();
+      requestAnimationFrame(gameLoop);
+
+      // Passive Resource Generation Loop
+      setInterval(passiveResourceTick, 1000);
+    };
+
+    function resizeCanvas() {
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = canvas.parentElement.clientHeight;
+      centerCamera();
+    }
+
+    function centerCamera() {
+      tileSize = Math.max(28, Math.min(canvas.width, canvas.height) / 16);
+      const gridPixelWidth = GRID_SIZE * tileSize;
+      const gridPixelHeight = GRID_SIZE * tileSize;
+      cameraOffset.x = (canvas.width - gridPixelWidth) / 2;
+      cameraOffset.y = (canvas.height - gridPixelHeight) / 2;
+    }
+
+    function setupDefaultVillage() {
+      gameState.buildings = [
+        { id: 'b_1', type: 'townhall', x: 10, y: 10, level: 1, storedResource: 0 },
+        { id: 'b_2', type: 'gold_mine', x: 6, y: 10, level: 1, storedResource: 0 },
+        { id: 'b_3', type: 'elixir_collector', x: 14, y: 10, level: 1, storedResource: 0 },
+        { id: 'b_4', type: 'gold_storage', x: 8, y: 14, level: 1, storedResource: 0 },
+        { id: 'b_5', type: 'elixir_storage', x: 12, y: 14, level: 1, storedResource: 0 },
+        { id: 'b_6', type: 'cannon', x: 10, y: 6, level: 1, storedResource: 0 },
+        { id: 'b_7', type: 'army_camp', x: 6, y: 6, level: 1, storedResource: 0 },
+        { id: 'b_8', type: 'barracks', x: 14, y: 6, level: 1, storedResource: 0 }
+      ];
+      saveGame();
+    }
+
+    function setupInputListeners() {
+      let dragDistance = 0;
+
+      canvas.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        dragStart = { x: e.clientX - cameraOffset.x, y: e.clientY - cameraOffset.y };
+        dragDistance = 0;
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (isDragging) {
+          const newX = e.clientX - dragStart.x;
+          const newY = e.clientY - dragStart.y;
+          dragDistance += Math.hypot(newX - cameraOffset.x, newY - cameraOffset.y);
+          cameraOffset.x = newX;
+          cameraOffset.y = newY;
+        }
+      });
+
+      window.addEventListener('mouseup', (e) => {
+        if (isDragging && dragDistance < 8) {
+          handleCanvasClick(e);
+        }
+        isDragging = false;
+      });
+
+      // Touch events for mobile responsiveness
+      canvas.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+          isDragging = true;
+          dragStart = { x: e.touches[0].clientX - cameraOffset.x, y: e.touches[0].clientY - cameraOffset.y };
+          dragDistance = 0;
+        }
+      });
+
+      canvas.addEventListener('touchmove', (e) => {
+        if (isDragging && e.touches.length === 1) {
+          const newX = e.touches[0].clientX - dragStart.x;
+          const newY = e.touches[0].clientY - dragStart.y;
+          dragDistance += Math.hypot(newX - cameraOffset.x, newY - cameraOffset.y);
+          cameraOffset.x = newX;
+          cameraOffset.y = newY;
+        }
+      });
+
+      canvas.addEventListener('touchend', (e) => {
+        if (isDragging && dragDistance < 8) {
+          const touch = e.changedTouches[0];
+          handleCanvasClick(touch);
+        }
+        isDragging = false;
+      });
+    }
+
+    function handleCanvasClick(e) {
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left - cameraOffset.x;
+      const mouseY = e.clientY - rect.top - cameraOffset.y;
+
+      const gridX = Math.floor(mouseX / tileSize);
+      const gridY = Math.floor(mouseY / tileSize);
+
+      if (gridX < 0 || gridX >= GRID_SIZE || gridY < 0 || gridY >= GRID_SIZE) return;
+
+      if (currentMode === 'VILLAGE') {
+        if (shopPlacementType) {
+          attemptPlaceBuilding(gridX, gridY);
+        } else {
+          const clickedBuilding = gameState.buildings.find(b => {
+            const def = BUILDING_TYPES[b.type];
+            return gridX >= b.x && gridX < b.x + def.size && gridY >= b.y && gridY < b.y + def.size;
+          });
+
+          if (clickedBuilding) {
+            selectBuilding(clickedBuilding.id);
+            playSound('click');
+          } else {
+            deselectBuilding();
+          }
+        }
+      } else if (currentMode === 'BATTLE') {
+        if (gridX <= 1 || gridX >= GRID_SIZE - 2 || gridY <= 1 || gridY >= GRID_SIZE - 2) {
+          deployTroop(gridX + 0.5, gridY + 0.5);
+        } else {
+          const isTooClose = battleState.buildings.some(b => {
+            if (b.hp <= 0) return false;
+            const def = BUILDING_TYPES[b.type];
+            return Math.abs((b.x + def.size / 2) - gridX) < (def.size / 2 + 1.5) &&
+                   Math.abs((b.y + def.size / 2) - gridY) < (def.size / 2 + 1.5);
+          });
+
+          if (!isTooClose) {
+            deployTroop(gridX + 0.5, gridY + 0.5);
+          } else {
+            addFloatingText(gridX * tileSize, gridY * tileSize, 'Cannot spawn here!', '#ef4444');
+          }
+        }
+      }
+    }
+
+    function attemptPlaceBuilding(gx, gy) {
+      const def = BUILDING_TYPES[shopPlacementType];
+      if (gx + def.size > GRID_SIZE || gy + def.size > GRID_SIZE) {
+        addFloatingText(gx * tileSize, gy * tileSize, 'Outside territory!', '#ef4444');
+        return;
+      }
+
+      const overlaps = gameState.buildings.some(b => {
+        const bDef = BUILDING_TYPES[b.type];
+        return (gx < b.x + bDef.size && gx + def.size > b.x &&
+                gy < b.y + bDef.size && gy + def.size > b.y);
+      });
+
+      if (overlaps) {
+        addFloatingText(gx * tileSize, gy * tileSize, 'Space occupied!', '#ef4444');
+        return;
+      }
+
+      const cost = def.baseCost;
+      if (def.costType === 'gold' && gameState.gold < cost) {
+        addFloatingText(gx * tileSize, gy * tileSize, 'Insufficient Gold!', '#ef4444');
+        return;
+      } else if (def.costType === 'elixir' && gameState.elixir < cost) {
+        addFloatingText(gx * tileSize, gy * tileSize, 'Insufficient Elixir!', '#ef4444');
+        return;
+      }
+
+      if (def.costType === 'gold') gameState.gold -= cost;
+      if (def.costType === 'elixir') gameState.elixir -= cost;
+
+      const newBldg = {
+        id: 'b_' + Date.now(),
+        type: shopPlacementType,
+        x: gx,
+        y: gy,
+        level: 1,
+        storedResource: 0
+      };
+
+      gameState.buildings.push(newBldg);
+      shopPlacementType = null;
+      updateHUD();
+      saveGame();
+      playSound('coin');
+    }
+
+    function selectBuilding(id) {
+      selectedBuildingId = id;
+      const bldg = gameState.buildings.find(b => b.id === id);
+      if (!bldg) return;
+
+      const def = BUILDING_TYPES[bldg.type];
+      const panel = document.getElementById('selected-building-panel');
+      panel.classList.remove('hidden');
+
+      document.getElementById('bldg-title').innerText = `${def.name} (Level ${bldg.level})`;
+      document.getElementById('bldg-subtitle').innerText = def.description;
+
+      let iconHtml = `<i class="fa-solid ${def.icon}"></i>`;
+      if (def.subIcon) {
+        iconHtml = `
+          <div class="icon-badge-container">
+            <i class="fa-solid ${def.icon}"></i>
+            <i class="fa-solid ${def.subIcon} icon-badge-sub text-amber-400"></i>
+          </div>
+        `;
+      }
+      document.getElementById('bldg-icon-box').innerHTML = iconHtml;
+
+      const upgradeCost = Math.round(def.baseCost * Math.pow(1.6, bldg.level));
+      document.getElementById('bldg-upgrade-label').innerText = `Upgrade (${upgradeCost} ${def.costType === 'gold' ? 'Gold' : 'Elixir'})`;
+
+      const collectBtn = document.getElementById('bldg-collect-btn');
+      if ((bldg.type === 'gold_mine' || bldg.type === 'elixir_collector') && bldg.storedResource > 5) {
+        collectBtn.classList.remove('hidden');
+      } else {
+        collectBtn.classList.add('hidden');
+      }
+    }
+
+    function deselectBuilding() {
+      selectedBuildingId = null;
+      document.getElementById('selected-building-panel').classList.add('hidden');
+    }
+
+    function upgradeSelectedBuilding() {
+      if (!selectedBuildingId) return;
+      const bldg = gameState.buildings.find(b => b.id === selectedBuildingId);
+      if (!bldg) return;
+
+      const def = BUILDING_TYPES[bldg.type];
+      const upgradeCost = Math.round(def.baseCost * Math.pow(1.6, bldg.level));
+
+      if (def.costType === 'gold' && gameState.gold >= upgradeCost) {
+        gameState.gold -= upgradeCost;
+        bldg.level++;
+        playSound('coin');
+        addFloatingText(bldg.x * tileSize, bldg.y * tileSize, `Level ${bldg.level}!`, '#fbbf24');
+      } else if (def.costType === 'elixir' && gameState.elixir >= upgradeCost) {
+        gameState.elixir -= upgradeCost;
+        bldg.level++;
+        playSound('coin');
+        addFloatingText(bldg.x * tileSize, bldg.y * tileSize, `Level ${bldg.level}!`, '#ec4899');
+      } else {
+        playSound('click');
+        return;
+      }
+
+      updateHUD();
+      selectBuilding(bldg.id);
+      saveGame();
+    }
+
+    function collectSelectedBuilding() {
+      if (!selectedBuildingId) return;
+      const bldg = gameState.buildings.find(b => b.id === selectedBuildingId);
+      if (!bldg || bldg.storedResource <= 0) return;
+
+      const amt = Math.floor(bldg.storedResource);
+      if (bldg.type === 'gold_mine') {
+        const maxG = getMaxGoldCapacity();
+        const added = Math.min(amt, maxG - gameState.gold);
+        gameState.gold += added;
+        addFloatingText(bldg.x * tileSize, bldg.y * tileSize, `+${added} Gold`, '#fbbf24');
+      } else if (bldg.type === 'elixir_collector') {
+        const maxE = getMaxElixirCapacity();
+        const added = Math.min(amt, maxE - gameState.elixir);
+        gameState.elixir += added;
+        addFloatingText(bldg.x * tileSize, bldg.y * tileSize, `+${added} Elixir`, '#ec4899');
+      }
+
+      bldg.storedResource = 0;
+      playSound('coin');
+      deselectBuilding();
+      updateHUD();
+      saveGame();
+    }
+
+    function getMaxGoldCapacity() {
+      let cap = 2000;
+      gameState.buildings.forEach(b => {
+        if (b.type === 'gold_storage') {
+          cap += (BUILDING_TYPES.gold_storage.capacity * b.level);
+        } else if (b.type === 'townhall') {
+          cap += 1000 * b.level;
+        }
+      });
+      return cap;
+    }
+
+    function getMaxElixirCapacity() {
+      let cap = 2000;
+      gameState.buildings.forEach(b => {
+        if (b.type === 'elixir_storage') {
+          cap += (BUILDING_TYPES.elixir_storage.capacity * b.level);
+        } else if (b.type === 'townhall') {
+          cap += 1000 * b.level;
+        }
+      });
+      return cap;
+    }
+
+    function getMaxArmyCapacity() {
+      let cap = 10;
+      gameState.buildings.forEach(b => {
+        if (b.type === 'army_camp') {
+          cap += (BUILDING_TYPES.army_camp.capacity * b.level);
+        }
+      });
+      return cap;
+    }
+
+    function getCurrentArmyHousing() {
+      let current = 0;
+      for (const [tKey, count] of Object.entries(gameState.army)) {
+        current += count * TROOP_TYPES[tKey].housing;
+      }
+      return current;
+    }
+
+    function passiveResourceTick() {
+      if (currentMode !== 'VILLAGE') return;
+
+      gameState.buildings.forEach(b => {
+        const def = BUILDING_TYPES[b.type];
+        if (b.type === 'gold_mine' || b.type === 'elixir_collector') {
+          const gen = (def.rate * b.level);
+          b.storedResource = Math.min(def.maxCollect, (b.storedResource || 0) + gen);
+        }
+      });
+
+      updateHUD();
+    }
+
+    function updateHUD() {
+      document.getElementById('player-level').innerText = gameState.level;
+      document.getElementById('xp-bar').style.width = `${gameState.xp % 100}%`;
+
+      document.getElementById('gold-display').innerText = `${gameState.gold.toLocaleString()} / ${getMaxGoldCapacity().toLocaleString()}`;
+      document.getElementById('elixir-display').innerText = `${gameState.elixir.toLocaleString()} / ${getMaxElixirCapacity().toLocaleString()}`;
+      document.getElementById('gems-display').innerText = gameState.gems;
+      document.getElementById('trophies-display').innerText = gameState.trophies;
+
+      const currentArmy = getCurrentArmyHousing();
+      const maxArmy = getMaxArmyCapacity();
+      document.getElementById('army-count-badge').innerText = `${currentArmy}/${maxArmy}`;
+      const barracksCap = document.getElementById('barracks-capacity-text');
+      if (barracksCap) barracksCap.innerText = `${currentArmy} / ${maxArmy} Troops`;
+    }
+
+    function renderShopItems(tab = 'defenses') {
+      const container = document.getElementById('shop-items-container');
+      container.innerHTML = '';
+
+      Object.keys(BUILDING_TYPES).forEach(key => {
+        const b = BUILDING_TYPES[key];
+        if (b.category !== tab) return;
+
+        const card = document.createElement('div');
+        card.className = 'bg-gray-800/90 border border-gray-700 hover:border-amber-500/60 rounded-xl p-3 flex flex-col justify-between transition gap-2';
+
+        let iconMarkup = `<i class="fa-solid ${b.icon}"></i>`;
+        if (b.subIcon) {
+          iconMarkup = `
+            <div class="icon-badge-container">
+              <i class="fa-solid ${b.icon}"></i>
+              <i class="fa-solid ${b.subIcon} icon-badge-sub text-amber-300"></i>
+            </div>
+          `;
+        }
+
+        card.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-gray-900 border border-gray-700 flex items-center justify-center text-xl" style="color: ${b.color}">
+              ${iconMarkup}
+            </div>
+            <div>
+              <h4 class="font-extrabold text-sm text-white">${b.name}</h4>
+              <p class="text-[11px] text-gray-300 leading-tight">${b.description}</p>
+            </div>
+          </div>
+          <div class="flex items-center justify-between border-t border-gray-700/60 pt-2 mt-1">
+            <div class="flex items-center gap-1 font-extrabold text-xs text-amber-300">
+              <i class="fa-solid ${b.costType === 'gold' ? 'fa-coins text-amber-400' : 'fa-flask-vial text-pink-400'}"></i>
+              <span>${b.baseCost}</span>
+            </div>
+            <button onclick="startPlacingBuilding('${key}')" class="btn-gold px-3 py-1 rounded-lg text-xs font-bold text-black">
+              Build
+            </button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function switchShopTab(tab) {
+      ['defenses', 'resources', 'army'].forEach(t => {
+        const btn = document.getElementById(`tab-${t}`);
+        if (t === tab) {
+          btn.className = 'flex-1 py-2.5 text-xs sm:text-sm font-bold text-amber-400 border-b-2 border-amber-400';
+        } else {
+          btn.className = 'flex-1 py-2.5 text-xs sm:text-sm font-bold text-gray-400 hover:text-white';
+        }
+      });
+      renderShopItems(tab);
+    }
+
+    function startPlacingBuilding(type) {
+      shopPlacementType = type;
+      closeModal('shop-modal');
+      addFloatingText(canvas.width / 2, 80, 'Tap an empty tile on the field to place', '#fbbf24');
+    }
+
+    function renderTroopTrainer() {
+      const container = document.getElementById('troop-trainer-container');
+      container.innerHTML = '';
+
+      Object.keys(TROOP_TYPES).forEach(key => {
+        const t = TROOP_TYPES[key];
+        const count = gameState.army[key] || 0;
+
+        const card = document.createElement('div');
+        card.className = 'bg-gray-800/90 border border-gray-700 rounded-xl p-3 flex flex-col justify-between gap-2';
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-10 h-10 rounded-lg bg-gray-900 border border-gray-700 flex items-center justify-center text-xl" style="color: ${t.color}">
+                <i class="fa-solid ${t.icon}"></i>
+              </div>
+              <div>
+                <h4 class="font-extrabold text-sm text-white">${t.name}</h4>
+                <div class="text-[10px] text-gray-400">Space: ${t.housing} | HP: ${t.hp} | DPS: ${t.damage}</div>
+              </div>
+            </div>
+            <div class="text-right">
+              <span class="text-xs font-black text-pink-400">x${count}</span>
+            </div>
+          </div>
+          <div class="flex items-center justify-between border-t border-gray-700/60 pt-2">
+            <div class="flex items-center gap-1 font-bold text-xs text-pink-300">
+              <i class="fa-solid fa-flask-vial text-pink-400"></i>
+              <span>${t.cost}</span>
+            </div>
+            <button onclick="trainTroop('${key}')" class="btn-elixir px-3 py-1 rounded-lg text-xs font-bold text-white">
+              + Train
+            </button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function trainTroop(type) {
+      const t = TROOP_TYPES[type];
+      const curHousing = getCurrentArmyHousing();
+      const maxHousing = getMaxArmyCapacity();
+
+      if (curHousing + t.housing > maxHousing) {
+        playSound('click');
+        return;
+      }
+
+      if (gameState.elixir < t.cost) {
+        playSound('click');
+        return;
+      }
+
+      gameState.elixir -= t.cost;
+      gameState.army[type] = (gameState.army[type] || 0) + 1;
+      playSound('deploy');
+      updateHUD();
+      renderTroopTrainer();
+      saveGame();
+    }
+
+    function renderCampaignList() {
+      const container = document.getElementById('campaign-list');
+      container.innerHTML = '';
+
+      CAMPAIGN_STAGES.forEach(stage => {
+        const card = document.createElement('div');
+        card.className = 'bg-gray-800 border border-gray-700 rounded-xl p-3.5 flex items-center justify-between gap-3 hover:border-red-500/60 transition';
+
+        card.innerHTML = `
+          <div>
+            <h4 class="font-extrabold text-sm text-white">${stage.name}</h4>
+            <div class="text-xs text-gray-400">Difficulty: <span class="text-amber-400 font-bold">${stage.difficulty}</span></div>
+            <div class="flex gap-3 text-xs font-bold mt-1">
+              <span class="text-amber-400"><i class="fa-solid fa-coins mr-1"></i>${stage.goldReward}</span>
+              <span class="text-pink-400"><i class="fa-solid fa-flask-vial mr-1"></i>${stage.elixirReward}</span>
+            </div>
+          </div>
+          <button onclick="startBattle(${stage.id})" class="btn-red px-4 py-2 rounded-xl font-black text-xs text-white">
+            Attack
+          </button>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function startBattle(stageId) {
+      closeModal('attack-modal');
+      deselectBuilding();
+
+      const stage = CAMPAIGN_STAGES.find(s => s.id === stageId);
+      currentMode = 'BATTLE';
+
+      // Setup battle state
+      battleState.stageData = stage;
+      battleState.buildings = JSON.parse(JSON.stringify(stage.layout)).map((b, idx) => {
+        const def = BUILDING_TYPES[b.type];
+        const maxHp = Math.round(def.hp * Math.pow(1.3, b.level - 1));
+        return {
+          id: 'eb_' + idx,
+          type: b.type,
+          x: b.x,
+          y: b.y,
+          level: b.level,
+          hp: maxHp,
+          maxHp: maxHp,
+          lastAttackTime: 0
+        };
+      });
+
+      battleState.troops = [];
+      battleState.projectiles = [];
+      battleState.particles = [];
+      battleState.floatingTexts = [];
+      battleState.remainingArmy = { ...gameState.army };
+
+      // Calculate loot available
+      battleState.totalLootGold = stage.goldReward;
+      battleState.totalLootElixir = stage.elixirReward;
+      battleState.lootedGold = 0;
+      battleState.lootedElixir = 0;
+
+      battleState.totalBuildingsCount = battleState.buildings.length;
+      battleState.destroyedBuildingsCount = 0;
+      battleState.townHallDestroyed = false;
+      battleState.battleTimeLeft = 180; // 3 Minutes
+
+      // Auto select first available troop
+      battleState.selectedTroopType = Object.keys(battleState.remainingArmy).find(k => battleState.remainingArmy[k] > 0) || null;
+
+      // Toggle UI footers & HUD
+      document.getElementById('village-footer').classList.add('hidden');
+      document.getElementById('battle-footer').classList.remove('hidden');
+      document.getElementById('battle-hud').classList.remove('hidden');
+
+      renderBattleTroopSelector();
+      updateBattleHUD();
+
+      // Start battle countdown timer
+      if (battleState.timerInterval) clearInterval(battleState.timerInterval);
+      battleState.timerInterval = setInterval(() => {
+        battleState.battleTimeLeft--;
+        updateBattleHUD();
+        if (battleState.battleTimeLeft <= 0) {
+          endBattle();
+        }
+      }, 1000);
+    }
+
+    function renderBattleTroopSelector() {
+      const container = document.getElementById('battle-troop-selector');
+      container.innerHTML = '';
+
+      Object.keys(battleState.remainingArmy).forEach(key => {
+        const count = battleState.remainingArmy[key];
+        const t = TROOP_TYPES[key];
+        const isSelected = battleState.selectedTroopType === key;
+
+        const btn = document.createElement('button');
+        btn.onclick = () => {
+          battleState.selectedTroopType = key;
+          renderBattleTroopSelector();
+          playSound('click');
+        };
+
+        btn.className = `flex flex-col items-center justify-center p-2 rounded-xl border-2 transition min-w-[64px] ${
+          isSelected ? 'bg-amber-500/20 border-amber-400 scale-105' : 'bg-gray-800 border-gray-700 opacity-80'
+        }`;
+
+        btn.innerHTML = `
+          <i class="fa-solid ${t.icon} text-lg mb-0.5" style="color: ${t.color}"></i>
+          <span class="text-[10px] font-extrabold text-white leading-none">${t.name}</span>
+          <span class="text-xs font-black text-amber-400 mt-1">x${count}</span>
+        `;
+        container.appendChild(btn);
+      });
+    }
+
+    function deployTroop(x, y) {
+      if (!battleState.selectedTroopType) return;
+      const tKey = battleState.selectedTroopType;
+
+      if (!battleState.remainingArmy[tKey] || battleState.remainingArmy[tKey] <= 0) {
+        return;
+      }
+
+      battleState.remainingArmy[tKey]--;
+      // Consume troop from player global army state permanently
+      if (gameState.army[tKey] > 0) gameState.army[tKey]--;
+
+      const tDef = TROOP_TYPES[tKey];
+      const newTroop = {
+        id: 'tr_' + Date.now() + Math.random(),
+        type: tKey,
+        x: x,
+        y: y,
+        hp: tDef.hp,
+        maxHp: tDef.hp,
+        lastAttackTime: 0,
+        targetBuildingId: null
+      };
+
+      battleState.troops.push(newTroop);
+      playSound('deploy');
+      renderBattleTroopSelector();
+      updateHUD();
+    }
+
+    function updateBattleLogic(deltaTime) {
+      if (currentMode !== 'BATTLE') return;
+
+      const now = performance.now() / 1000;
+
+      // 1. UPDATE TROOPS
+      battleState.troops.forEach(troop => {
+        if (troop.hp <= 0) return;
+        const tDef = TROOP_TYPES[troop.type];
+
+        let target = battleState.buildings.find(b => b.id === troop.targetBuildingId && b.hp > 0);
+
+        if (!target) {
+          let validBuildings = battleState.buildings.filter(b => b.hp > 0);
+          if (validBuildings.length === 0) return;
+
+          if (tDef.targetPref === 'defense') {
+            const defenseBuildings = validBuildings.filter(b => BUILDING_TYPES[b.type].category === 'defenses');
+            if (defenseBuildings.length > 0) validBuildings = defenseBuildings;
+          } else if (tDef.targetPref === 'resource') {
+            const resourceBuildings = validBuildings.filter(b => BUILDING_TYPES[b.type].category === 'resources');
+            if (resourceBuildings.length > 0) validBuildings = resourceBuildings;
+          }
+
+          let minDistance = 9999;
+          validBuildings.forEach(b => {
+            const bDef = BUILDING_TYPES[b.type];
+            const bx = b.x + bDef.size / 2;
+            const by = b.y + bDef.size / 2;
+            const dist = Math.hypot(bx - troop.x, by - troop.y);
+            if (dist < minDistance) {
+              minDistance = dist;
+              target = b;
+            }
+          });
+
+          if (target) troop.targetBuildingId = target.id;
+        }
+
+        if (target) {
+          const bDef = BUILDING_TYPES[target.type];
+          const bx = target.x + bDef.size / 2;
+          const by = target.y + bDef.size / 2;
+          const dist = Math.hypot(bx - troop.x, by - troop.y);
+
+          if (dist > tDef.range) {
+            const angle = Math.atan2(by - troop.y, bx - troop.x);
+            troop.x += Math.cos(angle) * tDef.speed * deltaTime;
+            troop.y += Math.sin(angle) * tDef.speed * deltaTime;
+          } else {
+            if (now - troop.lastAttackTime >= 1.0) {
+              troop.lastAttackTime = now;
+              let dmg = tDef.damage;
+              if (troop.type === 'goblin' && bDef.category === 'resources') dmg *= 2;
+
+              target.hp -= dmg;
+              createExplosionParticles(bx, by, '#f59e0b', 4);
+
+              if (target.hp <= 0) {
+                onBuildingDestroyed(target);
+              }
+            }
+          }
+        }
+      });
+
+      // Remove dead troops
+      battleState.troops = battleState.troops.filter(t => t.hp > 0);
+
+      // 2. UPDATE DEFENSE BUILDINGS
+      battleState.buildings.forEach(bldg => {
+        if (bldg.hp <= 0) return;
+        const bDef = BUILDING_TYPES[bldg.type];
+        if (bDef.category !== 'defenses') return;
+
+        if (now - bldg.lastAttackTime >= bDef.attackSpeed) {
+          const bx = bldg.x + bDef.size / 2;
+          const by = bldg.y + bDef.size / 2;
+
+          let nearestTroop = null;
+          let minDist = bDef.range;
+
+          battleState.troops.forEach(t => {
+            const d = Math.hypot(t.x - bx, t.y - by);
+            if (d < minDist) {
+              minDist = d;
+              nearestTroop = t;
+            }
+          });
+
+          if (nearestTroop) {
+            bldg.lastAttackTime = now;
+            battleState.projectiles.push({
+              sx: bx,
+              sy: by,
+              cx: bx,
+              cy: by,
+              tx: nearestTroop.x,
+              ty: nearestTroop.y,
+              targetTroop: nearestTroop,
+              damage: bDef.damage,
+              color: bDef.color,
+              speed: 8.0,
+              isAoE: bldg.type === 'wizard_tower'
+            });
+
+            playSound('cannon');
+          }
+        }
+      });
+
+      // 3. UPDATE PROJECTILES
+      battleState.projectiles.forEach(p => {
+        const dx = p.tx - p.cx;
+        const dy = p.ty - p.cy;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist < 0.3) {
+          p.hit = true;
+          createExplosionParticles(p.tx, p.ty, p.color, 8);
+
+          if (p.isAoE) {
+            battleState.troops.forEach(t => {
+              if (Math.hypot(t.x - p.tx, t.y - p.ty) < 1.5) {
+                t.hp -= p.damage;
+              }
+            });
+          } else if (p.targetTroop && p.targetTroop.hp > 0) {
+            p.targetTroop.hp -= p.damage;
+          }
+        } else {
+          p.cx += (dx / dist) * p.speed * deltaTime;
+          p.cy += (dy / dist) * p.speed * deltaTime;
+        }
+      });
+
+      battleState.projectiles = battleState.projectiles.filter(p => !p.hit);
+
+      const activeTroopsCount = battleState.troops.length;
+      const totalRemainingArmy = Object.values(battleState.remainingArmy).reduce((a, b) => a + b, 0);
+
+      if (battleState.destroyedBuildingsCount === battleState.totalBuildingsCount) {
+        endBattle();
+      } else if (activeTroopsCount === 0 && totalRemainingArmy === 0) {
+        setTimeout(() => endBattle(), 1000);
+      }
+    }
+
+    function onBuildingDestroyed(bldg) {
+      battleState.destroyedBuildingsCount++;
+      if (bldg.type === 'townhall') battleState.townHallDestroyed = true;
+
+      const bDef = BUILDING_TYPES[bldg.type];
+      const bx = (bldg.x + bDef.size / 2) * tileSize;
+      const by = (bldg.y + bDef.size / 2) * tileSize;
+
+      const share = 1 / battleState.totalBuildingsCount;
+      const gainedG = Math.round(battleState.totalLootGold * share);
+      const gainedE = Math.round(battleState.totalLootElixir * share);
+
+      battleState.lootedGold += gainedG;
+      battleState.lootedElixir += gainedE;
+
+      addFloatingText(bx, by, `+${gainedG} Gold`, '#fbbf24');
+      addFloatingText(bx, by - 15, `+${gainedE} Elixir`, '#ec4899');
+      createExplosionParticles(bldg.x + bDef.size / 2, bldg.y + bDef.size / 2, '#ef4444', 15);
+      playSound('explosion');
+
+      updateBattleHUD();
+    }
+
+    function updateBattleHUD() {
+      const pct = Math.round((battleState.destroyedBuildingsCount / battleState.totalBuildingsCount) * 100) || 0;
+      document.getElementById('battle-damage-pct').innerText = `${pct}%`;
+
+      const m = Math.floor(battleState.battleTimeLeft / 60);
+      const s = battleState.battleTimeLeft % 60;
+      document.getElementById('battle-timer').innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+
+      const star1 = pct >= 50;
+      const star2 = battleState.townHallDestroyed;
+      const star3 = pct >= 100;
+
+      document.getElementById('star-1').className = star1 ? 'fa-solid fa-star' : 'fa-regular fa-star';
+      document.getElementById('star-2').className = star2 ? 'fa-solid fa-star' : 'fa-regular fa-star';
+      document.getElementById('star-3').className = star3 ? 'fa-solid fa-star' : 'fa-regular fa-star';
+    }
+
+    function surrenderBattle() {
+      endBattle();
+    }
+
+    function endBattle() {
+      if (battleState.timerInterval) clearInterval(battleState.timerInterval);
+
+      const pct = Math.round((battleState.destroyedBuildingsCount / battleState.totalBuildingsCount) * 100) || 0;
+      const stars = (pct >= 50 ? 1 : 0) + (battleState.townHallDestroyed ? 1 : 0) + (pct >= 100 ? 1 : 0);
+
+      const maxG = getMaxGoldCapacity();
+      const maxE = getMaxElixirCapacity();
+
+      gameState.gold = Math.min(maxG, gameState.gold + battleState.lootedGold);
+      gameState.elixir = Math.min(maxE, gameState.elixir + battleState.lootedElixir);
+
+      let trophyGain = 0;
+      if (stars > 0) {
+        trophyGain = Math.round(battleState.stageData.trophies * (stars / 3));
+        gameState.trophies += trophyGain;
+        gameState.xp += 50 * stars;
+        playSound('victory');
+      }
+
+      document.getElementById('result-title').innerText = stars > 0 ? 'VICTORY!' : 'DEFEAT';
+      document.getElementById('result-subtitle').innerText = `Destruction: ${pct}% | Stars Earned: ${stars}`;
+      document.getElementById('result-gold').innerText = `+${battleState.lootedGold}`;
+      document.getElementById('result-elixir').innerText = `+${battleState.lootedElixir}`;
+      document.getElementById('result-trophies').innerText = `+${trophyGain}`;
+
+      const starsContainer = document.getElementById('result-stars');
+      starsContainer.innerHTML = `
+        <i class="${stars >= 1 ? 'fa-solid' : 'fa-regular'} fa-star"></i>
+        <i class="${stars >= 2 ? 'fa-solid' : 'fa-regular'} fa-star"></i>
+        <i class="${stars >= 3 ? 'fa-solid' : 'fa-regular'} fa-star"></i>
+      `;
+
+      openModal('results-modal');
+      saveGame();
+    }
+
+    function finishBattleAndReturn() {
+      closeModal('results-modal');
+      currentMode = 'VILLAGE';
+
+      document.getElementById('battle-footer').classList.add('hidden');
+      document.getElementById('village-footer').classList.remove('hidden');
+      document.getElementById('battle-hud').classList.add('hidden');
+
+      centerCamera();
+      updateHUD();
+    }
+
+    function createExplosionParticles(gx, gy, color, count = 10) {
+      for (let i = 0; i < count; i++) {
+        battleState.particles.push({
+          x: gx * tileSize,
+          y: gy * tileSize,
+          vx: (Math.random() - 0.5) * 60,
+          vy: (Math.random() - 0.5) * 60,
+          color: color,
+          size: Math.random() * 4 + 2,
+          life: 0.5
+        });
+      }
+    }
+
+    function addFloatingText(x, y, text, color) {
+      battleState.floatingTexts.push({
+        x: x,
+        y: y,
+        text: text,
+        color: color,
+        life: 1.2
+      });
+    }
+
+    let lastTime = 0;
+
+    function gameLoop(time) {
+      const deltaTime = Math.min((time - lastTime) / 1000, 0.1);
+      lastTime = time;
+
+      if (currentMode === 'BATTLE') {
+        updateBattleLogic(deltaTime);
+      }
+
+      renderCanvas();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function renderCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.save();
+      ctx.translate(cameraOffset.x, cameraOffset.y);
+
+      // 1. DRAW GRASS GRID
+      drawGrid();
+
+      // 2. DRAW BUILDINGS
+      const activeBuildingsList = currentMode === 'VILLAGE' ? gameState.buildings : battleState.buildings;
+
+      activeBuildingsList.forEach(bldg => {
+        if (bldg.hp <= 0) return;
+        const def = BUILDING_TYPES[bldg.type];
+
+        const px = bldg.x * tileSize;
+        const py = bldg.y * tileSize;
+        const pSize = def.size * tileSize;
+
+        // Draw shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+        ctx.beginPath();
+        ctx.roundRect(px + 4, py + 4, pSize - 4, pSize - 4, 8);
+        ctx.fill();
+
+        // Building Box
+        ctx.fillStyle = def.color;
+        ctx.beginPath();
+        ctx.roundRect(px + 2, py + 2, pSize - 4, pSize - 4, 8);
+        ctx.fill();
+
+        // Border highlighting
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Selection Halo
+        if (currentMode === 'VILLAGE' && selectedBuildingId === bldg.id) {
+          ctx.strokeStyle = '#3b82f6';
+          ctx.lineWidth = 4;
+          ctx.strokeRect(px - 2, py - 2, pSize + 4, pSize + 4);
+        }
+
+        // Draw Building Icon via Free FontAwesome Codes & Visual Symbols
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `900 ${def.size * 13}px "Font Awesome 6 Free"`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // FontAwesome 6 Unicode Mapping
+        const iconMap = {
+          'fa-landmark': '\uf66f',
+          'fa-hammer': '\uf6e3',
+          'fa-coins': '\uf51e',
+          'fa-droplet': '\uf043',
+          'fa-flask': '\uf0c3',
+          'fa-bomb': '\uf1e2',
+          'fa-tower-observation': '\ue58a',
+          'fa-hat-wizard': '\uf6e8',
+          'fa-cubes': '\uf1b3',
+          'fa-shield-halved': '\uf3ed',
+          'fa-tent': '\ue57d'
+        };
+
+        const unicodeChar = iconMap[def.icon] || '\uf015';
+
+        if (def.subIcon && def.subIcon === 'fa-coins') {
+          ctx.fillText(unicodeChar, px + pSize / 2 - 4, py + pSize / 2 - 2);
+          ctx.fillStyle = '#fef08a';
+          ctx.font = `900 ${def.size * 8}px "Font Awesome 6 Free"`;
+          ctx.fillText('\uf51e', px + pSize / 2 + 8, py + pSize / 2 + 6);
+        } else if (def.subIcon && def.subIcon === 'fa-flask') {
+          ctx.fillText(unicodeChar, px + pSize / 2 - 3, py + pSize / 2 - 2);
+          ctx.fillStyle = '#f472b6';
+          ctx.font = `900 ${def.size * 8}px "Font Awesome 6 Free"`;
+          ctx.fillText('\uf0c3', px + pSize / 2 + 8, py + pSize / 2 + 6);
+        } else {
+          ctx.fillText(unicodeChar, px + pSize / 2, py + pSize / 2);
+        }
+
+        // Health Bar (in Battle mode)
+        if (currentMode === 'BATTLE') {
+          const hpPct = bldg.hp / bldg.maxHp;
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
+          ctx.fillRect(px, py - 8, pSize, 5);
+          ctx.fillStyle = hpPct > 0.5 ? '#10b981' : hpPct > 0.2 ? '#f59e0b' : '#ef4444';
+          ctx.fillRect(px, py - 8, pSize * hpPct, 5);
+        }
+
+        // Collector Harvest Bubble
+        if (currentMode === 'VILLAGE' && (bldg.type === 'gold_mine' || bldg.type === 'elixir_collector') && bldg.storedResource > 20) {
+          ctx.fillStyle = bldg.type === 'gold_mine' ? '#fbbf24' : '#ec4899';
+          ctx.beginPath();
+          ctx.arc(px + pSize / 2, py - 10, 10, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#000000';
+          ctx.font = 'bold 10px sans-serif';
+          ctx.fillText('$', px + pSize / 2, py - 10);
+        }
+      });
+
+      // 3. DRAW TROOPS (In Battle)
+      if (currentMode === 'BATTLE') {
+        battleState.troops.forEach(t => {
+          const tDef = TROOP_TYPES[t.type];
+          const px = t.x * tileSize;
+          const py = t.y * tileSize;
+
+          ctx.fillStyle = tDef.color;
+          ctx.beginPath();
+          ctx.arc(px, py, 10, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          const hpPct = t.hp / t.maxHp;
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
+          ctx.fillRect(px - 10, py - 16, 20, 3);
+          ctx.fillStyle = '#10b981';
+          ctx.fillRect(px - 10, py - 16, 20 * hpPct, 3);
+        });
+
+        // 4. DRAW PROJECTILES
+        battleState.projectiles.forEach(p => {
+          const px = p.cx * tileSize;
+          const py = p.cy * tileSize;
+
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(px, py, 5, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        // 5. DRAW PARTICLES & FLOATING TEXTS
+        battleState.particles.forEach(pt => {
+          pt.x += pt.vx * 0.016;
+          pt.y += pt.vy * 0.016;
+          pt.life -= 0.016;
+
+          ctx.fillStyle = pt.color;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        battleState.particles = battleState.particles.filter(pt => pt.life > 0);
+
+        battleState.floatingTexts.forEach(ft => {
+          ft.y -= 15 * 0.016;
+          ft.life -= 0.016;
+
+          ctx.fillStyle = ft.color;
+          ctx.font = 'black 12px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(ft.text, ft.x, ft.y);
+        });
+        battleState.floatingTexts = battleState.floatingTexts.filter(ft => ft.life > 0);
+      }
+
+      ctx.restore();
+    }
+
+    function drawGrid() {
+      const fullSize = GRID_SIZE * tileSize;
+
+      ctx.fillStyle = '#15803d';
+      ctx.fillRect(0, 0, fullSize, fullSize);
+
+      for (let x = 0; x < GRID_SIZE; x++) {
+        for (let y = 0; y < GRID_SIZE; y++) {
+          if ((x + y) % 2 === 0) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+            ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+          }
+        }
+      }
+
+      if (currentMode === 'BATTLE') {
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(tileSize * 1.5, tileSize * 1.5, fullSize - tileSize * 3, fullSize - tileSize * 3);
+      }
+
+      ctx.strokeStyle = '#052e16';
+      ctx.lineWidth = 6;
+      ctx.strokeRect(0, 0, fullSize, fullSize);
+    }
+
+    // Save/Load Utilities
+    function saveGame() {
+      try {
+        localStorage.setItem('clash_kingdoms_save', JSON.stringify(gameState));
+      } catch (e) {
+        // Fallback swallow
+      }
+    }
+
+    function loadSavedGame() {
+      try {
+        const saved = localStorage.getItem('clash_kingdoms_save');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          gameState = { ...gameState, ...parsed };
+        }
+      } catch (e) {
+        // Fallback swallow
+      }
+      updateHUD();
+    }
+
+    function resetGameProgress() {
+      localStorage.removeItem('clash_kingdoms_save');
+      location.reload();
+    }
+
+    // Modal Manager Utilities
+    function openModal(modalId) {
+      document.getElementById(modalId).classList.remove('hidden');
+      playSound('click');
+    }
+
+    function closeModal(modalId) {
+      document.getElementById(modalId).classList.add('hidden');
+      playSound('click');
+    }
+
+    function openSettingsModal() {
+      openModal('settings-modal');
+    }
+  </script>
+</body>
+</html>

@@ -34,9 +34,9 @@
 {:else}
 	<Modal title="Community games risk">
 		<p>
-			Community games may fetch content or data from external sources that are not governed by our
-			Terms of Service or Privacy Policy. We are not responsible for the content, safety, or data
-			practices of these third-party sources.
+			Community games may get or send content or data from external sources that are not governed by
+			our Terms of Service or Privacy Policy. We are not responsible for the content, safety, or
+			data practices of these third-party sources.
 		</p>
 		<p>
 			<strong>Your risk acceptance is stored per device for 365 days!</strong>

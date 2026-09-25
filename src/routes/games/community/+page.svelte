@@ -96,11 +96,14 @@
 </script>
 
 <Flex alignItems="center" marginTop="giant" direction="column">
-	<Flex width="90%" marginTop="giant" direction="column" gap="medium">
-		<!-- Toegevoegd: width="100%" zodat spaceBetween correct werkt -->
-		<Flex justifyContent="spaceBetween" alignItems="center" width="100%">
-			<h2>Community Games</h2>
-			<Flex gap="small">
+	<Flex width="90%" marginTop="giant" direction="column" gap="small">
+		<!-- Header exact opgebouwd zoals op /games -->
+		<Flex justifyContent="spaceBetween" height="fit-content">
+			<Flex width="fit-content" height="fit-content">
+				<h2 class="default-heading">Community Games:</h2>
+			</Flex>
+
+			<Flex width="fit-content" height="fit-content" gap="medium">
 				<LinkButton href="/games" appearance="default" iconbefore="arrow_back">
 					Back to Games
 				</LinkButton>
@@ -118,6 +121,7 @@
 			<p style="color: {token.theme.color.text.danger}">{errorMessage}</p>
 		{/if}
 
+		<!-- Grid exact opgebouwd zoals op /games -->
 		<Flex gap="medium" height="fit-content" marginBottom="giant" flexWrap="wrap">
 			{#each allGames as game}
 				<div style="width: 300px;">
@@ -140,3 +144,9 @@
 		</Flex>
 	</Flex>
 </Flex>
+
+<style>
+	.default-heading {
+		transition: font-size 0.5s ease;
+	}
+</style>

@@ -19,6 +19,8 @@
 		toast,
 		Modal
 	} from "@davidnet-net/svelte-ui";
+	// Zorg dat ReportModal geëxporteerd is vanuit je svelte-ui package
+	import { ReportModal } from "@davidnet-net/svelte-ui";
 	import { token } from "@davidnet-net/svelte-ui/tokens";
 
 	let gameId = page.params.id;
@@ -34,6 +36,8 @@
 	let iframeRef: HTMLIFrameElement | undefined = $state();
 	let showDeleteModal = $state(false);
 	let isDeleting = $state(false);
+
+	let isReportModalOpen = $state(false);
 
 	const isCreator = $derived(
 		identityState.user?.username && gameData?.creator === identityState.user.username
@@ -90,7 +94,6 @@
 
 		const targetState = !isLiked;
 
-		// Optimistic UI update
 		isLiked = targetState;
 		likesCount += targetState ? 1 : -1;
 
@@ -105,13 +108,11 @@
 			if (result.success) {
 				likesCount = result.likesCount;
 			} else {
-				// Revert bij fout
 				isLiked = !targetState;
 				likesCount += targetState ? -1 : 1;
 				toast("Error", "Could not update like.", "error", 3000, "danger");
 			}
 		} catch (err) {
-			// Revert bij netwerkfout
 			isLiked = !targetState;
 			likesCount += targetState ? -1 : 1;
 			toast("Error", "Network error while liking.", "error", 3000, "danger");
@@ -162,6 +163,10 @@
 	</Modal>
 {/if}
 
+{#if gameId}
+	<ReportModal bind:isOpen={isReportModalOpen} reportType="game" reportedId={gameId} />
+{/if}
+
 <Flex alignItems="center" marginTop="medium" marginBottom="giant" direction="column" gap="medium">
 	{#if loading}
 		<Flex justifyContent="center" alignItems="center" height="70vh">
@@ -190,7 +195,6 @@
 				<Button onclick={resetGame} iconbefore="refresh">Reset</Button>
 				<Button onclick={toggleFullscreen} iconbefore="fullscreen">Fullscreen</Button>
 
-				<!-- Like Button -->
 				<Button
 					onclick={toggleLike}
 					disabled={isLiking}
@@ -198,6 +202,10 @@
 					iconbefore="favorite">
 					{likesCount}
 					{likesCount === 1 ? "Like" : "Likes"}
+				</Button>
+
+				<Button appearance="subtle" iconbefore="flag" onclick={() => (isReportModalOpen = true)}>
+					Report
 				</Button>
 
 				{#if isCreator}

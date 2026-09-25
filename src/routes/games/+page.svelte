@@ -7,8 +7,7 @@
 		LinkButton,
 		Spinner,
 		sleep,
-		type iconType,
-		toast
+		type iconType
 	} from "@davidnet-net/svelte-ui";
 
 	import { page } from "$app/state";
@@ -41,7 +40,6 @@
 	let confettiBtnRef: HTMLDivElement | undefined = $state(undefined);
 	let wildIntervals: NodeJS.Timeout[] = [];
 
-	// Permanent disco background interval
 	$effect(() => {
 		if (permanentDisco && !gravityOut) {
 			const interval = setInterval(() => {
@@ -67,13 +65,10 @@
 		const intervalId = setInterval(() => {
 			const maxSafeX = window.innerWidth - elWidth - 40;
 			const maxSafeY = window.innerHeight - elHeight - 40;
-
 			const targetAbsoluteX = Math.max(20, Math.random() * maxSafeX);
 			const targetAbsoluteY = Math.max(20, Math.random() * maxSafeY);
-
 			const moveX = targetAbsoluteX - startLeft;
 			const moveY = targetAbsoluteY - startTop;
-
 			const randomRot = (Math.random() - 0.5) * 720;
 			const randomScale = 0.3 + Math.random() * 1.7;
 
@@ -90,7 +85,6 @@
 		totalChaos = false;
 		gravityOut = false;
 		confetti = false;
-
 		wildIntervals.forEach(clearInterval);
 		wildIntervals = [];
 
@@ -105,7 +99,6 @@
 	async function activateConfetti() {
 		if (buttonDisabled) return;
 		buttonDisabled = true;
-
 		confettiClickCount += 1;
 
 		if (confettiClickCount < 7) {
@@ -146,7 +139,6 @@
 				}
 				break;
 		}
-
 		buttonDisabled = false;
 	}
 
@@ -164,47 +156,6 @@
 		{ title: "Snake", icon: "earbuds", href: "/games/snake/" },
 		{ title: "Breakout", icon: "view_compact", href: "/games/breakout/" }
 	];
-
-	const communityGames = [
-		{
-			title: "Tower defense",
-			icon: "fort",
-			href: "/games/community/tower_defense"
-		},
-		{
-			title: "Cola fabriek",
-			icon: "factory",
-			href: "/games/community/cola_fabriek"
-		},
-		{
-			title: "Ruimte vlieger",
-			icon: "rocket",
-			href: "/games/community/rocket"
-		},
-		{
-			title: "Wobble Towers",
-			icon: "bar_chart",
-			href: "/games/community/wobble_towers"
-		},
-		{
-			title: "Crazy ape",
-			icon: "pets",
-			href: "/games/community/crazy_ape"
-		},
-		{
-			title: "Clash of kingdoms",
-			icon: "swords",
-			href: "/games/community/clash_of_kingdoms"
-		},
-		{
-			title: "Crown conflict",
-			icon: "crown",
-			href: "/games/community/crown_conflict"
-		}
-	];
-
-	let temp1 = $state(false);
-	let temp2 = $state(false);
 </script>
 
 {#if confetti || permanentDisco}
@@ -281,30 +232,15 @@
 			</Flex>
 
 			<div class="physics-item">
-				<h2 class="default-heading" style="margin-top: 1rem;">Community Games:</h2>
+				<h2 class="default-heading" style="margin-top: 1rem;">Community:</h2>
 			</div>
 
 			<Flex gap="medium" height="fit-content" marginBottom="giant" flexWrap="wrap">
-				{#each communityGames as game}
-					<div class="physics-item">
-						<HorizontalCard title={game.title} icon={game.icon as iconType} href={game.href} />
-					</div>
-				{/each}
 				<div class="physics-item">
-					{#if temp1 && !temp2}
-						<img src="/operation-teapot-nuke.gif" alt="" height="85px" width="300px" />
-					{:else if !temp1 && !temp2}
-						<HorizontalCard
-							title="Add community game"
-							icon="add"
-							onclick={async () => {
-								toast("3 maanden :D", undefined, "flag", 2000, "danger");
-								temp1 = true;
-								await sleep(3000);
-								temp2 = true;
-							}} />
-						<!--Gebruik sandboxing flags in iframe-->
-					{/if}
+					<HorizontalCard title="Community Games" icon="groups" href="/games/community" />
+				</div>
+				<div class="physics-item">
+					<HorizontalCard title="Upload your game" icon="upload" href="/games/community/upload" />
 				</div>
 			</Flex>
 		</Flex>
@@ -387,7 +323,6 @@
 		pointer-events: none;
 		z-index: 9999;
 	}
-
 	.chaos-title-wrapper {
 		position: fixed;
 		top: 40%;
@@ -395,50 +330,40 @@
 		z-index: 10000;
 		pointer-events: none;
 	}
-
 	.chaos-heading {
 		font-size: 3.5rem;
 		text-align: center;
 	}
-
 	.temp-disco {
 		animation: ultraDisco 1.5s infinite linear !important;
 	}
-
 	:global(.global-disco *) {
 		animation: ultraDisco 1.5s infinite linear !important;
 		border-color: currentColor !important;
 	}
-
 	:global(.global-disco *:not([class*="icon"]):not(i):not(svg)) {
 		font-family: "Comic Sans MS", "Comic Sans", cursive !important;
 	}
-
 	.shake-screen {
 		animation: screenShake 0.4s infinite linear !important;
 		overflow: visible;
 	}
-
 	.physics-item {
 		display: inline-block;
 		width: fit-content;
 		height: fit-content;
 		transform: translate(0, 0) rotate(0) scale(1);
 	}
-
 	.dynamic-heading {
 		transition: font-size 0.5s ease;
 	}
-
 	.disco-active {
 		font-size: 3.5rem;
 		transition: font-size 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 	}
-
 	.default-heading {
 		transition: font-size 0.5s ease;
 	}
-
 	.scale-wrapper {
 		transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 		transform-origin: center;

@@ -16,55 +16,49 @@
 	let loading = $state(true);
 	let errorMessage = $state("");
 
+	// Oude hardcoded games zonder likes of creator info
 	const legacyGames = [
 		{
 			title: "Tower defense",
 			icon: "fort",
 			href: "/games/community/tower_defense",
-			creator: "Legacy API",
-			likesCount: 0
+			isLegacy: true
 		},
 		{
 			title: "Cola fabriek",
 			icon: "factory",
 			href: "/games/community/cola_fabriek",
-			creator: "Legacy API",
-			likesCount: 0
+			isLegacy: true
 		},
 		{
 			title: "Ruimte vlieger",
 			icon: "rocket",
 			href: "/games/community/rocket",
-			creator: "Legacy API",
-			likesCount: 0
+			isLegacy: true
 		},
 		{
 			title: "Wobble Towers",
 			icon: "bar_chart",
 			href: "/games/community/wobble_towers",
-			creator: "Legacy API",
-			likesCount: 0
+			isLegacy: true
 		},
 		{
 			title: "Crazy ape",
 			icon: "pets",
 			href: "/games/community/crazy_ape",
-			creator: "Legacy API",
-			likesCount: 0
+			isLegacy: true
 		},
 		{
 			title: "Clash of kingdoms",
 			icon: "swords",
 			href: "/games/community/clash_of_kingdoms",
-			creator: "Legacy API",
-			likesCount: 0
+			isLegacy: true
 		},
 		{
 			title: "Crown conflict",
 			icon: "crown",
 			href: "/games/community/crown_conflict",
-			creator: "Legacy API",
-			likesCount: 0
+			isLegacy: true
 		}
 	];
 
@@ -80,7 +74,8 @@
 				apiGames = result.games.map((game: any) => ({
 					...game,
 					icon: "extension",
-					href: `/games/community/player/${game.id}`
+					href: `/games/community/player/${game.id}`,
+					isLegacy: false
 				}));
 			} else {
 				errorMessage = "Failed to load dynamic community games.";
@@ -97,7 +92,6 @@
 
 <Flex alignItems="center" marginTop="giant" direction="column">
 	<Flex width="90%" marginTop="giant" direction="column" gap="small">
-		<!-- Header exact opgebouwd zoals op /games -->
 		<Flex justifyContent="spaceBetween" height="fit-content">
 			<Flex width="fit-content" height="fit-content">
 				<h2 class="default-heading">Community Games:</h2>
@@ -121,24 +115,25 @@
 			<p style="color: {token.theme.color.text.danger}">{errorMessage}</p>
 		{/if}
 
-		<!-- Grid exact opgebouwd zoals op /games -->
 		<Flex gap="medium" height="fit-content" marginBottom="giant" flexWrap="wrap">
 			{#each allGames as game}
 				<div style="width: 300px;">
 					<HorizontalCard title={game.title} icon={game.icon as iconType} href={game.href} />
 
-					<Flex
-						alignItems="center"
-						gap="xsmall"
-						marginTop="xsmall"
-						style="color: {token.theme.color.text.tertiary}; font-size: 0.85rem;">
-						<Icon icon="person" size="small" />
-						<span>By @{game.creator}</span>
-						<span style="margin-left: auto;">
-							<Icon icon="favorite" size="small" />
-							{game.likesCount}
-						</span>
-					</Flex>
+					{#if !game.isLegacy}
+						<Flex
+							alignItems="center"
+							gap="xsmall"
+							marginTop="xsmall"
+							style="color: {token.theme.color.text.tertiary}; font-size: 0.85rem;">
+							<Icon icon="person" size="small" />
+							<span>By @{game.creator}</span>
+							<span style="margin-left: auto;">
+								<Icon icon="favorite" size="small" />
+								{game.likesCount}
+							</span>
+						</Flex>
+					{/if}
 				</div>
 			{/each}
 		</Flex>

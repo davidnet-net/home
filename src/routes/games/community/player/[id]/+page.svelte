@@ -14,6 +14,7 @@
 		Anchor,
 		Spinner,
 		getFetch,
+		postFetch,
 		deleteFetch,
 		toast,
 		Modal
@@ -24,6 +25,11 @@
 	let gameData = $state<any>(null);
 	let loading = $state(true);
 	let errorMessage = $state("");
+
+	// Like states
+	let isLiked = $state(false);
+	let likesCount = $state(0);
+	let isLiking = $state(false);
 
 	let iframeRef: HTMLIFrameElement | undefined = $state();
 	let showDeleteModal = $state(false);
@@ -52,6 +58,8 @@
 			);
 			if (result.success) {
 				gameData = result.game;
+				isLiked = Boolean(result.game.isLiked);
+				likesCount = result.game.likesCount ?? 0;
 			} else {
 				errorMessage = "Game not found.";
 			}
@@ -73,6 +81,42 @@
 			if (iframeRef.requestFullscreen) {
 				iframeRef.requestFullscreen();
 			}
+		}
+	}
+
+	async function toggleLike() {
+		if (isLiking) return;
+		isLiking = true;
+
+		const targetState = !isLiked;
+
+		// Optimistic UI update
+		isLiked = targetState;
+		likesCount += targetState ? 1 : -1;
+
+		try {
+			const result = await postFetch(
+				`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}/like`,
+				{ liked: targetState },
+				{},
+				true
+			);
+
+			if (result.success) {
+				likesCount = result.likesCount;
+			} else {
+				// Revert bij fout
+				isLiked = !targetState;
+				likesCount += targetState ? -1 : 1;
+				toast("Error", "Could not update like.", "error", 3000, "danger");
+			}
+		} catch (err) {
+			// Revert bij netwerkfout
+			isLiked = !targetState;
+			likesCount += targetState ? -1 : 1;
+			toast("Error", "Network error while liking.", "error", 3000, "danger");
+		} finally {
+			isLiking = false;
 		}
 	}
 
@@ -145,6 +189,16 @@
 				</LinkButton>
 				<Button onclick={resetGame} iconbefore="refresh">Reset</Button>
 				<Button onclick={toggleFullscreen} iconbefore="fullscreen">Fullscreen</Button>
+
+				<!-- Like Button -->
+				<Button
+					onclick={toggleLike}
+					disabled={isLiking}
+					appearance={isLiked ? "primary" : "default"}
+					iconbefore="favorite">
+					{likesCount}
+					{likesCount === 1 ? "Like" : "Likes"}
+				</Button>
 
 				{#if isCreator}
 					<Button appearance="danger" onclick={() => (showDeleteModal = true)} iconbefore="delete">

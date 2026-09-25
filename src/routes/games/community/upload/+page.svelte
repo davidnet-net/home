@@ -55,7 +55,7 @@
 			const formData = new FormData();
 			formData.append("title", title);
 			formData.append("description", description);
-			formData.append("game", files![0]); // Taking the first file (.zip)
+			formData.append("game", files![0]);
 
 			const result = await postFetch(
 				`${PUBLIC_BACKEND_URL}/social/community-games/upload`,
@@ -147,7 +147,6 @@
 			{/snippet}
 		</Field>
 
-		<!-- Selected Files List -->
 		{#if files && files.length > 0}
 			<Flex direction="column" gap="xsmall" marginTop="small" marginBottom="medium">
 				<span style="font-weight: bold; font-size: 0.9rem;">Selected File:</span>

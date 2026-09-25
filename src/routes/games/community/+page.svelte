@@ -6,7 +6,10 @@
 		Spinner,
 		getFetch,
 		Icon,
-		type iconType
+		type iconType,
+		deleteCookie,
+		Button,
+		sleep
 	} from "@davidnet-net/svelte-ui";
 	import { token } from "@davidnet-net/svelte-ui/tokens";
 	import { PUBLIC_BACKEND_URL } from "$env/static/public";
@@ -101,6 +104,14 @@
 				<LinkButton href="/games" appearance="default" iconbefore="arrow_back">
 					Back to Games
 				</LinkButton>
+				<Button
+					onclick={async () => {
+						deleteCookie("cgra");
+						await sleep(1000);
+						window.location.reload();
+					}}>
+					Reset CGRA
+				</Button>
 				<LinkButton href="/games/community/upload" appearance="primary" iconbefore="upload">
 					Upload Game
 				</LinkButton>

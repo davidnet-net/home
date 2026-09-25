@@ -1,8 +1,12 @@
 <script lang="ts">
+	import { goto } from "$app/navigation";
+	import { PUBLIC_BACKEND_URL } from "$env/static/public";
 	import {
+		authState,
 		Button,
 		Flex,
 		getCookie,
+		getFetch,
 		Modal,
 		navigateBack,
 		setCookie,
@@ -15,12 +19,31 @@
 	let pass = $state(false);
 	let loading = $state(true);
 
-	onMount(() => {
+	async function checkUserBanStatus() {
+		if (!authState.isLoggedIn) return;
+		try {
+			// This remains a GET request
+			const res = await getFetch(
+				`${PUBLIC_BACKEND_URL}/support/moderation/me/ban-status`,
+				{},
+				undefined,
+				true
+			);
+			if (res.success && res.isBanned) {
+				window.location.href = `https://davidnet.net/moderation/banned?until=${encodeURIComponent(res.bannedUntil)}`;
+			}
+		} catch (err) {
+			console.error("Failed to check ban status:", err);
+		}
+	}
+
+	onMount(async () => {
 		loading = false;
 		const riskAccepted = getCookie("cgra"); // Community games risk accepted
 		if (riskAccepted === "accepted") {
 			pass = true;
 		}
+		await checkUserBanStatus();
 	});
 </script>
 

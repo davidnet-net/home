@@ -59,6 +59,13 @@
 			href: "/games/community/clash_of_kingdoms",
 			creator: "Legacy API",
 			likesCount: 0
+		},
+		{
+			title: "Crown conflict",
+			icon: "crown",
+			href: "/games/community/crown_conflict",
+			creator: "Legacy API",
+			likesCount: 0
 		}
 	];
 

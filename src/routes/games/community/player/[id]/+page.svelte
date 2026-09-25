@@ -64,7 +64,6 @@
 
 	function resetGame() {
 		if (iframeRef) {
-			// Reload the iframe by re-assigning its src
 			iframeRef.src = iframeRef.src;
 		}
 	}
@@ -119,62 +118,64 @@
 	</Modal>
 {/if}
 
-<Flex alignItems="center" marginTop="medium" direction="column" gap="medium" height="100dvh">
+<Flex alignItems="center" marginTop="medium" marginBottom="giant" direction="column" gap="medium">
 	{#if loading}
-		<Spinner size="large" />
+		<Flex justifyContent="center" alignItems="center" height="70vh">
+			<Spinner size="large" />
+		</Flex>
 	{:else if errorMessage}
-		<p style="color: {token.theme.color.text.danger}">{errorMessage}</p>
-		<LinkButton href="/games/community" iconbefore="arrow_back">Back</LinkButton>
+		<Flex direction="column" alignItems="center" gap="medium" marginTop="giant">
+			<p style="color: {token.theme.color.text.danger}">{errorMessage}</p>
+			<LinkButton href="/games/community" iconbefore="arrow_back">Back</LinkButton>
+		</Flex>
 	{:else if gameData}
 		<iframe
 			bind:this={iframeRef}
 			sandbox="allow-scripts allow-same-origin"
-			style="height: 85%; width: 90%; border: 2px solid {token.theme.color.border
+			style="height: 75vh; width: 90%; border: 2px solid {token.theme.color.border
 				.default}; border-radius: {token.global.radius.huge}; background: #000;"
 			src="{PUBLIC_BACKEND_URL}/social/community-games/{gameId}/file/index.html"
 			title={gameData.title}>
 		</iframe>
 
-		<Flex width="90%" justifyContent="spaceBetween" alignItems="start" flexWrap="wrap" gap="medium">
-			<Flex direction="column" gap="small">
-				<Flex height="fit-content" width="fit-content" gap="small">
-					<LinkButton href="/games/community" appearance="default" iconbefore="arrow_back">
-						Back
-					</LinkButton>
-					<Button onclick={resetGame} iconbefore="refresh">Reset</Button>
-					<Button onclick={toggleFullscreen} iconbefore="fullscreen">Fullscreen</Button>
+		<Flex direction="column" alignItems="center" gap="small" width="90%">
+			<Flex height="fit-content" width="fit-content" gap="small" justifyContent="center">
+				<LinkButton href="/games/community" appearance="default" iconbefore="arrow_back">
+					Back
+				</LinkButton>
+				<Button onclick={resetGame} iconbefore="refresh">Reset</Button>
+				<Button onclick={toggleFullscreen} iconbefore="fullscreen">Fullscreen</Button>
 
-					{#if isCreator}
-						<Button
-							appearance="danger"
-							onclick={() => (showDeleteModal = true)}
-							iconbefore="delete">
-							Delete
-						</Button>
-					{/if}
-				</Flex>
-
-				<Flex
-					width="fit-content"
-					height="fit-content"
-					alignItems="center"
-					style="color: {token.theme.color.text.tertiary}"
-					gap="xsmall">
-					<Icon icon="attribution" />
-					<span>
-						Game is created by
-						<Anchor href="{PUBLIC_ACCOUNT_FRONTEND_URL}/profile/{gameData.creator}">
-							@{gameData.creator}
-						</Anchor>
-					</span>
-				</Flex>
-
-				{#if gameData.description}
-					<p style="color: {token.theme.color.text.secondary}; max-width: 600px; margin: 0;">
-						{gameData.description}
-					</p>
+				{#if isCreator}
+					<Button appearance="danger" onclick={() => (showDeleteModal = true)} iconbefore="delete">
+						Delete
+					</Button>
 				{/if}
 			</Flex>
+
+			<Flex
+				width="fit-content"
+				height="fit-content"
+				alignItems="center"
+				justifyContent="center"
+				style="color: {token.theme.color.text.tertiary}"
+				gap="xsmall">
+				<Icon icon="attribution" />
+				<span>
+					Game is created by
+					<Anchor href="{PUBLIC_ACCOUNT_FRONTEND_URL}/profile/{gameData.creator}">
+						@{gameData.creator}
+					</Anchor>
+				</span>
+			</Flex>
+
+			{#if gameData.description}
+				<p
+					style="color: {token.theme.color.text
+						.secondary}; max-width: 600px; margin: 0; text-align: center;">
+					{gameData.description}
+				</p>
+			{/if}
 		</Flex>
 	{/if}
 </Flex>

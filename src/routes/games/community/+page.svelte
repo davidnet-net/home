@@ -16,7 +16,6 @@
 	let loading = $state(true);
 	let errorMessage = $state("");
 
-	// Oude hardcoded games met een vastgestelde href die de router pakt
 	const legacyGames = [
 		{
 			title: "Tower defense",
@@ -78,7 +77,6 @@
 				true
 			);
 			if (result.success) {
-				// Map de dynamische games om een href veld te hebben
 				apiGames = result.games.map((game: any) => ({
 					...game,
 					icon: "extension",
@@ -99,7 +97,8 @@
 
 <Flex alignItems="center" marginTop="giant" direction="column">
 	<Flex width="90%" marginTop="giant" direction="column" gap="medium">
-		<Flex justifyContent="spaceBetween" alignItems="center">
+		<!-- Toegevoegd: width="100%" zodat spaceBetween correct werkt -->
+		<Flex justifyContent="spaceBetween" alignItems="center" width="100%">
 			<h2>Community Games</h2>
 			<Flex gap="small">
 				<LinkButton href="/games" appearance="default" iconbefore="arrow_back">

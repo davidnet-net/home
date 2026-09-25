@@ -169,7 +169,7 @@
 		{/if}
 
 		<Flex justifyContent="end" marginTop="medium">
-			<Button type="submit" loading={isUploading} disabled={isUploading}>Review & Upload</Button>
+			<Button type="submit" loading={isUploading} disabled={isUploading}>Upload</Button>
 		</Flex>
 	</Form>
 </Flex>

@@ -13,7 +13,8 @@
 		toast,
 		whenAuthReady,
 		Modal,
-		Icon
+		Icon,
+		navigateBack
 	} from "@davidnet-net/svelte-ui";
 	import { token } from "@davidnet-net/svelte-ui/tokens";
 
@@ -169,6 +170,13 @@
 		{/if}
 
 		<Flex justifyContent="end" marginTop="medium">
+			<Button
+				iconbefore="arrow_back"
+				onclick={() => {
+					navigateBack();
+				}}>
+				Back
+			</Button>
 			<Button type="submit" loading={isUploading} disabled={isUploading}>Upload</Button>
 		</Flex>
 	</Form>

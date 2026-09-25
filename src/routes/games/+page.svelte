@@ -199,7 +199,7 @@
 		{
 			title: "Crown conflict",
 			icon: "crown",
-			href: "/games/community/crown_conflict.html"
+			href: "/games/community/crown_conflict"
 		}
 	];
 

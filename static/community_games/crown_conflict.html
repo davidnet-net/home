@@ -1,0 +1,1657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crown Conflict</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(-45deg, #020617, #0f172a, #1e1b4b, #020617);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        #game-container {
+            position: relative;
+            width: 400px;
+            height: 740px;
+            background: #0f172a;
+            border-radius: 36px;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.9), 0 0 0 10px #1e293b, 0 0 0 12px #334155, inset 0 0 30px rgba(0,0,0,0.9);
+            overflow: hidden;
+        }
+        
+        #battlefield {
+            position: relative;
+            width: 400px;
+            height: 540px;
+            overflow: hidden;
+            box-shadow: inset 0 20px 40px rgba(0,0,0,0.6);
+        }
+        canvas {
+            display: block;
+        }
+        
+        #ui-layer {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 200px;
+            background: linear-gradient(180deg, rgba(15,23,42,0.6) 0%, rgba(2,6,23,0.98) 100%);
+            backdrop-filter: blur(15px);
+            border-top: 1px solid rgba(255,255,255,0.15);
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.7);
+            display: flex;
+            flex-direction: column;
+            padding: 15px 8px;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+        
+        #cards {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            height: 110px;
+            margin-bottom: 12px;
+            perspective: 1000px;
+        }
+        
+        .card {
+            width: 75px;
+            height: 105px;
+            border-radius: 14px;
+            border: 2px solid rgba(255,255,255,0.2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            padding-bottom: 8px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.8), inset 0 -3px 10px rgba(0,0,0,0.6);
+            overflow: hidden;
+        }
+        
+        .card::after {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.4) 45%, rgba(255,255,255,0.8) 50%, rgba(255,255,255,0.4) 55%, transparent 60%);
+            transform: rotate(25deg) translateY(-100%);
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        .card:hover:not(.disabled) {
+            transform: translateY(-15px) scale(1.05);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.8), 0 0 20px rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.6);
+        }
+        
+        .card:hover:not(.disabled)::after {
+            transform: rotate(25deg) translateY(100%);
+        }
+        
+        .card.selected {
+            transform: translateY(-20px) scale(1.1);
+            box-shadow: 0 20px 40px rgba(250, 204, 21, 0.5), 0 0 30px rgba(250, 204, 21, 0.6);
+            border-color: #fef08a;
+            animation: float 2s infinite ease-in-out;
+            z-index: 5;
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(-20px) scale(1.1); }
+            50% { transform: translateY(-25px) scale(1.1); }
+            100% { transform: translateY(-20px) scale(1.1); }
+        }
+        
+        .card.disabled {
+            filter: grayscale(100%) brightness(0.3);
+            cursor: not-allowed;
+            border-color: #1e293b;
+        }
+        
+        .card-cost {
+            position: absolute;
+            top: -6px;
+            left: -6px;
+            background: radial-gradient(circle at top left, #f472b6, #be185d);
+            color: white;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: 900;
+            font-size: 14px;
+            border: 2px solid #fbcfe8;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.8);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.9);
+            z-index: 3;
+        }
+        
+        .card-icon {
+            margin-bottom: 2px;
+            z-index: 2;
+        }
+        
+        .card-name {
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+            text-shadow: 1px 1px 4px rgba(0,0,0,1), 0 0 10px rgba(0,0,0,1);
+            letter-spacing: 0.5px;
+            color: #f8fafc;
+            z-index: 2;
+        }
+        
+        #elixir-container {
+            height: 46px;
+            background: #020617;
+            border-radius: 23px;
+            border: 3px solid #334155;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 4px 10px rgba(0,0,0,0.9), 0 0 10px rgba(217, 70, 239, 0.3);
+            margin: 0 15px;
+        }
+        
+        #elixir-bar {
+            height: 100%;
+            width: 50%;
+            background: linear-gradient(90deg, #d946ef, #86198f);
+            transition: width 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: inset 0 0 15px rgba(255,255,255,0.5), 0 0 20px #d946ef;
+            position: relative;
+        }
+        
+        #elixir-bar::after {
+            content: '';
+            position: absolute;
+            bottom: -100px; left: 0; width: 100%; height: 200px;
+            background-image: radial-gradient(circle, rgba(255,255,255,0.5) 2px, transparent 3px);
+            background-size: 20px 25px;
+            animation: bubbleUp 1.5s linear infinite;
+        }
+        
+        @keyframes bubbleUp {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-50px); }
+        }
+        
+        #elixir-text {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            font-weight: 900;
+            text-shadow: 0 2px 4px #000, 0 0 8px #d946ef;
+            letter-spacing: 2px;
+            z-index: 2;
+        }
+        
+        #game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(2, 6, 23, 0.8);
+            backdrop-filter: blur(12px);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        #game-over h1 {
+            font-size: 64px;
+            margin-bottom: 25px;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            text-shadow: 0 10px 40px currentColor;
+            font-weight: 900;
+        }
+        
+        .win { color: #facc15; }
+        .lose { color: #ef4444; }
+        
+        #game-over button {
+            padding: 16px 45px;
+            font-size: 20px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            border: 2px solid #93c5fd;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            letter-spacing: 2px;
+        }
+        
+        #game-over button:hover {
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 15px 40px rgba(59, 130, 246, 0.7);
+            background: linear-gradient(135deg, #60a5fa, #2563eb);
+        }
+        
+        #emote-btn {
+            position: absolute;
+            bottom: 210px;
+            left: 15px;
+            width: 44px;
+            height: 44px;
+            background: #1e293b;
+            border: 2px solid #475569;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 20;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: 0.2s;
+        }
+        #emote-btn:hover {
+            transform: scale(1.1);
+            background: #334155;
+            border-color: #64748b;
+        }
+        #emote-menu {
+            position: absolute;
+            bottom: 260px;
+            left: 15px;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(8px);
+            border: 2px solid #334155;
+            border-radius: 16px;
+            padding: 8px;
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 20;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.8);
+            transform-origin: bottom left;
+            animation: popIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes popIn {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .emote-icon {
+            width: 44px;
+            height: 44px;
+            background: #1e293b;
+            border: 2px solid #475569;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 13px;
+            font-weight: 900;
+            color: white;
+            transition: 0.2s;
+        }
+        .emote-icon:hover {
+            transform: scale(1.15);
+            background: #334155;
+        }
+        .emote-icon.laugh { color: #facc15; }
+        .emote-icon.cry { color: #60a5fa; }
+        .emote-icon.angry { color: #ef4444; }
+        
+        .full-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(-45deg, #020617, #0f172a);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .menu-title {
+            font-size: 42px;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 40px;
+            text-transform: uppercase;
+            background: linear-gradient(180deg, #facc15, #b45309);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 4px 4px rgba(0,0,0,0.8));
+            line-height: 1.1;
+        }
+        .btn-large {
+            width: 100%;
+            max-width: 250px;
+            padding: 16px 20px;
+            margin-bottom: 16px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(180deg, #3b82f6, #1d4ed8);
+            color: white;
+            font-size: 18px;
+            font-weight: 900;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: 0 6px 0 #1e3a8a, 0 10px 20px rgba(0,0,0,0.5);
+            transition: all 0.1s;
+            font-family: 'Inter', sans-serif;
+        }
+        .btn-large:active {
+            transform: translateY(6px);
+            box-shadow: 0 0 0 #1e3a8a, 0 5px 10px rgba(0,0,0,0.5);
+        }
+        .btn-large.btn-green {
+            background: linear-gradient(180deg, #22c55e, #15803d);
+            box-shadow: 0 6px 0 #14532d, 0 10px 20px rgba(0,0,0,0.5);
+        }
+        .btn-large.btn-green:active { box-shadow: 0 0 0 #14532d, 0 5px 10px rgba(0,0,0,0.5); }
+        .menu-input {
+            width: 100%;
+            max-width: 250px;
+            padding: 14px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            border: 2px solid #334155;
+            background: #1e293b;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            font-family: 'Inter', sans-serif;
+        }
+        .menu-input:focus { outline: none; border-color: #3b82f6; }
+        .deck-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 30px;
+            width: 100%;
+        }
+        .deck-card {
+            background: #1e293b;
+            border: 2px solid #334155;
+            border-radius: 10px;
+            height: 95px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            transition: 0.2s;
+        }
+        .deck-card.in-deck {
+            border-color: #22c55e;
+            background: #14532d;
+        }
+        .deck-card-cost {
+            position: absolute;
+            top: 4px; left: 4px;
+            background: #a855f7;
+            color: white;
+            border-radius: 50%;
+            width: 20px; height: 20px;
+            font-size: 12px;
+            display: flex; justify-content: center; align-items: center;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        .deck-card-icon {
+            transform: scale(0.8);
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <!-- Main Menu -->
+        <div id="main-menu" class="full-overlay">
+            <h1 class="menu-title">Crown<br>Conflict</h1>
+            <button class="btn-large btn-green" onclick="showDeckBuilder()">Deck Builder</button>
+            <button class="btn-large" onclick="startLocalGame()">Play Local (AI)</button>
+            <button class="btn-large" onclick="showMultiplayer()">Multiplayer</button>
+        </div>
+
+        <!-- Deck Builder -->
+        <div id="deck-menu" class="full-overlay" style="display:none;">
+            <h2 class="menu-title" style="font-size:26px;margin-bottom:20px;">Your Deck (Select 4)</h2>
+            <div id="deck-builder-grid" class="deck-grid"></div>
+            <button class="btn-large btn-green" onclick="saveDeck()">Save & Back</button>
+        </div>
+
+        <!-- Multiplayer Lobby -->
+        <div id="multiplayer-menu" class="full-overlay" style="display:none;">
+            <h2 class="menu-title" style="font-size:28px;">Multiplayer</h2>
+            <input type="text" id="room-input" class="menu-input" placeholder="Enter Room Code">
+            <button class="btn-large btn-green" onclick="joinRoom()">Join Room</button>
+            <button class="btn-large" onclick="hostRoom()">Host Game</button>
+            <button class="btn-large" style="background:linear-gradient(180deg, #ef4444, #b91c1c);box-shadow:0 6px 0 #7f1d1d;" onclick="backToMain()">Back</button>
+            <div id="lobby-status" style="margin-top:20px;color:#94a3b8;font-weight:bold;text-align:center;"></div>
+        </div>
+
+        <div id="battlefield">
+            <canvas id="gameCanvas" width="400" height="540"></canvas>
+        </div>
+        <div id="ui-layer">
+            <div id="cards"></div>
+            <div id="elixir-container">
+                <div id="elixir-bar"></div>
+                <div id="elixir-text">5 / 10</div>
+            </div>
+        </div>
+        <div id="game-over">
+            <h1 id="game-over-text">VICTORY</h1>
+            <button onclick="resetGame()">Play Again</button>
+        </div>
+        <div id="emote-btn" onclick="toggleEmoteMenu()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f8fafc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+                <line x1="9" y1="9" x2="9.01" y2="9"></line>
+                <line x1="15" y1="9" x2="15.01" y2="9"></line>
+            </svg>
+        </div>
+        <div id="emote-menu">
+            <div class="emote-icon laugh" onclick="playerEmote('laugh')">HAHA</div>
+            <div class="emote-icon cry" onclick="playerEmote('cry')">HOU</div>
+            <div class="emote-icon angry" onclick="playerEmote('angry')">GRR</div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const maxElixir = 10;
+        const elixirRegen = 1 / 120; 
+        let elixir = 5;
+        let enemyElixir = 5;
+
+        const ICONS = {
+            'Knight': `<svg width="45" height="45" viewBox="0 0 100 100" style="filter:drop-shadow(0 6px 8px rgba(0,0,0,0.8));"><linearGradient id="sw" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fff"/><stop offset="100%" stop-color="#94a3b8"/></linearGradient><path d="M25,75 L40,60 L85,15 C90,10 95,15 90,20 L45,65 Z" fill="url(#sw)" stroke="#1e293b" stroke-width="3"/><rect x="30" y="60" width="20" height="6" transform="rotate(-45 40 63)" fill="#b45309" stroke="#451a03" stroke-width="2"/><circle cx="25" cy="75" r="7" fill="#facc15" stroke="#713f12" stroke-width="2"/></svg>`,
+            'Archers': `<svg width="45" height="45" viewBox="0 0 100 100" style="filter:drop-shadow(0 6px 8px rgba(0,0,0,0.8));"><path d="M20,20 C45,0 85,0 85,40 C85,80 45,100 20,80" fill="none" stroke="#78350f" stroke-width="8" stroke-linecap="round"/><line x1="20" y1="20" x2="20" y2="80" stroke="#f1f5f9" stroke-width="3"/><path d="M5,50 L45,50 M35,35 L45,50 L35,65" fill="none" stroke="#cbd5e1" stroke-width="5" stroke-linecap="round"/></svg>`,
+            'Giant': `<svg width="45" height="45" viewBox="0 0 100 100" style="filter:drop-shadow(0 6px 8px rgba(0,0,0,0.8));"><linearGradient id="gt" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#fb923c"/><stop offset="100%" stop-color="#9a3412"/></linearGradient><path d="M15,40 C15,10 85,10 85,40 L85,75 C85,95 15,95 15,75 Z" fill="url(#gt)" stroke="#431407" stroke-width="4"/><path d="M15,50 C40,40 60,40 85,50 M15,65 C40,55 60,55 85,65 M40,40 L40,90 M60,40 L60,90" fill="none" stroke="#431407" stroke-width="4"/></svg>`,
+            'Goblins': `<svg width="45" height="45" viewBox="0 0 100 100" style="filter:drop-shadow(0 6px 8px rgba(0,0,0,0.8));"><linearGradient id="gb" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4ade80"/><stop offset="100%" stop-color="#14532d"/></linearGradient><path d="M15,30 C30,0 70,0 85,30 L95,65 L50,95 L5,65 Z" fill="url(#gb)" stroke="#064e3b" stroke-width="4"/><circle cx="35" cy="45" r="10" fill="#facc15" stroke="#000" stroke-width="3"/><circle cx="65" cy="45" r="10" fill="#facc15" stroke="#000" stroke-width="3"/><path d="M40,75 C50,85 60,75 60,75" fill="none" stroke="#000" stroke-width="4" stroke-linecap="round"/></svg>`,
+            'Musketeer': `<svg width="45" height="45" viewBox="0 0 100 100" style="filter:drop-shadow(0 6px 8px rgba(0,0,0,0.8));"><circle cx="50" cy="50" r="35" fill="#a855f7" stroke="#4c1d95" stroke-width="4"/><circle cx="50" cy="50" r="25" fill="#fcd34d"/><rect x="45" y="10" width="10" height="40" fill="#334155"/></svg>`,
+            'Fireball': `<svg width="45" height="45" viewBox="0 0 100 100" style="filter:drop-shadow(0 6px 8px rgba(0,0,0,0.8));"><circle cx="50" cy="60" r="30" fill="#ef4444"/><path d="M20,60 C20,30 50,10 50,10 C50,10 80,30 80,60 Z" fill="#f97316"/><circle cx="50" cy="70" r="15" fill="#facc15"/></svg>`,
+            'Skarmy': `<svg width="45" height="45" viewBox="0 0 100 100" style="filter:drop-shadow(0 6px 8px rgba(0,0,0,0.8));"><circle cx="30" cy="30" r="15" fill="#e2e8f0" stroke="#0f172a" stroke-width="2"/><circle cx="70" cy="30" r="15" fill="#e2e8f0" stroke="#0f172a" stroke-width="2"/><circle cx="50" cy="70" r="15" fill="#e2e8f0" stroke="#0f172a" stroke-width="2"/></svg>`,
+            'Valkyrie': `<svg width="45" height="45" viewBox="0 0 100 100" style="filter:drop-shadow(0 6px 8px rgba(0,0,0,0.8));"><circle cx="50" cy="50" r="35" fill="#f97316" stroke="#9a3412" stroke-width="4"/><path d="M10,50 L90,50 M50,10 L50,90" stroke="#cbd5e1" stroke-width="6"/></svg>`
+        };
+
+        const CARD_TYPES = [
+            { name: 'Knight', cost: 3, count: 1, hp: 600, damage: 60, range: 25, speed: 1.2, hitSpeed: 60, buildingTarget: false, color: '#cbd5e1', radius: 10, bg: 'linear-gradient(135deg, #475569, #1e293b)' },
+            { name: 'Archers', cost: 3, count: 2, hp: 180, damage: 40, range: 130, speed: 1.2, hitSpeed: 72, buildingTarget: false, color: '#4ade80', radius: 8, spread: 30, bg: 'linear-gradient(135deg, #16a34a, #14532d)' },
+            { name: 'Giant', cost: 5, count: 1, hp: 1600, damage: 120, range: 30, speed: 0.7, hitSpeed: 90, buildingTarget: true, color: '#f97316', radius: 16, bg: 'linear-gradient(135deg, #ea580c, #7c2d12)' },
+            { name: 'Goblins', cost: 2, count: 3, hp: 120, damage: 40, range: 20, speed: 2.2, hitSpeed: 30, buildingTarget: false, color: '#22c55e', radius: 7, spread: 22, bg: 'linear-gradient(135deg, #65a30d, #3f6212)' },
+            { name: 'Musketeer', cost: 4, count: 1, hp: 340, damage: 100, range: 140, speed: 1.0, hitSpeed: 66, buildingTarget: false, color: '#a855f7', radius: 9, bg: 'linear-gradient(135deg, #9333ea, #4c1d95)' },
+            { name: 'Fireball', cost: 4, count: 0, type: 'spell', damage: 300, radius: 60, bg: 'linear-gradient(135deg, #ef4444, #7f1d1d)' },
+            { name: 'Skarmy', cost: 3, count: 10, hp: 40, damage: 30, range: 15, speed: 2.5, hitSpeed: 40, buildingTarget: false, color: '#e2e8f0', radius: 5, spread: 50, bg: 'linear-gradient(135deg, #94a3b8, #334155)' },
+            { name: 'Valkyrie', cost: 4, count: 1, hp: 800, damage: 80, range: 35, speed: 1.1, hitSpeed: 80, buildingTarget: false, isSplash: true, color: '#f97316', radius: 12, bg: 'linear-gradient(135deg, #f97316, #9a3412)' }
+        ];
+
+        let myDeck = ['Knight', 'Archers', 'Giant', 'Goblins'];
+        let hand = [];
+        let entities = [];
+        let particles = [];
+        let projectiles = [];
+        let texts = [];
+        let activeEmotes = [];
+        let frameCount = 0;
+        let isGameRunning = false;
+        
+        let mqttClient = null;
+        let isMultiplayer = false;
+        let currentRoom = '';
+        let isHost = false;
+
+        const soundPools = {};
+        let soundsLoaded = false;
+        
+        function initSoundPool(name, url, poolSize=3) {
+            soundPools[name] = { pool: [], index: 0 };
+            for(let i=0; i<poolSize; i++) {
+                let a = new Audio(url);
+                a.preload = 'auto';
+                soundPools[name].pool.push(a);
+            }
+        }
+
+        function loadAllSounds() {
+            if (soundsLoaded) return;
+            soundsLoaded = true;
+            initSoundPool('laugh', 'https://www.myinstants.com/media/sounds/clash-royale-laugh.mp3', 2);
+            initSoundPool('cry', 'https://www.myinstants.com/media/sounds/clash-royale-crying.mp3', 2);
+            initSoundPool('angry', 'https://www.myinstants.com/media/sounds/clash-royale-angry.mp3', 2);
+            initSoundPool('spawn', 'https://www.myinstants.com/media/sounds/pop-sound.mp3', 2);
+            initSoundPool('hit', 'https://www.myinstants.com/media/sounds/punch.mp3', 3);
+            initSoundPool('shoot', 'https://www.myinstants.com/media/sounds/whoosh.mp3', 2);
+            initSoundPool('explosion', 'https://www.myinstants.com/media/sounds/explosion.mp3', 1);
+            initSoundPool('victory', 'https://www.myinstants.com/media/sounds/victory_2.mp3', 1);
+            initSoundPool('defeat', 'https://www.myinstants.com/media/sounds/sadtrombone.mp3', 1);
+        }
+
+        document.addEventListener('click', loadAllSounds, { once: true });
+
+        let lastSoundTime = {};
+
+        function playSound(name, vol=0.5) {
+            let now = Date.now();
+            if (lastSoundTime[name] && now - lastSoundTime[name] < 200) return;
+            lastSoundTime[name] = now;
+            
+            let sp = soundPools[name];
+            if (sp) {
+                let a = sp.pool[sp.index];
+                a.volume = vol;
+                a.currentTime = 0;
+                a.play().catch(e=>{});
+                sp.index = (sp.index + 1) % sp.pool.length;
+            }
+        }
+        function getRandomCard() {
+            let deckCards = CARD_TYPES.filter(c => myDeck.includes(c.name));
+            return deckCards[Math.floor(Math.random() * deckCards.length)];
+        }
+        
+        // ------------------ MENU LOGIC ------------------
+        function showDeckBuilder() {
+            document.getElementById('main-menu').style.display = 'none';
+            document.getElementById('deck-menu').style.display = 'flex';
+            renderDeckBuilder();
+        }
+        function renderDeckBuilder() {
+            const grid = document.getElementById('deck-builder-grid');
+            grid.innerHTML = '';
+            CARD_TYPES.forEach(card => {
+                let div = document.createElement('div');
+                div.className = 'deck-card' + (myDeck.includes(card.name) ? ' in-deck' : '');
+                div.innerHTML = `
+                    <div class="deck-card-cost">${card.cost}</div>
+                    <div class="deck-card-icon">${ICONS[card.name] || ICONS['Knight']}</div>
+                    <div style="font-size:12px;font-weight:bold;">${card.name}</div>
+                `;
+                div.onclick = () => {
+                    if (myDeck.includes(card.name)) {
+                        if (myDeck.length > 1) myDeck = myDeck.filter(n => n !== card.name);
+                    } else {
+                        if (myDeck.length < 4) myDeck.push(card.name);
+                    }
+                    renderDeckBuilder();
+                };
+                grid.appendChild(div);
+            });
+        }
+        function saveDeck() {
+            if (myDeck.length !== 4) return alert('You must select exactly 4 cards!');
+            document.getElementById('deck-menu').style.display = 'none';
+            document.getElementById('main-menu').style.display = 'flex';
+        }
+        function showMultiplayer() {
+            document.getElementById('main-menu').style.display = 'none';
+            document.getElementById('multiplayer-menu').style.display = 'flex';
+            document.getElementById('lobby-status').innerText = '';
+        }
+        function backToMain() {
+            document.getElementById('multiplayer-menu').style.display = 'none';
+            document.getElementById('main-menu').style.display = 'flex';
+            if (mqttClient) {
+                mqttClient.end();
+                mqttClient = null;
+            }
+        }
+        
+        // ------------------ MULTIPLAYER LOGIC ------------------
+        let myPlayerId = 'p_' + Math.random().toString(36).substr(2, 9);
+        function connectMQTT(room, role) {
+            document.getElementById('lobby-status').innerText = 'Connecting...';
+            isMultiplayer = true;
+            isHost = (role === 'host');
+            currentRoom = room;
+            
+            if (mqttClient) mqttClient.end();
+            mqttClient = mqtt.connect('wss://test.mosquitto.org:8081', { clientId: 'cc-' + myPlayerId, clean: true, reconnectPeriod: 0 });
+            
+            mqttClient.on('connect', () => {
+                document.getElementById('lobby-status').innerText = 'Connected! Waiting for opponent...';
+                let topic = 'crown-conflict/' + room;
+                mqttClient.subscribe(topic);
+                
+                if (!isHost) {
+                    mqttClient.publish(topic, JSON.stringify({ type: 'join', senderId: myPlayerId }));
+                }
+            });
+            
+            mqttClient.on('message', (topic, message) => {
+                let data = JSON.parse(message.toString());
+                if (data.senderId === myPlayerId) return; 
+                
+                if (data.type === 'join' && isHost) {
+                    document.getElementById('lobby-status').innerText = 'Player joined! Starting...';
+                    mqttClient.publish('crown-conflict/' + room, JSON.stringify({ type: 'start', senderId: myPlayerId }));
+                    setTimeout(() => startMatch(), 500);
+                }
+                
+                if (data.type === 'start' && !isHost) {
+                    document.getElementById('lobby-status').innerText = 'Game starting...';
+                    setTimeout(() => startMatch(), 500);
+                }
+                
+                if (data.type === 'spawn' && isGameRunning) {
+                    let c = CARD_TYPES.find(c => c.name === data.card);
+                    if (c) spawnTroop(c, 400 - data.x, 540 - data.y, 'enemy', true);
+                }
+                
+                if (data.type === 'emote' && isGameRunning) {
+                    let k = entities.find(e => e.id === 'enemy_king');
+                    if(k) showEmote(k, data.emote);
+                }
+            });
+        }
+        function hostRoom() {
+            let room = Math.random().toString(36).substr(2, 5).toUpperCase();
+            document.getElementById('room-input').value = room;
+            connectMQTT(room, 'host');
+        }
+        function joinRoom() {
+            let room = document.getElementById('room-input').value.trim().toUpperCase();
+            if (!room) return alert('Enter a room code!');
+            connectMQTT(room, 'client');
+        }
+        function startLocalGame() {
+            isMultiplayer = false;
+            startMatch();
+        }
+        function startMatch() {
+            document.getElementById('main-menu').style.display = 'none';
+            document.getElementById('multiplayer-menu').style.display = 'none';
+            isGameRunning = true;
+            initGame();
+        }
+
+        // ------------------ GAME CORE ------------------
+        let gameOver = false;
+        let selectedCardIndex = -1;
+        let mouseX = -100, mouseY = -100;
+        let gameLoopId;
+
+        function initGame() {
+            if(gameLoopId) cancelAnimationFrame(gameLoopId);
+            
+            elixir = 5;
+            enemyElixir = 5;
+            entities = [];
+            particles = [];
+            projectiles = [];
+            texts = [];
+            activeEmotes = [];
+            gameOver = false;
+            texts = [];
+            activeEmotes = [];
+            frameCount = 0;
+            gameOver = false;
+            selectedCardIndex = -1;
+            
+            document.getElementById('game-over').style.display = 'none';
+            
+            entities.push(createTower('enemy_king', 200, 50, 2400, 50, 160, 60, false));
+            entities.push(createTower('enemy_princess_l', 80, 120, 1400, 50, 160, 48, true));
+            entities.push(createTower('enemy_princess_r', 320, 120, 1400, 50, 160, 48, true));
+            
+            entities.push(createTower('player_king', 200, 490, 2400, 50, 160, 60, false));
+            entities.push(createTower('player_princess_l', 80, 420, 1400, 50, 160, 48, true));
+            entities.push(createTower('player_princess_r', 320, 420, 1400, 50, 160, 48, true));
+            
+            hand = [];
+            for(let i=0; i<4; i++) hand.push(getRandomCard());
+            
+            renderHand();
+            gameLoop();
+        }
+
+        function createTower(id, x, y, hp, damage, range, hitSpeed, isPrincess) {
+            return {
+                id, x, y, hp, maxHp: hp, damage, range, hitSpeed,
+                isTower: true, isPrincess,
+                team: id.startsWith('player') ? 'player' : 'enemy',
+                radius: isPrincess ? 24 : 32,
+                attackCooldown: 0,
+                isPunching: 0, age: 0, vx: 0, vy: 0
+            };
+        }
+
+        function getRandomCard() {
+            let deckCards = CARD_TYPES.filter(c => myDeck.includes(c.name));
+            return deckCards[Math.floor(Math.random() * deckCards.length)];
+        }
+
+        function spawnTroop(card, x, y, team, isNetworkSpawn=false) {
+            playSound('spawn', 0.4);
+            if (card.type === 'spell') {
+                playSound('explosion', 0.7);
+                for (let k = 0; k < 20; k++) {
+                    particles.push({
+                        x: x + (Math.random()-0.5)*card.radius, y: y + (Math.random()-0.5)*card.radius, groundY: y + Math.random()*20,
+                        life: 20 + Math.random()*15, maxLife: 35, size: 5 + Math.random()*5,
+                        color: '#ef4444', glow: true,
+                        vx: (Math.random()-0.5)*15, vy: (Math.random()-0.5)*15 - 5
+                    });
+                }
+                for (let e of entities) {
+                    if (e.team !== team && Math.hypot(e.x - x, e.y - y) <= card.radius) {
+                        e.hp -= card.damage;
+                        showDamage(e.x, e.y, card.damage);
+                    }
+                }
+                return;
+            }
+            
+            let troopCount = entities.filter(e => !e.isTower).length;
+            if (troopCount >= 20) return;
+            for(let i=0; i<card.count; i++) {
+                if (troopCount + i >= 20) break;
+                let offsetX = (Math.random() - 0.5) * (card.spread || 0);
+                let offsetY = (Math.random() - 0.5) * (card.spread || 0);
+                entities.push({
+                    id: Math.random().toString(),
+                    type: card.name,
+                    x: x + offsetX, y: y + offsetY,
+                    hp: card.hp, maxHp: card.hp,
+                    damage: card.damage, range: card.range,
+                    speed: card.speed, hitSpeed: card.hitSpeed,
+                    buildingTarget: card.buildingTarget,
+                    isSplash: card.isSplash || false,
+                    color: card.color, radius: card.radius,
+                    team: team, isTower: false,
+                    attackCooldown: 0, isPunching: 0,
+                    age: 0, vx: 0, vy: (team === 'player' ? -1 : 1) * card.speed
+                });
+            }
+        }
+
+        function renderHand() {
+            const cardsDiv = document.getElementById('cards');
+            cardsDiv.innerHTML = '';
+            hand.forEach((card, index) => {
+                let div = document.createElement('div');
+                div.className = 'card' + (index === selectedCardIndex ? ' selected' : '');
+                div.style.background = card.bg;
+                div.innerHTML = `
+                    <div class="card-cost">${card.cost}</div>
+                    <div class="card-icon">${ICONS[card.name]}</div>
+                    <div class="card-name">${card.name}</div>
+                `;
+                div.onclick = () => {
+                    if (elixir >= card.cost) {
+                        selectedCardIndex = selectedCardIndex === index ? -1 : index;
+                        renderHand();
+                    }
+                };
+                cardsDiv.appendChild(div);
+            });
+        }
+
+        function toggleEmoteMenu() {
+            let menu = document.getElementById('emote-menu');
+            menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
+        }
+
+        function playerEmote(type) {
+            document.getElementById('emote-menu').style.display = 'none';
+            let king = entities.find(e => e.id === 'player_king');
+            if (king) showEmote(king, type);
+            if (isMultiplayer && mqttClient) {
+                mqttClient.publish('crown-conflict/' + currentRoom, JSON.stringify({ type: 'emote', emote: type, senderId: myPlayerId }));
+            }
+        }
+
+        function showEmote(target, type) {
+            activeEmotes.push({ target: target, type: type, life: 100, maxLife: 100 });
+            playSound(type, 0.6);
+        }
+
+        function showDamage(x, y, amount, color='#ef4444') {
+            if (texts.length > 10) return;
+            texts.push({ x: x, y: y, text: '-'+amount, life: 30, color: color });
+        }
+
+        function spawnHitParticles(x, y, color='#facc15') {
+            if (particles.length > 80) return;
+            for(let k=0; k<3; k++) {
+                particles.push({
+                    x: x, y: y, groundY: y + Math.random()*15,
+                    life: 15 + Math.random()*5, maxLife: 20, size: 2 + Math.random()*2,
+                    color: color, glow: false,
+                    vx: (Math.random()-0.5)*8,
+                    vy: (Math.random()-0.5)*8 - 3
+                });
+            }
+        }
+
+        function updateEntities() {
+            for (let e of entities) {
+                if (e.attackCooldown > 0) e.attackCooldown--;
+                e.age++;
+            }
+            
+            for (let i = 0; i < entities.length; i++) {
+                let e = entities[i];
+                if (e.hp <= 0) continue;
+                
+                let target = findTarget(e);
+                if (target) {
+                    let dx = target.x - e.x;
+                    let dy = target.y - e.y;
+                    let dist = Math.hypot(dx, dy);
+                    
+                    if (dist <= e.range) {
+                        e.vx = 0; e.vy = 0; 
+                        if (e.attackCooldown <= 0) {
+                            e.attackCooldown = e.hitSpeed;
+                            e.isPunching = 8;
+                            
+                            if (e.range > 50) {
+                                playSound('shoot', 0.15);
+                                if (e.type === 'Archers') {
+                                    projectiles.push({
+                                        x: e.x, y: e.y, target: target, damage: e.damage, speed: 12, type: 'arrow'
+                                    });
+                                } else if (e.type === 'Musketeer') {
+                                    projectiles.push({
+                                        x: e.x, y: e.y, target: target, damage: e.damage, speed: 16, type: 'musket', color: '#9333ea'
+                                    });
+                                } else {
+                                    projectiles.push({
+                                        x: e.x, y: e.y - e.radius, target: target, damage: e.damage, speed: 9,
+                                        type: 'energy', color: e.team === 'player' ? '#60a5fa' : '#f87171'
+                                    });
+                                }
+                            } else {
+                                if (e.isSplash) {
+                                    for (let other of entities) {
+                                        if (other.team !== e.team && Math.hypot(other.x - e.x, other.y - e.y) <= e.range + 10) {
+                                            other.hp -= e.damage;
+                                        }
+                                    }
+                                } else {
+                                    target.hp -= e.damage;
+                                }
+                                playSound('hit', 0.2);
+                            }
+                        }
+                    } else if (!e.isTower) {
+                        let tX = target.x, tY = target.y;
+                        let mySide = (e.team === 'player' && e.y >= 270) || (e.team === 'enemy' && e.y <= 270);
+                        let targetSide = (e.team === 'player' && target.y < 270) || (e.team === 'enemy' && target.y > 270);
+                        
+                        if (mySide && targetSide) {
+                            let bridgeX = Math.abs(e.x - 80) < Math.abs(e.x - 320) ? 80 : 320;
+                            if (Math.abs(e.x - bridgeX) > 20 || Math.abs(e.y - 270) > 30) {
+                                tX = bridgeX; tY = 270;
+                            }
+                        }
+                        
+                        let moveDx = tX - e.x, moveDy = tY - e.y;
+                        let moveDist = Math.hypot(moveDx, moveDy);
+                        if (moveDist > 0) {
+                            e.vx = (moveDx / moveDist) * e.speed;
+                            e.vy = (moveDy / moveDist) * e.speed;
+                            e.x += e.vx; e.y += e.vy;
+                        }
+                    }
+                } else if (!e.isTower) {
+                    e.vy = (e.team === 'player' ? -1 : 1) * e.speed;
+                    e.vx = 0;
+                    e.x += e.vx; e.y += e.vy;
+                }
+                
+                if (!e.isTower) {
+                    let sepX = 0, sepY = 0;
+                    for (let j = 0; j < entities.length; j++) {
+                        if (i === j) continue;
+                        let other = entities[j];
+                        if (!other.isTower) {
+                            let dX = e.x - other.x, dY = e.y - other.y;
+                            let dSq = dX*dX + dY*dY;
+                            let minDist = e.radius + other.radius;
+                            if (dSq < minDist*minDist && dSq > 0) {
+                                let d = Math.sqrt(dSq);
+                                sepX += dX / d; sepY += dY / d;
+                            }
+                        }
+                    }
+                    e.x += sepX * 0.8; e.y += sepY * 0.8;
+                }
+            }
+            
+            for(let i=projectiles.length-1; i>=0; i--) {
+                let p = projectiles[i];
+                let dx = p.target.x - p.x;
+                let dy = p.target.y - p.y;
+                let dist = Math.hypot(dx, dy);
+                
+                if (dist < p.speed) {
+                    if (p.target.hp > 0) {
+                        p.target.hp -= p.damage;
+                        showDamage(p.target.x, p.target.y, p.damage);
+                    }
+                    projectiles.splice(i, 1);
+                } else {
+                    p.x += (dx/dist) * p.speed;
+                    p.y += (dy/dist) * p.speed;
+                }
+            }
+            
+            for (let i = entities.length - 1; i >= 0; i--) {
+                let e = entities[i];
+                if (e.hp <= 0) {
+                    for(let k=0; k<5; k++) {
+                        particles.push({
+                            x: e.x, y: e.y, groundY: e.y + Math.random()*20,
+                            life: 15 + Math.random()*5, maxLife: 20, size: 2 + Math.random()*2,
+                            color: e.team === 'player' ? '#60a5fa' : '#f87171',
+                            glow: false,
+                            vx: (Math.random()-0.5)*8,
+                            vy: (Math.random()-0.5)*8 - 3
+                        });
+                    }
+                    if (e.isTower) {
+                        playSound('explosion', 0.6);
+                        let k = entities.find(t => t.id === (e.team === 'player' ? 'enemy_king' : 'player_king'));
+                        if (k) showEmote(k, 'laugh');
+                    }
+                    if (e.id === 'player_king') endGame(false);
+                    else if (e.id === 'enemy_king') endGame(true);
+                    entities.splice(i, 1);
+                }
+            }
+        }
+
+        function findTarget(entity) {
+            let bestTarget = null, bestDist = Infinity;
+            for (let other of entities) {
+                if (other.team !== entity.team && other.hp > 0) {
+                    if (entity.buildingTarget && !other.isTower) continue;
+                    let dist = Math.hypot(entity.x - other.x, entity.y - other.y);
+                    if (dist < bestDist) {
+                        if (entity.isTower && dist > entity.range) continue;
+                        bestDist = dist; bestTarget = other;
+                    }
+                }
+            }
+            return bestTarget;
+        }
+
+        function drawMap() {
+            ctx.fillStyle = '#166534'; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = '#14532d';
+            for (let x = 0; x < canvas.width; x += 25) {
+                for (let y = 0; y < canvas.height; y += 25) {
+                    if ((Math.floor(x/25) + Math.floor(y/25)) % 2 === 0) {
+                        ctx.fillRect(x, y, 25, 25);
+                    }
+                }
+            }
+            
+            // Paths
+            ctx.strokeStyle = 'rgba(120, 80, 40, 0.4)';
+            ctx.lineWidth = 20;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            
+            ctx.beginPath();
+            ctx.moveTo(80, 290); ctx.lineTo(80, 420); ctx.lineTo(200, 490); ctx.lineTo(320, 420); ctx.lineTo(320, 290);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(80, 250); ctx.lineTo(80, 120); ctx.lineTo(200, 50); ctx.lineTo(320, 120); ctx.lineTo(320, 250);
+            ctx.stroke();
+            
+            // Trees
+            function drawTree(tx, ty) {
+                ctx.fillStyle = '#042f2e';
+                ctx.beginPath(); ctx.arc(tx+2, ty+3, 12, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#064e3b';
+                ctx.beginPath(); ctx.arc(tx, ty, 12, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#059669';
+                ctx.beginPath(); ctx.arc(tx-2, ty-2, 8, 0, Math.PI*2); ctx.fill();
+            }
+            drawTree(35, 180); drawTree(55, 160);
+            drawTree(365, 360); drawTree(345, 380);
+            
+            // River
+            ctx.fillStyle = '#0284c7';
+            ctx.fillRect(0, 250, canvas.width, 40);
+            
+            ctx.fillStyle = '#eab308';
+            ctx.fillRect(0, 247, canvas.width, 3);
+            ctx.fillRect(0, 290, canvas.width, 3);
+            
+            let time = Date.now() / 200;
+            ctx.fillStyle = 'rgba(255,255,255,0.25)';
+            for(let i=0; i<8; i++) {
+                let waveX = (time * 15 + i * 60) % canvas.width;
+                ctx.fillRect(waveX, 258 + (i%3)*8, 30, 3);
+            }
+            
+            // Bridges
+            function drawBridgeObj(cx, cy) {
+                let w = 64, h = 54, x = cx - w/2, y = cy - h/2;
+                
+                ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                ctx.shadowBlur = 15;
+                ctx.shadowOffsetY = 8;
+                ctx.fillStyle = '#78350f';
+                ctx.fillRect(x, y, w, h);
+                ctx.shadowColor = 'transparent';
+                
+                ctx.fillStyle = '#92400e';
+                for (let i = 2; i < h-2; i += 10) {
+                    ctx.fillRect(x, y + i, w, 8);
+                }
+                
+                ctx.fillStyle = '#451a03';
+                ctx.fillRect(x, y, 5, h);
+                ctx.fillRect(x + w - 5, y, 5, h);
+                
+                ctx.fillStyle = '#facc15';
+                ctx.beginPath(); ctx.arc(x+3, y+3, 3, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(x+w-3, y+3, 3, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(x+3, y+h-3, 3, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(x+w-3, y+h-3, 3, 0, Math.PI*2); ctx.fill();
+            }
+            drawBridgeObj(80, 270);
+            drawBridgeObj(320, 270);
+        }
+
+        function drawTower(e) {
+            let isPlayer = e.team === 'player';
+            let baseColor = isPlayer ? '#1e3a8a' : '#7f1d1d';
+            let accentColor = isPlayer ? '#3b82f6' : '#ef4444';
+            let stoneColor = '#94a3b8';
+            let darkStone = '#475569';
+            
+            ctx.save();
+            ctx.translate(e.x, e.y);
+            
+            let recoilY = 0;
+            if (e.isPunching > 0) {
+                recoilY = isPlayer ? 3 : -3; 
+                e.isPunching--;
+            }
+            
+            ctx.fillStyle = 'rgba(0,0,0,0.4)';
+            ctx.beginPath();
+            if (e.id.includes('king')) ctx.roundRect(-e.radius+4, -e.radius+8, e.radius*2, e.radius*2, 6);
+            else ctx.arc(3, 6, e.radius, 0, Math.PI*2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            if (e.id.includes('king')) ctx.roundRect(-e.radius, -e.radius, e.radius*2, e.radius*2, 6);
+            else ctx.arc(0, 0, e.radius, 0, Math.PI*2);
+            ctx.fillStyle = stoneColor;
+            ctx.fill();
+            
+            ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+            ctx.lineWidth = 1;
+            if (e.id.includes('king')) {
+                for (let i = -e.radius + 8; i < e.radius; i += 12) {
+                    ctx.beginPath(); ctx.moveTo(-e.radius, i); ctx.lineTo(e.radius, i); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(i, -e.radius); ctx.lineTo(i, e.radius); ctx.stroke();
+                }
+            } else {
+                for (let i = -e.radius + 5; i < e.radius; i += 8) {
+                    ctx.beginPath(); ctx.arc(0, 0, Math.abs(i), 0, Math.PI*2); ctx.stroke();
+                }
+            }
+            
+            let twHighlight = ctx.createLinearGradient(-e.radius, -e.radius, e.radius, e.radius);
+            twHighlight.addColorStop(0, 'rgba(255,255,255,0.5)');
+            twHighlight.addColorStop(1, 'rgba(0,0,0,0.3)');
+            ctx.fillStyle = twHighlight;
+            ctx.beginPath();
+            if (e.id.includes('king')) ctx.roundRect(-e.radius, -e.radius, e.radius*2, e.radius*2, 6);
+            else ctx.arc(0, 0, e.radius, 0, Math.PI*2);
+            ctx.fill();
+            
+            ctx.fillStyle = baseColor;
+            ctx.beginPath();
+            if (e.id.includes('king')) ctx.roundRect(-e.radius + 6, -e.radius + 6, e.radius*2 - 12, e.radius*2 - 12, 3);
+            else ctx.arc(0, 0, e.radius - 6, 0, Math.PI*2);
+            ctx.fill();
+            
+            if (e.id.includes('king')) {
+                ctx.fillStyle = darkStone;
+                for (let i = -e.radius; i <= e.radius - 8; i += 12) {
+                    ctx.fillRect(i, -e.radius, 8, 6);
+                    ctx.fillRect(i, e.radius - 6, 8, 6);
+                    ctx.fillRect(-e.radius, i, 6, 8);
+                    ctx.fillRect(e.radius - 6, i, 6, 8);
+                }
+                
+                ctx.fillStyle = accentColor;
+                if (isPlayer) {
+                    ctx.beginPath(); ctx.moveTo(-15, 10); ctx.lineTo(-15, -10); ctx.lineTo(-7, -2); ctx.lineTo(0, -15); ctx.lineTo(7, -2); ctx.lineTo(15, -10); ctx.lineTo(15, 10); ctx.fill();
+                } else {
+                    ctx.beginPath(); ctx.moveTo(-15, -10); ctx.lineTo(-15, 10); ctx.lineTo(-7, 2); ctx.lineTo(0, 15); ctx.lineTo(7, 2); ctx.lineTo(15, 10); ctx.lineTo(15, -10); ctx.fill();
+                }
+                
+                ctx.fillStyle = '#0f172a';
+                let cannonY = isPlayer ? -e.radius+8 + recoilY : e.radius-8 + recoilY;
+                ctx.beginPath(); ctx.arc(0, cannonY, 10, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle = '#64748b'; ctx.lineWidth = 3; ctx.stroke();
+                
+                ctx.fillStyle = '#475569';
+                ctx.fillRect(-2, -e.radius - 35, 4, 35);
+                
+                ctx.fillStyle = accentColor;
+                let time = Date.now() / 200;
+                let wave = Math.sin(time) * 4;
+                ctx.beginPath();
+                ctx.moveTo(2, -e.radius - 35);
+                ctx.lineTo(24, -e.radius - 27 + wave);
+                ctx.lineTo(2, -e.radius - 19);
+                ctx.fill();
+                
+            } else {
+                ctx.fillStyle = darkStone;
+                for(let a=0; a<Math.PI*2; a+=Math.PI/4) {
+                    ctx.beginPath();
+                    ctx.arc(Math.cos(a)*(e.radius-3), Math.sin(a)*(e.radius-3), 5, 0, Math.PI*2);
+                    ctx.fill();
+                }
+                
+                ctx.fillStyle = accentColor;
+                ctx.beginPath(); ctx.arc(0, 0, e.radius - 10, 0, Math.PI*2); ctx.fill();
+                
+                ctx.save();
+                let aimAngle = isPlayer ? -Math.PI/2 : Math.PI/2;
+                ctx.translate(0, recoilY);
+                ctx.rotate(aimAngle);
+                
+                ctx.beginPath();
+                ctx.arc(0, 0, 14, -Math.PI/1.5, Math.PI/1.5);
+                ctx.strokeStyle = '#b45309'; 
+                ctx.lineWidth = 4;
+                ctx.stroke();
+                
+                ctx.fillStyle = '#f8fafc';
+                ctx.beginPath(); ctx.arc(10, 0, 4, 0, Math.PI*2); ctx.fill();
+                ctx.restore();
+            }
+            
+            ctx.restore();
+        }
+
+        function drawTroop(e) {
+            let scale = e.age < 15 ? e.age / 15 : 1;
+            
+            ctx.save();
+            ctx.translate(e.x, e.y);
+            ctx.scale(scale, scale);
+            
+            let isMoving = e.vx !== 0 || e.vy !== 0;
+            
+            ctx.beginPath();
+            ctx.ellipse(0, e.radius, e.radius*1.2, e.radius*0.5, 0, 0, Math.PI*2);
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.fill();
+            
+            let angle = Math.atan2(e.vy || (e.team==='player'?-1:1), e.vx || 0);
+            ctx.rotate(angle);
+            
+            let tColor = e.team === 'player' ? '#3b82f6' : '#ef4444';
+            
+            if (e.type === 'Knight') {
+                ctx.fillStyle = tColor;
+                ctx.beginPath(); ctx.arc(-e.radius*0.3, 0, e.radius*1.1, Math.PI/2, Math.PI*1.5); ctx.fill();
+            } else if (e.type === 'Archers') {
+                ctx.fillStyle = '#14532d';
+                ctx.beginPath(); ctx.arc(-e.radius*0.5, 0, e.radius*1.2, Math.PI/2, Math.PI*1.5); ctx.fill();
+            } else if (e.type === 'Goblins') {
+                ctx.fillStyle = '#b45309';
+                ctx.beginPath(); ctx.arc(-e.radius*0.7, 0, e.radius*0.8, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+            }
+            
+            let bounce = isMoving ? 1 + Math.abs(Math.sin(e.age * 0.4)) * 0.15 : 1;
+            ctx.scale(bounce, bounce);
+            
+            ctx.beginPath();
+            ctx.arc(0, 0, e.radius, 0, Math.PI*2);
+            ctx.fillStyle = e.color;
+            ctx.fill();
+            
+            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+            ctx.beginPath();
+            ctx.arc(-e.radius*0.2, -e.radius*0.2, e.radius*0.6, 0, Math.PI*2);
+            ctx.fill();
+            
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            
+            if (e.type === 'Knight') {
+                ctx.fillStyle = '#94a3b8';
+                ctx.beginPath(); ctx.arc(0, 0, e.radius, -Math.PI/2, Math.PI/2); ctx.fill(); ctx.stroke();
+                
+                ctx.fillStyle = '#facc15';
+                ctx.fillRect(-e.radius-3, -2, e.radius+3, 4);
+                
+                ctx.save();
+                if (e.isPunching > 0) { ctx.translate(e.radius/2, 0); e.isPunching--; }
+                
+                ctx.fillStyle = '#cbd5e1'; 
+                ctx.fillRect(e.radius/2, -e.radius-6, 20, 5);
+                ctx.fillStyle = '#f59e0b';
+                ctx.fillRect(e.radius/2, -e.radius-9, 3, 11);
+                ctx.fillStyle = '#451a03';
+                ctx.fillRect(e.radius/2-4, -e.radius-5, 4, 3);
+                ctx.restore();
+                
+                ctx.fillStyle = '#94a3b8';
+                ctx.beginPath(); ctx.arc(0, e.radius-2, 8, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                ctx.strokeStyle = tColor; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(0, e.radius-2, 6, 0, Math.PI*2); ctx.stroke();
+                
+            } else if (e.type === 'Archers') {
+                ctx.fillStyle = '#ec4899';
+                ctx.beginPath(); ctx.arc(0, 0, e.radius-1, Math.PI/2, Math.PI*1.5); ctx.fill();
+                
+                ctx.fillStyle = '#22c55e';
+                ctx.beginPath(); ctx.arc(0, 0, e.radius, Math.PI/1.5, Math.PI*1.3); ctx.fill(); ctx.stroke();
+                
+                ctx.fillStyle = '#0f172a';
+                ctx.beginPath(); ctx.arc(e.radius/2.5, -e.radius/3, 2, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(e.radius/2.5, e.radius/3, 2, 0, Math.PI*2); ctx.fill();
+                
+                ctx.save();
+                if (e.isPunching > 0) { ctx.translate(e.radius/3, 0); e.isPunching--; }
+                
+                ctx.beginPath();
+                ctx.arc(e.radius*0.8, 0, e.radius+4, -Math.PI/2.2, Math.PI/2.2);
+                ctx.strokeStyle = '#b45309'; ctx.lineWidth = 3; ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(e.radius*0.8, -e.radius-4);
+                ctx.lineTo(e.radius*0.2, 0);
+                ctx.lineTo(e.radius*0.8, e.radius+4);
+                ctx.strokeStyle = '#f1f5f9'; ctx.lineWidth = 1; ctx.stroke();
+                ctx.restore();
+                
+            } else if (e.type === 'Giant') {
+                ctx.fillStyle = '#78350f';
+                ctx.beginPath(); ctx.arc(e.radius*0.7, 0, e.radius*0.6, -Math.PI/2, Math.PI/2); ctx.fill();
+                
+                ctx.fillStyle = '#8b4513';
+                ctx.beginPath(); ctx.arc(0, 0, e.radius, Math.PI/2, Math.PI*1.5); ctx.fill();
+                ctx.fillStyle = '#451a03'; ctx.fillRect(-3, -e.radius, 6, e.radius*2);
+                
+                ctx.fillStyle = '#0f172a';
+                ctx.beginPath(); ctx.arc(e.radius/2.5, -e.radius/3, 2.5, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(e.radius/2.5, e.radius/3, 2.5, 0, Math.PI*2); ctx.fill();
+                
+                let punchOffset = e.isPunching > 0 ? 8 : 0;
+                if (e.isPunching > 0) e.isPunching--;
+                
+                ctx.fillStyle = e.color;
+                ctx.beginPath(); ctx.arc(e.radius/2 + punchOffset, -e.radius*0.8, 8, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                let leftSwing = isMoving ? Math.sin(e.age * 0.4) * 6 : 0;
+                ctx.beginPath(); ctx.arc(e.radius/2 - leftSwing, e.radius*0.8, 8, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                
+            } else if (e.type === 'Goblins') {
+                ctx.fillStyle = e.color;
+                ctx.beginPath(); ctx.moveTo(0, -e.radius+2); ctx.lineTo(-4, -e.radius-6); ctx.lineTo(6, -e.radius); ctx.fill(); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, e.radius-2); ctx.lineTo(-4, e.radius+6); ctx.lineTo(6, e.radius); ctx.fill(); ctx.stroke();
+                
+                ctx.fillStyle = '#facc15';
+                ctx.beginPath(); ctx.ellipse(e.radius/3, -e.radius/3, 3, 2, Math.PI/4, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(e.radius/3, e.radius/3, 3, 2, -Math.PI/4, 0, Math.PI*2); ctx.fill();
+                
+                ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.moveTo(e.radius*0.6, -2); ctx.lineTo(e.radius*0.6+2, 0); ctx.lineTo(e.radius*0.6, 2); ctx.stroke();
+                
+                ctx.save();
+                if (e.isPunching > 0) { ctx.translate(e.radius/2, 0); e.isPunching--; }
+                
+                ctx.fillStyle = '#cbd5e1'; 
+                ctx.beginPath(); ctx.moveTo(e.radius/2, -e.radius); ctx.lineTo(e.radius*2, -e.radius+2); ctx.lineTo(e.radius/2, -e.radius+4); ctx.fill();
+                ctx.fillStyle = '#78350f'; ctx.fillRect(e.radius/2 - 4, -e.radius, 4, 4);
+                ctx.restore();
+            }
+            
+            ctx.restore();
+        }
+
+        function drawHP(e) {
+            let hpW = e.radius * 2.5;
+            let hpY = e.y - e.radius - 12;
+            if (e.isTower) {
+                hpW = e.radius * 2.2;
+                hpY = e.y - e.radius - 20;
+            }
+            
+            ctx.fillStyle = 'rgba(0,0,0,0.8)';
+            ctx.fillRect(e.x - hpW/2 - 1, hpY - 1, hpW + 2, 6);
+            
+            ctx.fillStyle = '#ef4444';
+            ctx.fillRect(e.x - hpW/2, hpY, hpW, 4);
+            
+            ctx.fillStyle = '#22c55e';
+            ctx.fillRect(e.x - hpW/2, hpY, hpW * Math.max(0, e.hp / e.maxHp), 4);
+            
+            if (e.maxHp > 300) {
+                let segmentHP = 300;
+                let numSegments = Math.floor(e.maxHp / segmentHP);
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                for(let k=1; k<=numSegments; k++) {
+                    let segX = (k * segmentHP) / e.maxHp * hpW;
+                    if (segX < hpW) ctx.fillRect(e.x - hpW/2 + segX, hpY, 1, 4);
+                }
+            }
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            drawMap();
+            
+            if (selectedCardIndex >= 0) {
+                let card = hand[selectedCardIndex];
+                ctx.fillStyle = 'rgba(74, 222, 128, 0.15)';
+                if (card.type === 'spell') ctx.fillRect(0, 0, 400, 540);
+                else ctx.fillRect(0, 270, 400, 270);
+                
+                if (mouseX > 0 && ((mouseY > 270 && mouseY < 540) || card.type === 'spell')) {
+                    ctx.beginPath();
+                    ctx.arc(mouseX, mouseY, card.radius * 2 + 10, 0, Math.PI*2);
+                    ctx.fillStyle = card.type === 'spell' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255,255,255,0.2)';
+                    ctx.fill();
+                    ctx.strokeStyle = '#facc15';
+                    ctx.lineWidth = 3;
+                    ctx.setLineDash([8, 8]);
+                    ctx.lineDashOffset = -(Date.now() / 30) % 16;
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+            }
+            
+            entities.sort((a, b) => a.y - b.y);
+            
+            for (let e of entities) {
+                if (e.isTower) drawTower(e);
+                else drawTroop(e);
+            }
+            
+            for (let e of entities) drawHP(e);
+            
+            for (let p of projectiles) {
+                if (p.type === 'arrow') {
+                    let dx = p.target.x - p.x;
+                    let dy = p.target.y - p.y;
+                    let angle = Math.atan2(dy, dx);
+                    
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate(angle);
+                    ctx.fillStyle = '#78350f'; ctx.fillRect(-8, -1, 12, 2);
+                    ctx.fillStyle = '#94a3b8'; ctx.beginPath(); ctx.moveTo(4, -3); ctx.lineTo(8, 0); ctx.lineTo(4, 3); ctx.fill();
+                    ctx.fillStyle = '#f8fafc'; ctx.beginPath(); ctx.moveTo(-8, -1); ctx.lineTo(-11, -3); ctx.lineTo(-6, -1); ctx.fill();
+                    ctx.beginPath(); ctx.moveTo(-8, 1); ctx.lineTo(-11, 3); ctx.lineTo(-6, 1); ctx.fill();
+                    ctx.restore();
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 6, 0, Math.PI*2);
+                    ctx.fillStyle = p.color;
+                    ctx.fill();
+                }
+            }
+            
+            for(let i=particles.length-1; i>=0; i--) {
+                let p = particles[i];
+                let currentSize = (p.life/p.maxLife)*p.size;
+                if (currentSize < 0.5) { particles.splice(i, 1); continue; }
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, currentSize, 0, Math.PI*2);
+                ctx.fillStyle = p.color;
+                ctx.fill();
+                
+                p.life--;
+                p.x += p.vx; 
+                p.y += p.vy;
+                
+                if (p.groundY !== undefined) {
+                    p.vy += 0.5;
+                    if (p.y > p.groundY) {
+                        p.y = p.groundY;
+                        p.vy *= -0.4;
+                        p.vx *= 0.6;
+                    }
+                }
+                if(p.life <= 0) particles.splice(i, 1);
+            }
+            
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            for (let i = texts.length - 1; i >= 0; i--) {
+                let t = texts[i];
+                let scale = t.life > 35 ? 1 + (45 - t.life)*0.08 : 1;
+                
+                ctx.font = `900 ${18 * scale}px Inter`;
+                let offsetY = (45 - t.life) * 1.2;
+                
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 4;
+                ctx.strokeText(t.text, t.x, t.y - offsetY);
+                
+                ctx.fillStyle = t.color;
+                ctx.fillText(t.text, t.x, t.y - offsetY);
+                
+                t.life--;
+                if (t.life <= 0) texts.splice(i, 1);
+            }
+            
+            for (let i = activeEmotes.length - 1; i >= 0; i--) {
+                let em = activeEmotes[i];
+                let ex = em.target.x + 35;
+                let ey = em.target.y - em.target.radius - 35;
+                
+                let scale = em.maxLife - em.life < 10 ? (em.maxLife - em.life) / 10 : 1;
+                if (em.life < 10) scale = em.life / 10;
+                
+                ctx.save();
+                ctx.translate(ex, ey);
+                ctx.scale(scale, scale);
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.roundRect(-25, -25, 50, 40, 8);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(-15, 15);
+                ctx.lineTo(-25, 30);
+                ctx.lineTo(-5, 15);
+                ctx.fill();
+                
+                if (em.type === 'laugh') {
+                    ctx.fillStyle = '#facc15'; 
+                    ctx.beginPath(); ctx.arc(0, -5, 12, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#000';
+                    ctx.beginPath(); ctx.arc(-4, -8, 2, 0, Math.PI*2); ctx.fill(); 
+                    ctx.beginPath(); ctx.arc(4, -8, 2, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(0, -2, 6, 0, Math.PI); ctx.fill(); 
+                } else if (em.type === 'cry') {
+                    ctx.fillStyle = '#facc15'; 
+                    ctx.beginPath(); ctx.arc(0, -5, 12, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#000';
+                    ctx.beginPath(); ctx.arc(-4, -6, 2, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(4, -6, 2, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(0, 0, 4, Math.PI, Math.PI*2); ctx.stroke();
+                    ctx.fillStyle = '#3b82f6';
+                    let tearDrop = (Date.now() / 100) % 5;
+                    ctx.beginPath(); ctx.arc(-4, -2 + tearDrop, 1.5, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(4, -2 + tearDrop, 1.5, 0, Math.PI*2); ctx.fill();
+                } else if (em.type === 'angry') {
+                    ctx.fillStyle = '#ef4444'; 
+                    ctx.beginPath(); ctx.arc(0, -5, 12, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#000';
+                    ctx.beginPath(); ctx.arc(-4, -5, 2, 0, Math.PI*2); ctx.fill(); 
+                    ctx.beginPath(); ctx.arc(4, -5, 2, 0, Math.PI*2); ctx.fill();
+                    ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.moveTo(-8, -9); ctx.lineTo(-2, -7); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(8, -9); ctx.lineTo(2, -7); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(-5, 1); ctx.lineTo(5, 1); ctx.stroke();
+                }
+                
+                ctx.restore();
+                
+                em.life--;
+                if (em.life <= 0) activeEmotes.splice(i, 1);
+            }
+            
+            document.getElementById('elixir-bar').style.width = (elixir / maxElixir * 100) + '%';
+            document.getElementById('elixir-text').innerText = Math.floor(elixir) + ' / 10';
+            
+            let cardElements = document.querySelectorAll('.card');
+            hand.forEach((card, i) => {
+                let el = cardElements[i];
+                if (el) {
+                    if (elixir < card.cost) el.classList.add('disabled');
+                    else el.classList.remove('disabled');
+                }
+            });
+        }
+
+        function gameLoop() {
+            if (gameOver) return;
+            
+            if (elixir < maxElixir) elixir += elixirRegen;
+            if (enemyElixir < maxElixir) enemyElixir += elixirRegen;
+            
+            if (frameCount % 400 === 0 && Math.random() < 0.4) {
+                let enemyKing = entities.find(e => e.id === 'enemy_king');
+                if (enemyKing) {
+                    let types = ['laugh', 'cry', 'angry'];
+                    showEmote(enemyKing, types[Math.floor(Math.random()*types.length)]);
+                }
+            }
+
+            if (!isMultiplayer && frameCount % 60 === 0) {
+                if (enemyElixir >= 3 && Math.random() < 0.6) {
+                    let card = getRandomCard();
+                    if (enemyElixir >= card.cost || enemyElixir >= 9) {
+                        if (enemyElixir < card.cost) card = CARD_TYPES.find(c => enemyElixir >= c.cost) || card;
+                        if (enemyElixir >= card.cost) {
+                            enemyElixir -= card.cost;
+                            let laneX = Math.random() < 0.5 ? 80 : 320;
+                            let spawnY = 60 + Math.random() * 40;
+                            spawnTroop(card, laneX, spawnY, 'enemy');
+                        }
+                    }
+                }
+            }
+            
+            updateEntities();
+            render();
+            
+            frameCount++;
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+
+        function endGame(playerWon) {
+            gameOver = true;
+            if (playerWon) playSound('victory', 0.6);
+            else playSound('defeat', 0.6);
+            
+            let goDiv = document.getElementById('game-over');
+            let title = document.getElementById('game-over-text');
+            goDiv.style.display = 'flex';
+            if (playerWon) {
+                title.innerText = "VICTORY!";
+                title.className = "win";
+            } else {
+                title.innerText = "DEFEAT";
+                title.className = "lose";
+            }
+        }
+
+        canvas.addEventListener('mousemove', (e) => {
+            let rect = canvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+        });
+        
+        canvas.addEventListener('mouseleave', () => {
+            mouseX = -100;
+            mouseY = -100;
+        });
+
+        canvas.addEventListener('click', (e) => {
+            if (selectedCardIndex >= 0) {
+                let rect = canvas.getBoundingClientRect();
+                let x = e.clientX - rect.left;
+                let y = e.clientY - rect.top;
+                
+                let card = hand[selectedCardIndex];
+                if ((y > 270 && y < 540) || card.type === 'spell') {
+                    if (elixir >= card.cost) {
+                        elixir -= card.cost;
+                        spawnTroop(card, x, y, 'player');
+                        if (isMultiplayer && mqttClient) {
+                            mqttClient.publish('crown-conflict/' + currentRoom, JSON.stringify({
+                                type: 'spawn', card: card.name, x: x, y: y, senderId: myPlayerId
+                            }));
+                        }
+                        hand[selectedCardIndex] = getRandomCard();
+                        selectedCardIndex = -1;
+                        renderHand();
+                    }
+                }
+            }
+        });
+
+        window.resetGame = () => {
+            document.getElementById('game-over').style.display = 'none';
+            document.getElementById('main-menu').style.display = 'flex';
+            isGameRunning = false;
+        };
+    </script>
+</body>
+</html>

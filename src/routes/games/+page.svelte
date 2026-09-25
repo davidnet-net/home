@@ -195,6 +195,11 @@
 			title: "Clash of kingdoms",
 			icon: "swords",
 			href: "/games/community/clash_of_kingdoms"
+		},
+		{
+			title: "Crown conflict",
+			icon: "crown",
+			href: "/games/community/crown_conflict.html"
 		}
 	];
 

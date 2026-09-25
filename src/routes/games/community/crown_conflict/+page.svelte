@@ -46,8 +46,8 @@
 	<iframe
 		bind:this={iframeElement}
 		style="height: 80vh; width: 90%; border-radius: {token.global.radius.huge}; border: none;"
-		src="/community_games/wobble_towers.html"
-		title="Wobble Towers">
+		src="/community_games/crown_conflict.html"
+		title="Crown conflict">
 	</iframe>
 	<Flex height="fit-content" width="fit-content" gap="small">
 		<LinkButton href="/games" iconbefore="arrow_back">Back</LinkButton>
@@ -75,7 +75,7 @@
 			@zandzak500 view the creator's own version <Link
 				external
 				opennewtab
-				href="https://wobbletowers.gamer.gd/?i=1">
+				href="https://melosdev.dpdns.org/Crown-Conflict.html">
 				here
 			</Link>
 		</Anchor>

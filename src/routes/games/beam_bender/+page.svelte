@@ -200,7 +200,9 @@
 	}
 
 	// Start direct het eerste level bij laden
-	generateLevel(level);
+	$effect(() => {
+		generateLevel(level);
+	});
 
 	// --- Main Game Effect (Alleen voor de Canvas loop en input) ---
 	$effect(() => {
@@ -372,6 +374,7 @@
 		}
 		score = 0;
 		level = 1;
+
 		generateLevel(level);
 	}
 

@@ -135,12 +135,7 @@
 			title={gameData.title}>
 		</iframe>
 
-		<Flex
-			width="90%"
-			justifyContent="spaceBetween"
-			alignItems="flexStart"
-			flexWrap="wrap"
-			gap="medium">
+		<Flex width="90%" justifyContent="spaceBetween" alignItems="start" flexWrap="wrap" gap="medium">
 			<Flex direction="column" gap="small">
 				<Flex height="fit-content" width="fit-content" gap="small">
 					<LinkButton href="/games/community" appearance="default" iconbefore="arrow_back">

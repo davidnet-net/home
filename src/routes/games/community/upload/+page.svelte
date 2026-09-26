@@ -14,7 +14,8 @@
 		whenAuthReady,
 		Modal,
 		Icon,
-		navigateBack
+		navigateBack,
+		Anchor
 	} from "@davidnet-net/svelte-ui";
 	import { token } from "@davidnet-net/svelte-ui/tokens";
 
@@ -168,6 +169,16 @@
 				{/each}
 			</Flex>
 		{/if}
+
+		<p>
+			Make sure you understand and accept the <Anchor
+				opennewtab
+				href="https://davidnet.net/legal/acceptable_use_policy">
+				AUP
+			</Anchor> and <Anchor opennewtab href="https://davidnet.net/legal/community_guidelines">
+				Community guidelines
+			</Anchor>!
+		</p>
 
 		<Flex justifyContent="end" marginTop="medium">
 			<Button

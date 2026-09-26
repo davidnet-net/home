@@ -15,7 +15,8 @@
 		Modal,
 		Icon,
 		navigateBack,
-		Anchor
+		Anchor,
+		Link
 	} from "@davidnet-net/svelte-ui";
 	import { token } from "@davidnet-net/svelte-ui/tokens";
 
@@ -171,13 +172,13 @@
 		{/if}
 
 		<p>
-			Make sure you understand and accept the <Anchor
+			Make sure you understand and accept the <Link
 				opennewtab
 				href="https://davidnet.net/legal/acceptable_use_policy">
 				AUP
-			</Anchor> and <Anchor opennewtab href="https://davidnet.net/legal/community_guidelines">
+			</Link> and <Link opennewtab href="https://davidnet.net/legal/community_guidelines">
 				Community guidelines
-			</Anchor>!
+			</Link>!
 		</p>
 
 		<Flex justifyContent="end" marginTop="medium">

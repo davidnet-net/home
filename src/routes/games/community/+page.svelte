@@ -9,11 +9,23 @@
 		type iconType,
 		deleteCookie,
 		Button,
-		sleep
+		sleep,
+		whenAuthReady,
+		authState
 	} from "@davidnet-net/svelte-ui";
 	import { token } from "@davidnet-net/svelte-ui/tokens";
-	import { PUBLIC_BACKEND_URL } from "$env/static/public";
+	import { PUBLIC_ACCOUNT_FRONTEND_URL, PUBLIC_BACKEND_URL } from "$env/static/public";
 	import HorizontalCard from "$lib/components/HorizontalCard/HorizontalCard.svelte";
+	import { page } from "$app/state";
+
+	$effect(() => {
+		(async () => {
+			await whenAuthReady();
+			if (!authState.isLoggedIn && !authState.loading) {
+				window.location.href = `${PUBLIC_ACCOUNT_FRONTEND_URL}/login?continue=${encodeURIComponent(page.url.href)}`;
+			}
+		})();
+	});
 
 	let apiGames = $state<any[]>([]);
 	let loading = $state(true);
@@ -66,6 +78,7 @@
 	];
 
 	onMount(async () => {
+		await whenAuthReady();
 		try {
 			const result = await getFetch(
 				`${PUBLIC_BACKEND_URL}/social/community-games/feed`,

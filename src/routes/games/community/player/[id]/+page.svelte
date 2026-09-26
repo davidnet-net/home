@@ -53,6 +53,7 @@
 	});
 
 	onMount(async () => {
+		await whenAuthReady();
 		try {
 			const result = await getFetch(
 				`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}`,

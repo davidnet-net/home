@@ -239,6 +239,10 @@
 					{gameData.description}
 				</p>
 			{/if}
+			<p>
+				You may need to click fullscreen for the game to work! Also highscores and other data dont
+				save!
+			</p>
 		</Flex>
 	{/if}
 </Flex>

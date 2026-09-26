@@ -104,14 +104,6 @@
 				<LinkButton href="/games" appearance="default" iconbefore="arrow_back">
 					Back to Games
 				</LinkButton>
-				<Button
-					onclick={async () => {
-						deleteCookie("cgra");
-						await sleep(1000);
-						window.location.reload();
-					}}>
-					Reset CGRA
-				</Button>
 				<LinkButton href="/games/community/upload" appearance="primary" iconbefore="upload">
 					Upload Game
 				</LinkButton>

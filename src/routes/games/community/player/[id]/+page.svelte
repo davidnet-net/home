@@ -180,7 +180,8 @@
 	{:else if gameData}
 		<iframe
 			bind:this={iframeRef}
-			sandbox="allow-scripts allow-same-origin"
+			sandbox="allow-scripts allow-popups allow-forms"
+			allow="autoplay; fullscreen; focus-without-user-activation"
 			style="height: 75vh; width: 90%; border: 2px solid {token.theme.color.border
 				.default}; border-radius: {token.global.radius.huge}; background: #000;"
 			src="{PUBLIC_BACKEND_URL}/social/community-games/{gameId}/file/index.html"

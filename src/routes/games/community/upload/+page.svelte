@@ -66,9 +66,68 @@ player on this game.
 Returns a Promise resolving to: \`{ data, updatedAt }\`
 Returns the player's previously saved value, or \`data: null\` if nothing was saved yet.
 
+## Realtime multiplayer: DavidnetSDK.realtime
+
+A generic, content-agnostic real-time layer: named rooms (pub/sub channels with presence) plus a
+matchmaking queue. The platform never looks at what you send, so the exact same API works for a
+2-player turn-based game, a 50+ player action game, or a one-way live feed (e.g. a price ticker)
+with no "players" at all. There is no maximum room size, queue size, or group size.
+
+All methods auto-connect on first use — you don't need to call \`connect()\` yourself unless you
+want to open the connection early.
+
+### DavidnetSDK.realtime.joinRoom(room: string)
+Returns a Promise resolving to: \`{ room, members }\` — \`members\` is everyone already in the room
+(each \`{ userId, username, displayName, avatarUrl }\`). Rooms are created on first join and
+destroyed when empty — just pick a name. Join as many rooms as you like.
+
+### DavidnetSDK.realtime.leaveRoom(room: string)
+Returns a Promise resolving to: \`{ room }\`
+
+### DavidnetSDK.realtime.send(room: string, data, options?: { echo?: boolean })
+Broadcasts any JSON-serializable \`data\` to everyone else currently in \`room\` (max ~64kb). Pass
+\`{ echo: true }\` to also receive your own message back via \`onMessage\`. This is fire-and-forget —
+it resolves once sent, it does not wait for delivery, so call it as often as your game needs
+(every input tick is fine).
+
+### DavidnetSDK.realtime.onMessage(callback)
+Fires for every message sent to any room you're in: \`{ room, data, from, ts }\`. \`from\` is the
+sender's member info, or \`null\` for messages published via the server-side HTTP publish endpoint
+(see below) rather than by a connected player. Returns an unsubscribe function.
+
+### DavidnetSDK.realtime.onPresence(callback)
+Fires when someone joins or leaves a room you're in: \`{ room, event: "join" | "leave", member }\`.
+
+### DavidnetSDK.realtime.joinQueue(queue: string, groupSize: number, metadata?)
+A matchmaking primitive. Returns a Promise resolving to: \`{ queue, position }\`. Everyone who calls
+\`joinQueue\` with the same \`queue\` name should pass the same \`groupSize\`. As soon as \`groupSize\`
+callers are waiting, the server pops them off in join order and auto-creates a room for them —
+listen for it with \`onMatched\`. Use \`metadata\` (e.g. skill rating) if you want to build your own
+smarter matching on top of this — the server itself does plain FIFO grouping.
+
+### DavidnetSDK.realtime.leaveQueue(queue: string)
+Returns a Promise resolving to: \`{ queue }\`
+
+### DavidnetSDK.realtime.onMatched(callback)
+Fires once your queue found a full group: \`{ queue, room, members }\`. You're already joined to
+\`room\` at this point — start calling \`send(room, ...)\` / listening with \`onMessage\` right away.
+
+### DavidnetSDK.realtime.onDisconnect(callback) / onReconnect(callback) / onError(callback)
+The connection reconnects automatically in the background and silently rejoins your rooms.
+\`onDisconnect\` fires when the connection drops, \`onReconnect\` fires after it's restored (with the
+rooms that were rejoined, so you can resync game state), and \`onError\` fires for server-side
+errors not tied to a specific call (e.g. rate-limited).
+
+### Publishing from outside a player connection (e.g. a live data feed)
+If you want to push data into a room from your own backend rather than from a connected player
+(a stock ticker, a server-driven event, etc.), POST directly instead of using the SDK:
+\`POST https://davidnet-backend.davidnet.net/social/community-games/<gameId>/realtime/<room>/publish\`
+with an authenticated Davidnet session and JSON body \`{ "data": ... }\`. Everyone currently in that
+room receives it via \`onMessage\` with \`from: null\`.
+
 ## Rules for your game code
 
-- All 4 functions return a Promise and REJECT on error or timeout (10s) — always wrap calls in
+- All functions return a Promise and REJECT on error or timeout (10s) — always wrap calls in
   try/catch so a network hiccup never crashes the game.
 - Never rely on \`localStorage\`/\`sessionStorage\` for anything you want to persist — it is
   polyfilled with in-memory-only storage and is wiped on every reload.
@@ -76,6 +135,10 @@ Returns the player's previously saved value, or \`data: null\` if nothing was sa
   player's state changes meaningfully (on level-complete, on checkpoint, etc) — not every frame.
 - Do not implement your own leaderboard UI assumptions beyond what \`getHighscores()\` returns;
   the platform already renders a full leaderboard and highscore display around your game.
+- For realtime games, treat the server as a dumb relay: it does not validate move legality, game
+  rules, or physics. If your game needs to be cheat-resistant, have one client act as an
+  authoritative host (e.g. whoever created the room) and treat other players' messages as input
+  suggestions, not trusted state — same tradeoff as the anti-cheat model used for highscores.
 
 ## Example usage
 
@@ -108,6 +171,25 @@ async function onGameOver(finalScore) {
   } catch (e) {
     console.warn("Could not submit score", e);
   }
+}
+
+// Realtime: queue two players into a 1v1 room, then exchange moves (works the same for
+// any groupSize - use 50 for a shooter lobby, 2 for a board game, etc).
+async function findOpponent() {
+  window.DavidnetSDK.realtime.onMatched(async ({ room }) => {
+    currentRoom = room;
+    showMessage("Opponent found!");
+  });
+  await window.DavidnetSDK.realtime.joinQueue("ranked-1v1", 2);
+}
+
+window.DavidnetSDK.realtime.onMessage(({ room, data, from }) => {
+  if (room !== currentRoom) return;
+  applyOpponentMove(data, from);
+});
+
+function sendMove(move) {
+  window.DavidnetSDK.realtime.send(currentRoom, { type: "move", move });
 }
 \`\`\`
 `;

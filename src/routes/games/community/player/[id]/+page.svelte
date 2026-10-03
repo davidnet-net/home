@@ -35,8 +35,18 @@
 		"applyHighscore",
 		"getHighscores",
 		"saveJsonBlob",
-		"getJsonBlob"
+		"getJsonBlob",
+		"realtimeConnect",
+		"realtimeJoinRoom",
+		"realtimeLeaveRoom",
+		"realtimeSend",
+		"realtimeJoinQueue",
+		"realtimeLeaveQueue"
 	]);
+
+	// Max payload size this bridge will attempt to send over the realtime socket - mirrors the
+	// backend's per-message limit (community_realtime.ts) so we can fail fast without a round trip.
+	const REALTIME_MAX_MESSAGE_BYTES = 64 * 1024;
 
 	let gameId = page.params.id;
 	let gameData = $state<any>(null);
@@ -132,6 +142,7 @@
 		if (typeof window !== "undefined") {
 			window.removeEventListener("message", handleGameMessage);
 		}
+		disconnectRealtime();
 	});
 
 	function resetGame() {
@@ -452,6 +463,154 @@
 		}
 	}
 
+	// --- REALTIME: one lazily-opened WebSocket per game session, shared by all realtime.* SDK calls.
+	// The iframe itself never opens a connection - it stays inside its network-less sandbox, same as
+	// every other SDK capability, by routing through this parent page's authenticated session. ---
+	let realtimeSocket: WebSocket | null = null;
+	let realtimeConnectPromise: Promise<void> | null = null;
+	let realtimeReconnectAttempts = 0;
+	let realtimeReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+	let realtimeExplicitlyClosed = false;
+	const realtimePendingAcks = new Map<string, (frame: any) => void>();
+	const realtimeJoinedRooms = new Set<string>();
+
+	function realtimeWsUrl(): string {
+		return `${PUBLIC_BACKEND_URL.replace(/^http/, "ws")}/websockets/community-games/${gameId}/realtime`;
+	}
+
+	function sendRealtimeFrame(frame: Record<string, unknown>) {
+		if (realtimeSocket && realtimeSocket.readyState === WebSocket.OPEN) {
+			realtimeSocket.send(JSON.stringify(frame));
+		}
+	}
+
+	function emitRealtimeEvent(eventName: string, payload: unknown) {
+		iframeRef?.contentWindow?.postMessage(
+			{ source: GAME_SDK_SOURCE, type: "event", event: eventName, payload },
+			"*"
+		);
+	}
+
+	function connectRealtime(): Promise<void> {
+		if (realtimeSocket && realtimeSocket.readyState === WebSocket.OPEN) return Promise.resolve();
+		if (realtimeConnectPromise) return realtimeConnectPromise;
+
+		realtimeExplicitlyClosed = false;
+
+		realtimeConnectPromise = new Promise((resolve, reject) => {
+			let settled = false;
+			const socket = new WebSocket(realtimeWsUrl());
+			realtimeSocket = socket;
+
+			socket.onopen = () => {
+				realtimeReconnectAttempts = 0;
+				realtimeConnectPromise = null;
+				settled = true;
+
+				const rejoined: string[] = [];
+				for (const room of realtimeJoinedRooms) {
+					sendRealtimeFrame({ type: "join", room });
+					rejoined.push(room);
+				}
+				if (rejoined.length > 0) emitRealtimeEvent("reconnect", { rooms: rejoined });
+
+				resolve();
+			};
+
+			socket.onmessage = (event) => {
+				let frame: any;
+				try {
+					frame = JSON.parse(event.data);
+				} catch {
+					return;
+				}
+
+				if (frame.type === "ping") {
+					sendRealtimeFrame({ type: "pong" });
+					return;
+				}
+
+				if (frame.type === "ack") {
+					const resolver = realtimePendingAcks.get(frame.reqId);
+					if (resolver) {
+						realtimePendingAcks.delete(frame.reqId);
+						resolver(frame);
+					}
+					return;
+				}
+
+				if (frame.type === "presence") {
+					emitRealtimeEvent("presence", {
+						room: frame.room,
+						event: frame.event,
+						member: frame.member
+					});
+					return;
+				}
+
+				if (frame.type === "message") {
+					emitRealtimeEvent("message", {
+						room: frame.room,
+						data: frame.data,
+						from: frame.from,
+						ts: frame.ts
+					});
+					return;
+				}
+
+				if (frame.type === "matched") {
+					realtimeJoinedRooms.add(frame.room);
+					emitRealtimeEvent("matched", {
+						queue: frame.queue,
+						room: frame.room,
+						members: frame.members
+					});
+					return;
+				}
+
+				if (frame.type === "error") {
+					emitRealtimeEvent("error", { code: frame.code, message: frame.message });
+				}
+			};
+
+			socket.onclose = () => {
+				realtimeConnectPromise = null;
+				realtimePendingAcks.forEach((resolver) => resolver({ ok: false, code: "DISCONNECTED" }));
+				realtimePendingAcks.clear();
+				if (realtimeSocket === socket) realtimeSocket = null;
+
+				emitRealtimeEvent("disconnect", {});
+
+				if (!settled) reject(new Error("Realtime connection failed"));
+
+				if (!realtimeExplicitlyClosed) {
+					const delay = Math.min(10000, 1000 * Math.pow(2, realtimeReconnectAttempts));
+					realtimeReconnectAttempts += 1;
+					realtimeReconnectTimer = setTimeout(() => {
+						connectRealtime().catch(() => {});
+					}, delay);
+				}
+			};
+
+			socket.onerror = () => {
+				if (!settled) {
+					settled = true;
+					reject(new Error("Realtime connection failed"));
+				}
+			};
+		});
+
+		return realtimeConnectPromise;
+	}
+
+	function disconnectRealtime() {
+		realtimeExplicitlyClosed = true;
+		if (realtimeReconnectTimer) clearTimeout(realtimeReconnectTimer);
+		realtimeJoinedRooms.clear();
+		realtimeSocket?.close(1000, "Client disconnect");
+		realtimeSocket = null;
+	}
+
 	// --- POSTMESSAGE BRIDGE: forwards window.DavidnetSDK calls from the sandboxed iframe to the backend ---
 	function handleGameMessage(event: MessageEvent) {
 		if (!iframeRef || event.source !== iframeRef.contentWindow) return;
@@ -604,6 +763,116 @@
 			}
 
 			return respondToGame(msg.requestId, true, { data: result.data, updatedAt: result.updatedAt });
+		}
+
+		if (msg.type === "realtimeConnect") {
+			try {
+				await connectRealtime();
+				return respondToGame(msg.requestId, true, {});
+			} catch {
+				return respondToGame(msg.requestId, false, undefined, "Failed to connect");
+			}
+		}
+
+		if (msg.type === "realtimeJoinRoom") {
+			const room = String(msg.payload?.room ?? "");
+			if (!room) return respondToGame(msg.requestId, false, undefined, "Missing room");
+
+			try {
+				await connectRealtime();
+			} catch {
+				return respondToGame(msg.requestId, false, undefined, "Not connected");
+			}
+
+			const reqId = msg.requestId;
+			realtimePendingAcks.set(reqId, (frame) => {
+				if (frame.ok) {
+					realtimeJoinedRooms.add(room);
+					respondToGame(reqId, true, { room: frame.room, members: frame.members });
+				} else {
+					respondToGame(reqId, false, undefined, frame.code || "Failed to join room");
+				}
+			});
+			sendRealtimeFrame({ reqId, type: "join", room });
+			return;
+		}
+
+		if (msg.type === "realtimeLeaveRoom") {
+			const room = String(msg.payload?.room ?? "");
+			realtimeJoinedRooms.delete(room);
+
+			if (!realtimeSocket || realtimeSocket.readyState !== WebSocket.OPEN) {
+				return respondToGame(msg.requestId, true, { room });
+			}
+
+			const reqId = msg.requestId;
+			realtimePendingAcks.set(reqId, (frame) => {
+				respondToGame(reqId, Boolean(frame.ok), { room });
+			});
+			sendRealtimeFrame({ reqId, type: "leave", room });
+			return;
+		}
+
+		if (msg.type === "realtimeSend") {
+			const room = String(msg.payload?.room ?? "");
+			const data = msg.payload?.data;
+			const echo = Boolean(msg.payload?.echo);
+
+			if (!room) return respondToGame(msg.requestId, false, undefined, "Missing room");
+			if (JSON.stringify(data ?? null).length > REALTIME_MAX_MESSAGE_BYTES) {
+				return respondToGame(msg.requestId, false, undefined, "Message too large");
+			}
+
+			try {
+				await connectRealtime();
+			} catch {
+				return respondToGame(msg.requestId, false, undefined, "Not connected");
+			}
+
+			sendRealtimeFrame({ type: "send", room, data, echo });
+			return respondToGame(msg.requestId, true, {});
+		}
+
+		if (msg.type === "realtimeJoinQueue") {
+			const queue = String(msg.payload?.queue ?? "");
+			const groupSize = Number(msg.payload?.groupSize);
+			const metadata = msg.payload?.metadata;
+
+			if (!queue || !Number.isInteger(groupSize) || groupSize < 1) {
+				return respondToGame(msg.requestId, false, undefined, "Invalid queue or groupSize");
+			}
+
+			try {
+				await connectRealtime();
+			} catch {
+				return respondToGame(msg.requestId, false, undefined, "Not connected");
+			}
+
+			const reqId = msg.requestId;
+			realtimePendingAcks.set(reqId, (frame) => {
+				if (frame.ok) {
+					respondToGame(reqId, true, { queue: frame.queue, position: frame.position });
+				} else {
+					respondToGame(reqId, false, undefined, frame.code || "Failed to join queue");
+				}
+			});
+			sendRealtimeFrame({ reqId, type: "joinQueue", queue, groupSize, metadata });
+			return;
+		}
+
+		if (msg.type === "realtimeLeaveQueue") {
+			const queue = String(msg.payload?.queue ?? "");
+
+			if (!realtimeSocket || realtimeSocket.readyState !== WebSocket.OPEN) {
+				return respondToGame(msg.requestId, true, { queue });
+			}
+
+			const reqId = msg.requestId;
+			realtimePendingAcks.set(reqId, (frame) => {
+				respondToGame(reqId, Boolean(frame.ok), { queue });
+			});
+			sendRealtimeFrame({ reqId, type: "leaveQueue", queue });
+			return;
 		}
 	}
 </script>

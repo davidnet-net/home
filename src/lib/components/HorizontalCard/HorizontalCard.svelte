@@ -9,8 +9,7 @@
 		title: string;
 		description?: string;
 		icon?: iconType;
-		//image?: string;
-		//darkimage?: string;
+		imageUrl?: string;
 		external?: boolean;
 	}
 
@@ -19,6 +18,7 @@
 		description = "",
 		external = false,
 		icon = "indeterminate_question_box",
+		imageUrl,
 		...rest
 	}: Props = $props();
 </script>
@@ -26,7 +26,11 @@
 <Anchor {external} {...rest}>
 	<div class="{styles.baseCard} {focusring}">
 		<div class={styles.illustrationContainer}>
-			<Icon size="huge" {icon} />
+			{#if imageUrl}
+				<img class={styles.iconImage} src={imageUrl} alt="" />
+			{:else}
+				<Icon size="huge" {icon} />
+			{/if}
 		</div>
 		<div class={styles.contentContainer}>
 			<h3>{title}</h3>

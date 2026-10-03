@@ -25,6 +25,7 @@
 	let title = $state("");
 	let description = $state("");
 	let files = $state<FileList | null>(null);
+	let iconFiles = $state<FileList | null>(null);
 	let isAiGenerated = $state(false);
 	let errorMessage = $state("");
 	let isUploading = $state(false);
@@ -141,6 +142,9 @@ async function onGameOver(finalScore) {
 			formData.append("title", title);
 			formData.append("description", description);
 			formData.append("game", files![0]);
+			if (iconFiles && iconFiles.length > 0) {
+				formData.append("icon", iconFiles[0]);
+			}
 			formData.append("isAiGenerated", String(isAiGenerated));
 
 			const result = await postFetch(
@@ -248,6 +252,45 @@ async function onGameOver(finalScore) {
 						</span>
 						<span style="color: {token.theme.color.text.tertiary}; font-size: 0.8rem;">
 							{formatBytes(file.size)}
+						</span>
+					</Flex>
+				{/each}
+			</Flex>
+		{/if}
+
+		<Field label="Icon (Optional)" name="icon">
+			{#snippet children()}
+				<input
+					type="file"
+					accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
+					bind:files={iconFiles}
+					disabled={isUploading} />
+			{/snippet}
+		</Field>
+
+		<p style="color: {token.theme.color.text.tertiary}; font-size: 0.85rem; margin-top: -8px;">
+			Shown on the community games list. If you don't upload one, a default icon is used instead.
+		</p>
+
+		{#if iconFiles && iconFiles.length > 0}
+			<Flex direction="column" gap="xsmall" marginTop="small" marginBottom="medium">
+				<span style="font-weight: bold; font-size: 0.9rem;">Selected Icon:</span>
+				{#each Array.from(iconFiles) as iconFile}
+					<Flex
+						alignItems="center"
+						gap="small"
+						style="padding: 8px; background: {token.theme.color.surface
+							.raised}; border-radius: 6px;">
+						<img
+							src={URL.createObjectURL(iconFile)}
+							alt=""
+							style="width: 32px; height: 32px; object-fit: cover; border-radius: {token.global
+								.radius.huge};" />
+						<span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+							{iconFile.name}
+						</span>
+						<span style="color: {token.theme.color.text.tertiary}; font-size: 0.8rem;">
+							{formatBytes(iconFile.size)}
 						</span>
 					</Flex>
 				{/each}

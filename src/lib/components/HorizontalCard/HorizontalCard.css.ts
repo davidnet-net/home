@@ -38,8 +38,16 @@ const contentContainer = style({
 	padding: token.global.spacing.small
 });
 
+const iconImage = style({
+	width: "65%",
+	height: "65%",
+	objectFit: "cover",
+	borderRadius: token.global.radius.huge
+});
+
 export const styles = {
 	baseCard,
 	illustrationContainer,
-	contentContainer
+	contentContainer,
+	iconImage
 };

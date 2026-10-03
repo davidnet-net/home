@@ -44,6 +44,9 @@
 				apiGames = result.games.map((game: any) => ({
 					...game,
 					icon: "extension",
+					iconUrl: game.iconFilename
+						? `${PUBLIC_BACKEND_URL}/social/community-games/${game.id}/file/${game.iconFilename}`
+						: undefined,
 					href: `/games/community/player/${game.id}`,
 					isLegacy: false
 				}));
@@ -88,7 +91,11 @@
 		<Flex gap="medium" height="fit-content" marginBottom="giant" flexWrap="wrap">
 			{#each allGames as game}
 				<div style="width: 300px;">
-					<HorizontalCard title={game.title} icon={game.icon as iconType} href={game.href} />
+					<HorizontalCard
+						title={game.title}
+						icon={game.icon as iconType}
+						imageUrl={game.iconUrl}
+						href={game.href} />
 
 					{#if !game.isLegacy}
 						<Flex

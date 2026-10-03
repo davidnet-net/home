@@ -31,52 +31,6 @@
 	let loading = $state(true);
 	let errorMessage = $state("");
 
-	// Oude hardcoded games zonder likes of creator info
-	const legacyGames = [
-		{
-			title: "Tower defense",
-			icon: "fort",
-			href: "/games/community/tower_defense",
-			isLegacy: true
-		},
-		{
-			title: "Cola fabriek",
-			icon: "factory",
-			href: "/games/community/cola_fabriek",
-			isLegacy: true
-		},
-		{
-			title: "Ruimte vlieger",
-			icon: "rocket",
-			href: "/games/community/rocket",
-			isLegacy: true
-		},
-		{
-			title: "Wobble Towers",
-			icon: "bar_chart",
-			href: "/games/community/wobble_towers",
-			isLegacy: true
-		},
-		{
-			title: "Crazy ape",
-			icon: "pets",
-			href: "/games/community/crazy_ape",
-			isLegacy: true
-		},
-		{
-			title: "Clash of kingdoms",
-			icon: "swords",
-			href: "/games/community/clash_of_kingdoms",
-			isLegacy: true
-		},
-		{
-			title: "Crown conflict",
-			icon: "crown",
-			href: "/games/community/crown_conflict",
-			isLegacy: true
-		}
-	];
-
 	onMount(async () => {
 		await whenAuthReady();
 		try {
@@ -103,7 +57,7 @@
 		}
 	});
 
-	const allGames = $derived([...apiGames, ...legacyGames]);
+	const allGames = $derived(apiGames);
 </script>
 
 <Flex alignItems="center" marginTop="giant" direction="column">

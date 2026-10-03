@@ -31,6 +31,7 @@
 
 	const GAME_SDK_SOURCE = "davidnet-game-sdk";
 	const ALLOWED_SDK_TYPES = new Set([
+		"startSession",
 		"applyHighscore",
 		"getHighscores",
 		"saveJsonBlob",
@@ -455,6 +456,30 @@
 	}
 
 	async function handleSdkRequest(msg: any) {
+		if (msg.type === "startSession") {
+			const result = await postFetch(
+				`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}/session/start`,
+				{},
+				{},
+				true
+			);
+
+			if (!result.success) {
+				return respondToGame(
+					msg.requestId,
+					false,
+					undefined,
+					result.code || "Failed to start session"
+				);
+			}
+
+			return respondToGame(msg.requestId, true, {
+				sessionId: result.sessionId,
+				secret: result.secret,
+				expiresAt: result.expiresAt
+			});
+		}
+
 		if (msg.type === "applyHighscore") {
 			const score = Number(msg.payload?.score);
 			if (!Number.isFinite(score) || score < 0) {
@@ -463,7 +488,12 @@
 
 			const result = await postFetch(
 				`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}/highscore`,
-				{ score },
+				{
+					score,
+					sessionId: msg.payload?.sessionId,
+					timestamp: msg.payload?.timestamp,
+					signature: msg.payload?.signature
+				},
 				{},
 				true
 			);

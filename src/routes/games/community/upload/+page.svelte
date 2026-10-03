@@ -15,12 +15,13 @@
 		postFetch,
 		TextField,
 		toast,
-		whenAuthReady	} from "@davidnet-net/svelte-ui";
+		whenAuthReady
+	} from "@davidnet-net/svelte-ui";
 	import { token } from "@davidnet-net/svelte-ui/tokens";
 
 	import { goto } from "$app/navigation";
 	import { page } from "$app/state";
-	import { PUBLIC_BACKEND_URL } from "$env/static/public";
+	import { PUBLIC_ACCOUNT_FRONTEND_URL, PUBLIC_BACKEND_URL } from "$env/static/public";
 
 	let title = $state("");
 	let description = $state("");
@@ -115,7 +116,7 @@ async function onGameOver(finalScore) {
 		(async () => {
 			await whenAuthReady();
 			if (!authState.isLoggedIn && !authState.loading) {
-				goto(`/login?continue=${encodeURIComponent(page.url.href)}`);
+				window.location.href = `${PUBLIC_ACCOUNT_FRONTEND_URL}/login?continue=${encodeURIComponent(page.url.href)}`;
 			}
 		})();
 	});

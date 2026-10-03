@@ -60,6 +60,7 @@
 
 	// --- Highscores / leaderboard ---
 	let playerHighscore = $state<number | null>(null);
+	let playerHighscoreFlagged = $state(false);
 	let globalHighscore = $state<{
 		userId: string;
 		username: string;
@@ -214,6 +215,7 @@
 			);
 			if (result.success) {
 				playerHighscore = result.playerHighscore;
+				playerHighscoreFlagged = Boolean(result.playerHighscoreFlagged);
 				globalHighscore = result.globalHighscore;
 				leaderboard = result.leaderboard;
 			}
@@ -309,10 +311,31 @@
 			);
 			if (result.success) {
 				player.highscore = score;
+				player.highscoreFlagged = false;
 				editingHighscoreUserId = null;
 				toast("Updated", "Highscore updated.", "check_circle", 3000, "success");
 			} else {
 				toast("Error", "Could not update highscore.", "error", 4000, "danger");
+			}
+		} finally {
+			savingManageAction = false;
+		}
+	}
+
+	async function approveHighscore(player: any) {
+		savingManageAction = true;
+		try {
+			const result = await postFetch(
+				`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}/manage/highscores/${player.userId}/approve`,
+				{},
+				{},
+				true
+			);
+			if (result.success) {
+				player.highscoreFlagged = false;
+				toast("Approved", "Highscore is now visible on the public leaderboard.", "check_circle", 3000, "success");
+			} else {
+				toast("Error", "Could not approve highscore.", "error", 4000, "danger");
 			}
 		} finally {
 			savingManageAction = false;
@@ -508,6 +531,7 @@
 			}
 
 			playerHighscore = result.playerHighscore;
+			playerHighscoreFlagged = Boolean(result.playerHighscoreFlagged);
 			if (result.isNewGlobalBest) await loadHighscores();
 
 			return respondToGame(msg.requestId, true, {
@@ -628,6 +652,12 @@
 				<Flex direction="column" gap="xsmall">
 					<span style="color: {token.theme.color.text.tertiary}">Your highscore</span>
 					<span style="font-size: 1.4rem; font-weight: bold;">{playerHighscore ?? "—"}</span>
+					{#if playerHighscoreFlagged}
+						<span style="color: {token.theme.color.text.tertiary}; font-size: 0.85rem;">
+							⏳ Under review — this score is unusually high, so it's hidden from the public
+							leaderboard until a moderator checks it.
+						</span>
+					{/if}
 				</Flex>
 
 				<Flex direction="column" gap="xsmall">
@@ -738,6 +768,16 @@
 									onclick={() => (editingHighscoreUserId = null)} />
 							{:else}
 								<span style="font-weight: bold;">{p.highscore ?? "—"}</span>
+								{#if p.highscoreFlagged}
+									<Lozenge appearance="warning">
+										<span title={p.highscoreFlagReason}>⚠ Flagged</span>
+									</Lozenge>
+									<IconButton
+										icon="check_circle"
+										tip="Approve — show on public leaderboard as-is"
+										disabled={savingManageAction}
+										onclick={() => approveHighscore(p)} />
+								{/if}
 								<IconButton
 									icon="edit"
 									tip="Edit highscore"

@@ -574,7 +574,12 @@
 		if (msg.type === "saveJsonBlob") {
 			const result = await postFetch(
 				`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}/save`,
-				{ data: msg.payload?.data },
+				{
+					data: msg.payload?.data,
+					sessionId: msg.payload?.sessionId,
+					timestamp: msg.payload?.timestamp,
+					signature: msg.payload?.signature
+				},
 				{},
 				true
 			);

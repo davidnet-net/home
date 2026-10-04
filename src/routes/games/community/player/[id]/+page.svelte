@@ -1178,7 +1178,7 @@
 							</Flex>
 
 							{#if editingSaveUserId === p.userId}
-								<TextArea bind:value={editingSaveValue} maxRows={10} />
+								<TextArea bind:value={editingSaveValue} rows={10} />
 								<Flex gap="small">
 									<Button
 										appearance="primary"

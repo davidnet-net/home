@@ -19,8 +19,8 @@
 		TextArea,
 		TextField,
 		toast,
-		whenAuthReady	} from "@davidnet-net/svelte-ui";
-	// Zorg dat ReportModal geëxporteerd is vanuit je svelte-ui package
+		whenAuthReady
+	} from "@davidnet-net/svelte-ui";
 	import { ReportModal } from "@davidnet-net/svelte-ui";
 	import { token } from "@davidnet-net/svelte-ui/tokens";
 	import { onDestroy, onMount } from "svelte";
@@ -44,8 +44,6 @@
 		"realtimeLeaveQueue"
 	]);
 
-	// Max payload size this bridge will attempt to send over the realtime socket - mirrors the
-	// backend's per-message limit (community_realtime.ts) so we can fail fast without a round trip.
 	const REALTIME_MAX_MESSAGE_BYTES = 64 * 1024;
 
 	let gameId = page.params.id;
@@ -102,11 +100,39 @@
 	let auditLogEntries = $state<any[]>([]);
 	let isLoadingAuditLog = $state(false);
 
+	// --- Ban status check ---
+	async function checkUserBanStatus() {
+		if (!authState.isLoggedIn) return;
+		try {
+			const res = await getFetch(
+				`${PUBLIC_BACKEND_URL}/support/moderation/me/ban-status`,
+				{},
+				undefined,
+				true
+			);
+			if (res.code === "BANNED" || (res.success && res.isBanned)) {
+				window.location.href = `https://davidnet.net/moderation/banned?until=${encodeURIComponent(res.bannedUntil)}`;
+			}
+		} catch (err) {
+			console.error("Failed to check ban status:", err);
+		}
+	}
+
+	function checkBanResponse(res: any) {
+		if (res && res.code === "BANNED") {
+			window.location.href = `https://davidnet.net/moderation/banned?until=${encodeURIComponent(res.bannedUntil)}`;
+			return true;
+		}
+		return false;
+	}
+
 	$effect(() => {
 		(async () => {
 			await whenAuthReady();
 			if (!authState.isLoggedIn && !authState.loading) {
 				window.location.href = `${PUBLIC_ACCOUNT_FRONTEND_URL}/login?continue=${encodeURIComponent(page.url.href)}`;
+			} else {
+				await checkUserBanStatus();
 			}
 		})();
 	});
@@ -122,6 +148,8 @@
 				{},
 				true
 			);
+			if (checkBanResponse(result)) return;
+
 			if (result.success) {
 				gameData = result.game;
 				isLiked = Boolean(result.game.isLiked);
@@ -149,14 +177,28 @@
 		if (iframeRef) {
 			iframeRef.src = iframeRef.src;
 		}
+		// A fresh session needs its own user gesture to (re-)enter fullscreen, so show the
+		// click-to-play overlay again rather than silently staying windowed after a reset.
+		hasStartedPlaying = false;
 	}
 
 	function toggleFullscreen() {
-		if (iframeRef) {
-			if (iframeRef.requestFullscreen) {
-				iframeRef.requestFullscreen();
-			}
+		if (iframeRef && iframeRef.requestFullscreen) {
+			iframeRef.requestFullscreen().catch(() => {});
 		}
+	}
+
+	// Fullscreen can only be requested from inside a real user gesture (click/tap) - it can't be
+	// forced automatically on load. This overlay's click IS that gesture: many games misbehave or
+	// clip content in a small windowed iframe (not enough vertical space), so we use the player's
+	// first interaction to go fullscreen immediately instead of waiting for them to find the
+	// separate "Fullscreen" button.
+	let hasStartedPlaying = $state(false);
+
+	function startPlaying() {
+		hasStartedPlaying = true;
+		toggleFullscreen();
+		iframeRef?.focus();
 	}
 
 	async function toggleLike() {
@@ -175,6 +217,8 @@
 				{},
 				true
 			);
+
+			if (checkBanResponse(result)) return;
 
 			if (result.success) {
 				likesCount = result.likesCount;
@@ -201,6 +245,9 @@
 				{},
 				true
 			);
+
+			if (checkBanResponse(result)) return;
+
 			if (result.success) {
 				toast("Deleted", "Game has been deleted.", "delete", 4000, "success");
 				goto("/games/community");
@@ -224,6 +271,9 @@
 				{},
 				true
 			);
+
+			if (checkBanResponse(result)) return;
+
 			if (result.success) {
 				playerHighscore = result.playerHighscore;
 				playerHighscoreFlagged = Boolean(result.playerHighscoreFlagged);
@@ -231,7 +281,7 @@
 				leaderboard = result.leaderboard;
 			}
 		} catch (err) {
-			// Silently ignore: highscores are a non-critical enhancement to the play page.
+			// Silently ignore
 		}
 	}
 
@@ -252,6 +302,9 @@
 				{},
 				true
 			);
+
+			if (checkBanResponse(result)) return;
+
 			if (result.success) {
 				toast(
 					"Save wiped",
@@ -288,6 +341,9 @@
 				{},
 				true
 			);
+
+			if (checkBanResponse(result)) return;
+
 			if (result.success) {
 				managePlayers = result.players;
 			} else {
@@ -320,6 +376,9 @@
 				{},
 				true
 			);
+
+			if (checkBanResponse(result)) return;
+
 			if (result.success) {
 				player.highscore = score;
 				player.highscoreFlagged = false;
@@ -342,9 +401,18 @@
 				{},
 				true
 			);
+
+			if (checkBanResponse(result)) return;
+
 			if (result.success) {
 				player.highscoreFlagged = false;
-				toast("Approved", "Highscore is now visible on the public leaderboard.", "check_circle", 3000, "success");
+				toast(
+					"Approved",
+					"Highscore is now visible on the public leaderboard.",
+					"check_circle",
+					3000,
+					"success"
+				);
 			} else {
 				toast("Error", "Could not approve highscore.", "error", 4000, "danger");
 			}
@@ -362,6 +430,9 @@
 				{},
 				true
 			);
+
+			if (checkBanResponse(result)) return;
+
 			if (result.success) {
 				player.highscore = null;
 				toast("Deleted", "Highscore deleted.", "delete", 3000, "success");
@@ -395,6 +466,9 @@
 				{},
 				true
 			);
+
+			if (checkBanResponse(result)) return;
+
 			if (result.success) {
 				player.save = parsed;
 				editingSaveUserId = null;
@@ -416,6 +490,9 @@
 				{},
 				true
 			);
+
+			if (checkBanResponse(result)) return;
+
 			if (result.success) {
 				player.save = null;
 				toast("Deleted", "Save data deleted.", "delete", 3000, "success");
@@ -427,7 +504,7 @@
 		}
 	}
 
-	// --- AUDIT LOG: actions other creators/mods applied to MY data ---
+	// --- AUDIT LOG ---
 	async function openAuditLog() {
 		isAuditLogOpen = true;
 		isLoadingAuditLog = true;
@@ -438,6 +515,9 @@
 				{},
 				true
 			);
+
+			if (checkBanResponse(result)) return;
+
 			if (result.success) {
 				auditLogEntries = result.entries;
 			}
@@ -463,9 +543,7 @@
 		}
 	}
 
-	// --- REALTIME: one lazily-opened WebSocket per game session, shared by all realtime.* SDK calls.
-	// The iframe itself never opens a connection - it stays inside its network-less sandbox, same as
-	// every other SDK capability, by routing through this parent page's authenticated session. ---
+	// --- REALTIME ---
 	let realtimeSocket: WebSocket | null = null;
 	let realtimeConnectPromise: Promise<void> | null = null;
 	let realtimeReconnectAttempts = 0;
@@ -611,7 +689,7 @@
 		realtimeSocket = null;
 	}
 
-	// --- POSTMESSAGE BRIDGE: forwards window.DavidnetSDK calls from the sandboxed iframe to the backend ---
+	// --- POSTMESSAGE BRIDGE ---
 	function handleGameMessage(event: MessageEvent) {
 		if (!iframeRef || event.source !== iframeRef.contentWindow) return;
 
@@ -645,6 +723,8 @@
 				{},
 				true
 			);
+
+			if (checkBanResponse(result)) return;
 
 			if (!result.success) {
 				return respondToGame(
@@ -680,6 +760,8 @@
 				true
 			);
 
+			if (checkBanResponse(result)) return;
+
 			if (!result.success) {
 				return respondToGame(
 					msg.requestId,
@@ -709,6 +791,8 @@
 				{},
 				true
 			);
+
+			if (checkBanResponse(result)) return;
 
 			if (!result.success) {
 				return respondToGame(
@@ -743,6 +827,8 @@
 				true
 			);
 
+			if (checkBanResponse(result)) return;
+
 			if (!result.success) {
 				return respondToGame(msg.requestId, false, undefined, result.code || "Failed to save");
 			}
@@ -757,6 +843,8 @@
 				{},
 				true
 			);
+
+			if (checkBanResponse(result)) return;
 
 			if (!result.success) {
 				return respondToGame(msg.requestId, false, undefined, result.code || "Failed to load save");
@@ -1134,29 +1222,54 @@
 			<LinkButton href="/games/community" iconbefore="arrow_back">Back</LinkButton>
 		</Flex>
 	{:else if gameData}
-		<iframe
-			bind:this={iframeRef}
-			sandbox="allow-scripts allow-popups allow-forms allow-pointer-lock"
-			allow="autoplay; fullscreen; focus-without-user-activation"
-			style="height: 75vh; width: 90%; border: 2px solid {token.theme.color.border
-				.default}; border-radius: {token.global.radius.huge}; background: #000;"
-			src="{PUBLIC_BACKEND_URL}/social/community-games/{gameId}/file/index.html"
-			title={gameData.title}>
-		</iframe>
+		<!-- Zorg dat je deze Iframe code meeneemt in je kopie! -->
+		<div style="position: relative; width: 90%;">
+			<iframe
+				bind:this={iframeRef}
+				sandbox="allow-scripts allow-popups allow-forms allow-pointer-lock"
+				allow="autoplay; fullscreen; focus-without-user-activation"
+				style="height: 75vh; width: 100%; display: block; background: #000; border: 2px solid {token
+					.theme.color.border.default}; border-radius: {token.global.radius.huge};"
+				src="{PUBLIC_BACKEND_URL}/social/community-games/{gameId}/file/index.html"
+				title={gameData.title}>
+			</iframe>
 
-		<Flex direction="column" alignItems="center" gap="small" width="90%">
+			{#if !hasStartedPlaying}
+				<button
+					onclick={startPlaying}
+					style="position: absolute; inset: 0; width: 100%; height: 100%; border: none; padding: 0;
+						border-radius: {token.global.radius.huge}; background: rgba(0, 0, 0, 0.55); color: white;
+						display: flex; flex-direction: column; align-items: center; justify-content: center;
+						gap: 8px; cursor: pointer; font-size: 1.1rem; font-weight: 600;">
+					<Icon icon="play_circle" size="huge" />
+					<span>Click to play (fullscreen)</span>
+				</button>
+			{/if}
+		</div>
+
+		<!-- Centrale wrapper voor alles eronder -->
+		<Flex direction="column" alignItems="center" gap="medium" width="90%">
+			<!-- 1. Strakke Toolbar op één rij -->
 			<Flex
 				height="fit-content"
-				width="fit-content"
+				width="100%"
 				gap="small"
 				justifyContent="center"
+				alignItems="center"
 				flexWrap="wrap">
+				<!-- Primaire acties -->
 				<LinkButton href="/games/community" appearance="default" iconbefore="arrow_back">
 					Back
 				</LinkButton>
 				<Button onclick={resetGame} iconbefore="refresh">Reset</Button>
 				<Button onclick={toggleFullscreen} iconbefore="fullscreen">Fullscreen</Button>
 
+				<div
+					style="width: 1px; height: 24px; background: {token.theme.color.border
+						.default}; margin: 0 4px;">
+				</div>
+
+				<!-- Social & Stats -->
 				<Button
 					onclick={toggleLike}
 					disabled={isLiking}
@@ -1165,92 +1278,113 @@
 					{likesCount}
 					{likesCount === 1 ? "Like" : "Likes"}
 				</Button>
-
 				<Button onclick={openLeaderboard} iconbefore="leaderboard">Leaderboard</Button>
 
-				<Button
-					appearance="subtle"
-					iconbefore="delete_sweep"
-					onclick={() => (showWipeModal = true)}>
-					Wipe save
-				</Button>
+				<div
+					style="width: 1px; height: 24px; background: {token.theme.color.border
+						.default}; margin: 0 4px;">
+				</div>
 
-				<Button appearance="subtle" iconbefore="history" onclick={openAuditLog}>
-					Data action log
-				</Button>
-
-				<Button appearance="subtle" iconbefore="flag" onclick={() => (isReportModalOpen = true)}>
-					Report
-				</Button>
+				<!-- Opties & Acties -->
+				<IconButton
+					icon="delete_sweep"
+					tip="Wipe save data"
+					onclick={() => (showWipeModal = true)} />
+				<IconButton icon="history" tip="Data action log" onclick={openAuditLog} />
+				<IconButton icon="flag" tip="Report game" onclick={() => (isReportModalOpen = true)} />
 
 				{#if isCreator}
-					<Button iconbefore="manage_accounts" onclick={openManage}>Manage player data</Button>
-					<Button appearance="danger" onclick={() => (showDeleteModal = true)} iconbefore="delete">
-						Delete
-					</Button>
+					<div
+						style="width: 1px; height: 24px; background: {token.theme.color.border
+							.default}; margin: 0 4px;">
+					</div>
+					<IconButton icon="manage_accounts" tip="Manage player data" onclick={openManage} />
+					<IconButton
+						icon="delete"
+						tip="Delete game"
+						appearance="danger"
+						onclick={() => (showDeleteModal = true)} />
 				{/if}
 			</Flex>
 
-			<Flex
-				width="fit-content"
-				height="fit-content"
-				alignItems="center"
-				justifyContent="center"
-				style="color: {token.theme.color.text.tertiary}"
-				gap="xsmall">
-				<Icon icon="attribution" />
-				<span>
-					Game is created by
-					<Anchor href="{PUBLIC_ACCOUNT_FRONTEND_URL}/profile/{gameData.creator}">
-						@{gameData.creator}
-					</Anchor>
-				</span>
-				{#if gameData.isAiGenerated}
-					<Lozenge appearance="discover">🤖 Fully AI-generated</Lozenge>
-				{/if}
-			</Flex>
-
-			{#if gameData.description}
-				<p
-					style="color: {token.theme.color.text
-						.secondary}; max-width: 600px; margin: 0; text-align: center;">
-					{gameData.description}
-				</p>
-			{/if}
-
-			<Flex
-				gap="large"
-				justifyContent="center"
-				alignItems="center"
-				marginTop="small"
-				flexWrap="wrap"
-				style="padding: 10px 16px; background: {token.theme.color.surface
-					.raised}; border-radius: {token.global.radius.medium};">
-				<Flex direction="column" alignItems="center" gap="xsmall">
-					<span style="color: {token.theme.color.text.tertiary}; font-size: 0.85rem;">
-						Your highscore
+			<!-- 2. Bulletproof Game Info & Highscores Card -->
+			<div
+				style="
+                width: 100%;
+                max-width: 650px;
+                background: {token.theme.color.surface.raised};
+                border: 1px solid {token.theme.color.border.default};
+                border-radius: {token.global.radius.large};
+                padding: 24px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 16px;
+                box-sizing: border-box;
+            ">
+				<!-- Creator Tag -->
+				<Flex
+					alignItems="center"
+					justifyContent="center"
+					gap="xsmall"
+					style="color: {token.theme.color.text.tertiary}">
+					<Icon icon="attribution" />
+					<span>
+						Game is created by
+						<Anchor href="{PUBLIC_ACCOUNT_FRONTEND_URL}/profile/{gameData.creator}">
+							@{gameData.creator}
+						</Anchor>
 					</span>
-					<span style="font-size: 1.3rem; font-weight: bold;">{playerHighscore ?? "—"}</span>
-				</Flex>
-
-				<Flex direction="column" alignItems="center" gap="xsmall">
-					<span style="color: {token.theme.color.text.tertiary}; font-size: 0.85rem;">
-						🏆 Global #1
-					</span>
-					{#if globalHighscore}
-						<span style="font-size: 1.3rem; font-weight: bold;">
-							{globalHighscore.score}
-							<span style="font-size: 0.9rem; font-weight: normal;">
-								(@{globalHighscore.username})
-							</span>
-						</span>
-					{:else}
-						<span style="font-size: 1.3rem; font-weight: bold;">—</span>
+					{#if gameData.isAiGenerated}
+						<Lozenge appearance="discover">🤖 Fully AI-generated</Lozenge>
 					{/if}
 				</Flex>
-			</Flex>
 
-			<p>You may need to click fullscreen for the game to work!</p>
+				<!-- Beschrijving (indien aanwezig) -->
+				{#if gameData.description}
+					<p
+						style="color: {token.theme.color.text
+							.secondary}; margin: 0; text-align: center; line-height: 1.5;">
+						{gameData.description}
+					</p>
+				{/if}
+
+				<div style="width: 100%; height: 1px; background: {token.theme.color.border.default};">
+				</div>
+
+				<!-- Highscores overzicht -->
+				<div
+					style="display: flex; gap: 48px; justify-content: center; align-items: center; width: 100%; flex-wrap: wrap;">
+					<div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+						<span style="color: {token.theme.color.text.tertiary}; font-size: 0.85rem;">
+							Your highscore
+						</span>
+						<span style="font-size: 1.4rem; font-weight: bold;">{playerHighscore ?? "—"}</span>
+					</div>
+
+					<div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+						<span style="color: {token.theme.color.text.tertiary}; font-size: 0.85rem;">
+							🏆 Global #1
+						</span>
+						{#if globalHighscore}
+							<span style="font-size: 1.4rem; font-weight: bold; text-align: center;">
+								{globalHighscore.score}
+								<span
+									style="font-size: 0.9rem; font-weight: normal; color: {token.theme.color.text
+										.secondary}; display: block;">
+									(@{globalHighscore.username})
+								</span>
+							</span>
+						{:else}
+							<span style="font-size: 1.4rem; font-weight: bold;">—</span>
+						{/if}
+					</div>
+				</div>
+			</div>
+
+			<p style="color: {token.theme.color.text.tertiary}; font-size: 0.85rem; margin-top: 4px;">
+				You may need to click fullscreen for the game to work!
+			</p>
 		</Flex>
 	{/if}
 </Flex>

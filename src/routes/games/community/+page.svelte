@@ -18,11 +18,39 @@
 	import HorizontalCard from "$lib/components/HorizontalCard/HorizontalCard.svelte";
 	import { page } from "$app/state";
 
+	// --- Ban status check ---
+	async function checkUserBanStatus() {
+		if (!authState.isLoggedIn) return;
+		try {
+			const res = await getFetch(
+				`${PUBLIC_BACKEND_URL}/support/moderation/me/ban-status`,
+				{},
+				undefined,
+				true
+			);
+			if (res.code === "BANNED" || (res.success && res.isBanned)) {
+				window.location.href = `https://davidnet.net/moderation/banned?until=${encodeURIComponent(res.bannedUntil)}`;
+			}
+		} catch (err) {
+			console.error("Failed to check ban status:", err);
+		}
+	}
+
+	function checkBanResponse(res: any) {
+		if (res && res.code === "BANNED") {
+			window.location.href = `https://davidnet.net/moderation/banned?until=${encodeURIComponent(res.bannedUntil)}`;
+			return true;
+		}
+		return false;
+	}
+
 	$effect(() => {
 		(async () => {
 			await whenAuthReady();
 			if (!authState.isLoggedIn && !authState.loading) {
 				window.location.href = `${PUBLIC_ACCOUNT_FRONTEND_URL}/login?continue=${encodeURIComponent(page.url.href)}`;
+			} else {
+				await checkUserBanStatus();
 			}
 		})();
 	});
@@ -40,6 +68,9 @@
 				{},
 				true
 			);
+
+			if (checkBanResponse(result)) return;
+
 			if (result.success) {
 				apiGames = result.games.map((game: any) => ({
 					...game,

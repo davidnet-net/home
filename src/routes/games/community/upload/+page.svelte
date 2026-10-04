@@ -92,8 +92,7 @@ it resolves once sent, it does not wait for delivery, so call it as often as you
 
 ### DavidnetSDK.realtime.onMessage(callback)
 Fires for every message sent to any room you're in: \`{ room, data, from, ts }\`. \`from\` is the
-sender's member info, or \`null\` for messages published via the server-side HTTP publish endpoint
-(see below) rather than by a connected player. Returns an unsubscribe function.
+sender's member info. Returns an unsubscribe function.
 
 ### DavidnetSDK.realtime.onPresence(callback)
 Fires when someone joins or leaves a room you're in: \`{ room, event: "join" | "leave", member }\`.
@@ -117,13 +116,6 @@ The connection reconnects automatically in the background and silently rejoins y
 \`onDisconnect\` fires when the connection drops, \`onReconnect\` fires after it's restored (with the
 rooms that were rejoined, so you can resync game state), and \`onError\` fires for server-side
 errors not tied to a specific call (e.g. rate-limited).
-
-### Publishing from outside a player connection (e.g. a live data feed)
-If you want to push data into a room from your own backend rather than from a connected player
-(a stock ticker, a server-driven event, etc.), POST directly instead of using the SDK:
-\`POST https://davidnet-backend.davidnet.net/social/community-games/<gameId>/realtime/<room>/publish\`
-with an authenticated Davidnet session and JSON body \`{ "data": ... }\`. Everyone currently in that
-room receives it via \`onMessage\` with \`from: null\`.
 
 ## Rules for your game code
 

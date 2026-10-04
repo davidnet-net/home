@@ -1319,7 +1319,7 @@
 				bind:this={iframeRef}
 				sandbox="allow-scripts allow-popups allow-forms allow-pointer-lock"
 				allow="autoplay; fullscreen; focus-without-user-activation"
-				csp="default-src * https: http: 'unsafe-inline' 'unsafe-eval' data: blob:; img-src * https: http: data: blob:; media-src * https: http: data: blob:; font-src * https: http: data:; style-src * https: http: 'unsafe-inline'; script-src * https: http: 'unsafe-inline' 'unsafe-eval'; connect-src 'self';"
+				csp="default-src * https: http: 'unsafe-inline' 'unsafe-eval' data: blob:; img-src * https: http: data: blob:; media-src * https: http: data: blob:; font-src * https: http: data:; style-src * https: http: 'unsafe-inline'; script-src * https: http: 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; frame-src 'none';"
 				style="height: 75vh; width: 100%; display: block; background: #000; border: 2px solid {token
 					.theme.color.border.default}; border-radius: {token.global.radius.huge};"
 				src="{PUBLIC_BACKEND_URL}/social/community-games/{gameId}/file/index.html"

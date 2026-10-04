@@ -15,6 +15,7 @@
 		Modal,
 		patchFetch,
 		postFetch,
+		putFetch,
 		Spinner,
 		TextArea,
 		TextField,
@@ -59,6 +60,12 @@
 	let iframeRef: HTMLIFrameElement | undefined = $state();
 	let showDeleteModal = $state(false);
 	let isDeleting = $state(false);
+
+	// --- Update game files (creator only) ---
+	let showUpdateModal = $state(false);
+	let isUpdating = $state(false);
+	let updateFiles = $state<FileList | null>(null);
+	let updateErrorMessage = $state("");
 
 	let isReportModalOpen = $state(false);
 
@@ -259,6 +266,45 @@
 		} finally {
 			isDeleting = false;
 			showDeleteModal = false;
+		}
+	}
+
+	// --- UPDATE GAME FILES (creator only) ---
+	async function executeUpdateGame() {
+		if (!updateFiles || updateFiles.length === 0) {
+			updateErrorMessage = "Please select a .zip file containing your updated game.";
+			return;
+		}
+
+		isUpdating = true;
+		updateErrorMessage = "";
+		try {
+			const formData = new FormData();
+			formData.append("game", updateFiles[0]);
+
+			const result = await putFetch(
+				`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}/upload`,
+				formData,
+				undefined,
+				true
+			);
+
+			if (checkBanResponse(result)) return;
+
+			if (result.success) {
+				toast("Updated", "Game files have been updated.", "check_circle", 4000, "success");
+				showUpdateModal = false;
+				updateFiles = null;
+				resetGame();
+			} else {
+				updateErrorMessage = result.message || result.code || "Failed to update game.";
+				toast("Update Failed", updateErrorMessage, "error", 4000, "danger");
+			}
+		} catch (err) {
+			updateErrorMessage = "A network error occurred during the update.";
+			toast("Error", "Network error while updating the game.", "error", 4000, "danger");
+		} finally {
+			isUpdating = false;
 		}
 	}
 
@@ -965,6 +1011,51 @@
 	}
 </script>
 
+{#if showUpdateModal}
+	<Modal
+		title="Update game files"
+		onclose={() => {
+			showUpdateModal = false;
+			updateFiles = null;
+			updateErrorMessage = "";
+		}}>
+		<p>
+			Upload a new .zip to replace <strong>{gameData?.title}</strong>
+			's files. It must contain an <strong>index.html</strong>
+			at the root, same as the original upload. Your highscores, saves and icon are kept - only
+			the game files themselves are replaced.
+		</p>
+
+		<input
+			type="file"
+			accept=".zip,application/zip"
+			bind:files={updateFiles}
+			disabled={isUpdating}
+			style="margin-top: 12px;" />
+
+		{#if updateErrorMessage}
+			<p style="color: {token.theme.color.text.danger}; margin-top: 8px;">{updateErrorMessage}</p>
+		{/if}
+
+		{#snippet actions()}
+			<Flex gap="small" justifyContent="end">
+				<Button
+					appearance="default"
+					onclick={() => {
+						showUpdateModal = false;
+						updateFiles = null;
+						updateErrorMessage = "";
+					}}>
+					Cancel
+				</Button>
+				<Button appearance="primary" loading={isUpdating} onclick={executeUpdateGame}>
+					Upload new version
+				</Button>
+			</Flex>
+		{/snippet}
+	</Modal>
+{/if}
+
 {#if showDeleteModal}
 	<Modal title="Delete Game" onclose={() => (showDeleteModal = false)}>
 		<p>
@@ -1299,6 +1390,10 @@
 							.default}; margin: 0 4px;">
 					</div>
 					<IconButton icon="manage_accounts" tip="Manage player data" onclick={openManage} />
+					<IconButton
+						icon="upload_file"
+						tip="Update game files"
+						onclick={() => (showUpdateModal = true)} />
 					<IconButton
 						icon="delete"
 						tip="Delete game"

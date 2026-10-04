@@ -32,14 +32,30 @@
 	let isUploading = $state(false);
 
 	let showConfirmModal = $state(false);
-	let showAiGuide = $state(false);
+	let showGuide = $state(false);
+	let guideMode = $state<"human" | "ai">("human");
 
 	const sdkGuideMarkdown = `# Davidnet Community Games — Platform SDK
 
-Your game runs inside a sandboxed iframe with no internet access, no cookies, and no real
-localStorage. To add persistent highscores and save data, use the \`window.DavidnetSDK\` object —
-it is automatically injected into every uploaded \`index.html\`. You do NOT need to write any
-postMessage or networking code yourself; just call these functions from your game code.
+Your game runs inside a sandboxed \`<iframe>\` with its own opaque origin: no cookies, and no real
+\`localStorage\`/\`sessionStorage\` (both exist but are polyfilled to no-ops, so anything written to
+them vanishes on reload). Network access is NOT fully blocked — it's asymmetric, enforced by the
+iframe's Content-Security-Policy:
+
+- Loading external resources — \`<script src>\`, \`<link rel="stylesheet">\`, \`<img>\`,
+  \`<audio>\`/\`<video>\`, \`@font-face\`, etc. — from ANY host is allowed. Pulling a game engine,
+  library, font or asset from a CDN (cdnjs, jsdelivr, unpkg, Google Fonts, …) is fine and common.
+- Your code CANNOT make its own outbound \`fetch()\`/\`XMLHttpRequest\`/\`WebSocket\`/\`EventSource\`
+  calls to third-party domains — \`connect-src\` is locked to the same origin that served your game
+  files. This is a deliberate anti-exfiltration boundary, not a bug: don't design the game around
+  calling some other API (or even Davidnet's own API directly) — it will be blocked.
+- Nesting another \`<iframe>\` inside your game is blocked outright (\`frame-src 'none'\`).
+- All communication with Davidnet itself — highscores, save data, realtime multiplayer — happens
+  exclusively through \`window.DavidnetSDK\`, which is automatically injected into every uploaded
+  \`index.html\`. Under the hood it talks to the parent page via \`postMessage\`, which is NOT subject
+  to \`connect-src\` (it isn't a network request from the browser's point of view). You do NOT need
+  to write any postMessage or networking code yourself; just call these functions from your game
+  code.
 
 ## API
 
@@ -406,19 +422,93 @@ function sendMove(move) {
 	<Flex direction="column" width="500px" gap="small">
 		<Button
 			appearance="subtle"
-			iconbefore={showAiGuide ? "expand_less" : "smart_toy"}
-			onclick={() => (showAiGuide = !showAiGuide)}>
-			{showAiGuide ? "Hide SDK instructions" : "Building this with AI? Get SDK instructions"}
+			iconbefore={showGuide ? "expand_less" : "smart_toy"}
+			onclick={() => (showGuide = !showGuide)}>
+			{showGuide ? "Hide SDK instructions" : "Adding highscores, saves or multiplayer? Read the SDK guide"}
 		</Button>
 
-		{#if showAiGuide}
-			<p style="color: {token.theme.color.text.secondary}">
-				Paste the snippet below directly into your AI chat (ChatGPT, Claude, etc.) before asking it
-				to build your game. It teaches the AI how to wire up working, persistent highscores and save
-				data using the SDK that's automatically injected into every uploaded game — no backend work
-				required on your end.
-			</p>
-			<CodeSnippet code={sdkGuideMarkdown} language="markdown" filename="davidnet-game-sdk.md" />
+		{#if showGuide}
+			<Flex gap="small">
+				<Button
+					appearance="subtle"
+					selected={guideMode === "human"}
+					onclick={() => (guideMode = "human")}>
+					For humans
+				</Button>
+				<Button appearance="subtle" selected={guideMode === "ai"} onclick={() => (guideMode = "ai")}>
+					For AI assistants
+				</Button>
+			</Flex>
+
+			{#if guideMode === "human"}
+				<Flex direction="column" gap="small">
+					<p style="color: {token.theme.color.text.secondary}">
+						A plain-language explanation — read this if you're writing the game yourself. If
+						you're having an AI build it for you, switch to the "For AI assistants" tab instead and
+						hand it that snippet directly.
+					</p>
+
+					<h4 style="margin: 0;">What <code>window.DavidnetSDK</code> gives you</h4>
+					<ul style="margin: 0; padding-left: 20px; color: {token.theme.color.text.secondary}">
+						<li>
+							<strong>Highscores &amp; a leaderboard</strong> — submit a score, see the player's
+							personal best, and see the top 10 globally. The server always keeps only the best
+							score per player, so it's safe to submit on every game over.
+						</li>
+						<li>
+							<strong>Save data</strong> — store one JSON blob per player (inventory, level
+							progress, settings, ...) and load it back next time they play. About 200kb max.
+						</li>
+						<li>
+							<strong>Realtime multiplayer</strong> — named rooms and a matchmaking queue, so
+							players can send each other live messages (moves, chat, positions). Works for 2
+							players or 50+.
+						</li>
+					</ul>
+					<p style="color: {token.theme.color.text.secondary}">
+						All of this is available the moment your game loads, as the
+						<code>window.DavidnetSDK</code> object — nothing to install, no backend or database of
+						your own to run.
+					</p>
+
+					<h4 style="margin: 0;">What the sandbox actually blocks</h4>
+					<p style="color: {token.theme.color.text.secondary}">
+						Your game runs inside a locked-down frame, but that does <strong>not</strong>
+						mean "no internet access" — it's more specific than that:
+					</p>
+					<ul style="margin: 0; padding-left: 20px; color: {token.theme.color.text.secondary}">
+						<li>
+							<strong>Loading things is fine.</strong> Pulling in a game engine, library, font,
+							image, or sound/video from an external CDN (cdnjs, jsdelivr, unpkg, Google Fonts, ...)
+							works exactly like it would on any normal webpage.
+						</li>
+						<li>
+							<strong>Your game's own code calling out is blocked.</strong> It cannot make its own
+							requests to other websites or APIs (no <code>fetch</code>, no raw
+							<code>WebSocket</code> to a random server) — that's blocked on purpose, mainly so a
+							game can't quietly send players' data somewhere else.
+						</li>
+						<li>
+							<strong>No real cookies or browser storage.</strong> Anything that needs to survive
+							a reload must go through the SDK's save data functions, not
+							<code>localStorage</code>.
+						</li>
+						<li>
+							<strong>Talking to Davidnet itself</strong> (scores, saves, multiplayer) always goes
+							through <code>window.DavidnetSDK</code>, never a direct network call — that's how it
+							gets through even though direct outbound requests are blocked.
+						</li>
+					</ul>
+				</Flex>
+			{:else}
+				<p style="color: {token.theme.color.text.secondary}">
+					Paste the snippet below directly into your AI chat (ChatGPT, Claude, etc.) before asking
+					it to build your game. It teaches the AI how to wire up working, persistent highscores and
+					save data using the SDK that's automatically injected into every uploaded game — no
+					backend work required on your end.
+				</p>
+				<CodeSnippet code={sdkGuideMarkdown} language="markdown" filename="davidnet-game-sdk.md" />
+			{/if}
 		{/if}
 	</Flex>
 </Flex>

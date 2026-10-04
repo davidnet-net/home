@@ -501,12 +501,6 @@ function sendMove(move) {
 					</ul>
 				</Flex>
 			{:else}
-				<p style="color: {token.theme.color.text.secondary}">
-					Paste the snippet below directly into your AI chat (ChatGPT, Claude, etc.) before asking
-					it to build your game. It teaches the AI how to wire up working, persistent highscores and
-					save data using the SDK that's automatically injected into every uploaded game — no
-					backend work required on your end.
-				</p>
 				<CodeSnippet code={sdkGuideMarkdown} language="markdown" filename="davidnet-game-sdk.md" />
 			{/if}
 		{/if}

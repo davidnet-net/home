@@ -399,7 +399,7 @@ function sendMove(move) {
 			</Link>!
 		</p>
 
-		<Flex justifyContent="end" marginTop="medium">
+		<Flex justifyContent="end" marginTop="medium" gap="small">
 			<Button
 				iconbefore="arrow_back"
 				onclick={() => {

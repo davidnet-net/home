@@ -1,3 +1,36 @@
 {
-	"$schema": "https://inlang.com/schema/inlang-message-format"
+	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"common_back": "Back",
+	"common_home": "Home",
+	"common_reload": "Reload",
+	"common_apps_heading": "Apps:",
+	"page_error_title": "Davidnet Home - {message}",
+
+	"page_dashboard_greeting_night": "Good night",
+	"page_dashboard_greeting_morning": "Good morning",
+	"page_dashboard_greeting_afternoon": "Good afternoon",
+	"page_dashboard_greeting_evening": "Good evening",
+	"page_dashboard_loading_time": "Loading time...",
+	"page_dashboard_play_a_game": "Play a game",
+	"page_dashboard_all_apps_link": "All apps",
+	"page_dashboard_recent_heading": "Recent:",
+	"page_dashboard_recent_empty": "No recent things, boards, docs and other things you visit will show up here.",
+
+	"page_apps_card_account_title": "Account",
+	"page_apps_card_docs_title": "Docs",
+	"page_apps_card_kanban_title": "Kanban",
+	"page_apps_card_quiz_title": "Quiz",
+	"page_apps_card_social_title": "Social",
+	"page_apps_links_heading": "Links",
+	"page_apps_card_privacy_title": "Privacy & policies",
+	"page_apps_card_help_title": "Help & support",
+	"page_apps_card_davidnet_title": "Davidnet",
+	"page_apps_internal_heading": "Internal",
+	"page_apps_card_grafana_title": "Grafana",
+	"page_apps_card_traefik_title": "Traefik",
+	"page_apps_card_longhorn_title": "Longhorn",
+	"page_apps_card_vpn_title": "VPN",
+	"page_apps_card_argocd_title": "ArgoCD",
+	"page_apps_card_database_title": "Database",
+	"page_apps_card_internal_access_title": "Internal access"
 }

@@ -4,11 +4,12 @@
 
 	import { page } from "$app/state";
 
+	import * as m from "$lib/paraglide/messages.js";
 	import { styles } from "./error.css";
 </script>
 
 <svelte:head>
-	<title>Davidnet Home - {page.error?.message}</title>
+	<title>{m.page_error_title({ message: page.error?.message ?? "" })}</title>
 </svelte:head>
 
 <div class={styles.pageContainer}>
@@ -32,9 +33,9 @@
 		{/if}
 		<div class={styles.buttonContainer}>
 			<Button appearance="primary" iconbefore="arrow_back" onclick={() => history.back()}>
-				Back
+				{m.common_back()}
 			</Button>
-			<LinkButton href="/">Home</LinkButton>
+			<LinkButton href="/">{m.common_home()}</LinkButton>
 		</div>
 	{:else}
 		<div class={styles.backgroundContainer}>
@@ -55,9 +56,9 @@
 			</h1>
 		{/if}
 		<div class={styles.buttonContainer}>
-			<Button iconbefore="arrow_back" onclick={() => history.back()}>Back</Button>
-			<Button appearance="primary" onclick={() => window.location.reload()}>Reload</Button>
-			<LinkButton href="/">Home</LinkButton>
+			<Button iconbefore="arrow_back" onclick={() => history.back()}>{m.common_back()}</Button>
+			<Button appearance="primary" onclick={() => window.location.reload()}>{m.common_reload()}</Button>
+			<LinkButton href="/">{m.common_home()}</LinkButton>
 		</div>
 	{/if}
 </div>

@@ -20,6 +20,7 @@
 	import { PUBLIC_ACCOUNT_FRONTEND_URL } from "$env/static/public";
 	import * as styles from "./page.css.ts";
 	import gamepadIcon from "$lib/assets/gamepad.svg";
+	import * as m from "$lib/paraglide/messages.js";
 
 	let currentTime = $state(Date.now());
 	let isMounted = $state(false);
@@ -83,15 +84,15 @@
 	function getGreeting(): string {
 		const hour = new Date(currentTime).getHours();
 		if (hour < 6) {
-			return "Good night";
+			return m.page_dashboard_greeting_night();
 		} else if (hour < 12) {
-			return "Good morning";
+			return m.page_dashboard_greeting_morning();
 		} else if (hour < 18) {
-			return "Good afternoon";
+			return m.page_dashboard_greeting_afternoon();
 		} else if (hour < 22) {
-			return "Good evening";
+			return m.page_dashboard_greeting_evening();
 		} else {
-			return "Good night";
+			return m.page_dashboard_greeting_night();
 		}
 	}
 </script>
@@ -114,7 +115,7 @@
 					{#if isMounted}
 						{formatUnixMsToPreferred(currentTime, true)}
 					{:else}
-						Loading time...
+						{m.page_dashboard_loading_time()}
 					{/if}
 				</p>
 			</div>
@@ -128,37 +129,45 @@
 					style="height: 20rem; width: auto; display: block; transform: rotate(40deg);" />
 			</div>
 			<LinkButton iconafter="arrow_forward" appearance="subtle" href="/games">
-				Play a game
+				{m.page_dashboard_play_a_game()}
 			</LinkButton>
 		</Flex>
 	</div>
 	<Flex width="90%" marginTop="giant" direction="column" gap="small">
 		<Flex justifyContent="spaceBetween" height="fit-content">
-			<h2>Apps:</h2>
-			<LinkButton href="/apps" iconafter="arrow_forward">All apps</LinkButton>
+			<h2>{m.common_apps_heading()}</h2>
+			<LinkButton href="/apps" iconafter="arrow_forward">{m.page_dashboard_all_apps_link()}</LinkButton>
 		</Flex>
 		<Flex gap="medium" height="fit-content" marginBottom="giant" flexWrap="wrap">
 			<HorizontalCard
-				title="Account"
+				title={m.page_apps_card_account_title()}
 				description=""
 				icon="for_you"
 				href={PUBLIC_ACCOUNT_FRONTEND_URL} />
-			<HorizontalCard title="Docs" description="" icon="docs" href="https://docs.davidnet.net" />
 			<HorizontalCard
-				title="Kanban"
+				title={m.page_apps_card_docs_title()}
+				description=""
+				icon="docs"
+				href="https://docs.davidnet.net" />
+			<HorizontalCard
+				title={m.page_apps_card_kanban_title()}
 				description=""
 				icon="view_kanban"
 				href="https://kanban.davidnet.net" />
-			<HorizontalCard title="Quiz" description="" icon="quiz" href="https://quiz.davidnet.net" />
 			<HorizontalCard
-				title="Social"
+				title={m.page_apps_card_quiz_title()}
+				description=""
+				icon="quiz"
+				href="https://quiz.davidnet.net" />
+			<HorizontalCard
+				title={m.page_apps_card_social_title()}
 				description=""
 				icon="emoji_people"
 				href="https://social.davidnet.net" />
 		</Flex>
-		<h2>Recent:</h2>
+		<h2>{m.page_dashboard_recent_heading()}</h2>
 		<p style="color: {token.theme.color.text.secondary}">
-			No recent things, boards, docs and other things you visit will show up here.
+			{m.page_dashboard_recent_empty()}
 		</p>
 	</Flex>
 </Flex>

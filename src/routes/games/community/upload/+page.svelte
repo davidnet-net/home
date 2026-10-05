@@ -419,7 +419,7 @@ function sendMove(move) {
 		</Flex>
 	</Form>
 
-	<Flex direction="column" width="500px" gap="small">
+	<Flex direction="column" width="500px" gap="small" height="auto">
 		<Button
 			appearance="subtle"
 			iconbefore={showGuide ? "expand_less" : "smart_toy"}
@@ -428,7 +428,7 @@ function sendMove(move) {
 		</Button>
 
 		{#if showGuide}
-			<Flex gap="small">
+			<Flex gap="small" height="auto">
 				<Button
 					appearance="subtle"
 					selected={guideMode === "human"}
@@ -441,7 +441,7 @@ function sendMove(move) {
 			</Flex>
 
 			{#if guideMode === "human"}
-				<Flex direction="column" gap="small">
+				<Flex direction="column" gap="small" height="auto">
 					<p style="color: {token.theme.color.text.secondary}">
 						A plain-language explanation — read this if you're writing the game yourself. If
 						you're having an AI build it for you, switch to the "For AI assistants" tab instead and

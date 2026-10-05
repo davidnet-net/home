@@ -59,28 +59,52 @@ iframe's Content-Security-Policy:
 
 ## API
 
-### DavidnetSDK.applyHighscore(score: number)
+### DavidnetSDK.applyHighscore(score: number, options?: { category?: string })
 Returns a Promise resolving to:
-\`{ score, playerHighscore, globalHighscore, isNewPersonalBest, isNewGlobalBest }\`
+\`{ score, category, playerHighscore, globalHighscore, isNewPersonalBest, isNewGlobalBest }\`
 Submits a score. The server only ever keeps the HIGHEST score per player and globally, so it is
 safe to call this every time the player's score might be a new best (e.g. on game over). Score
 must be a non-negative integer.
 
-### DavidnetSDK.getHighscores()
+A game can have MULTIPLE leaderboards: pass \`{ category: "time-attack" }\` (letters, numbers,
+\`-\`/\`_\`, up to 50 chars) to submit to a leaderboard other than the default one. Omit it entirely
+and you get the classic one-leaderboard-per-game behavior — this is fully backwards compatible,
+every game that was uploaded before categories existed keeps working unchanged.
+
+### DavidnetSDK.getHighscores(options?: { category?: string })
 Returns a Promise resolving to:
-\`{ playerHighscore, globalHighscore, leaderboard }\`
+\`{ category, playerHighscore, globalHighscore, leaderboard }\`
 \`leaderboard\` is the top 10: \`[{ rank, userId, username, displayName, avatarUrl, score }]\`.
-\`globalHighscore\` is that same shape for the #1 entry (or null if nobody has scored yet).
+\`globalHighscore\` is that same shape for the #1 entry (or null if nobody has scored yet). Pass
+\`{ category: "time-attack" }\` to read a non-default leaderboard — same rule as \`applyHighscore\`.
 
 ### DavidnetSDK.saveJsonBlob(data)
 Returns a Promise resolving to: \`{ savedAt }\`
 Persists any JSON-serializable value (object, array, etc.) as the player's save file — inventory,
-level progress, settings, anything. Max size is about 200kb. Overwrites any previous save for this
+level progress, settings, anything. Max size is about 1MB. Overwrites any previous save for this
 player on this game.
 
 ### DavidnetSDK.getJsonBlob()
 Returns a Promise resolving to: \`{ data, updatedAt }\`
 Returns the player's previously saved value, or \`data: null\` if nothing was saved yet.
+
+## Achievements
+
+### DavidnetSDK.unlockAchievement({ id, name, description?, icon? })
+Returns a Promise resolving to:
+\`{ isNew, achievement: { id, name, description, icon, unlockedAt } }\`
+Unlocks an achievement for the current player. \`id\` is a stable string YOU choose (letters,
+numbers, \`-\`/\`_\`, up to 100 chars) — unique within your game, not globally, so keep it short and
+stable (e.g. \`"first_win"\`, not something you'll rename later). \`name\` is what's shown to the
+player; \`description\` and \`icon\` (an emoji works well) are optional. First unlock wins: if the
+player already has this \`id\`, the stored name/description/icon don't change. It's safe to call
+this every time the unlock condition is true (e.g. every frame a boss is defeated) — repeat calls
+are cheap no-ops. Unlocked achievements show up on the player's cross-game achievements page.
+
+### DavidnetSDK.getAchievements()
+Returns a Promise resolving to:
+\`{ achievements: [{ id, name, description, icon, unlockedAt }] }\`
+Every achievement the current player has unlocked in THIS game.
 
 ## Realtime multiplayer: DavidnetSDK.realtime
 
@@ -178,6 +202,30 @@ async function onGameOver(finalScore) {
     else if (result.isNewPersonalBest) showMessage("New personal best!");
   } catch (e) {
     console.warn("Could not submit score", e);
+  }
+}
+
+// Optional: a second leaderboard, e.g. a per-level or per-mode one.
+async function onTimeAttackFinish(seconds) {
+  try {
+    await window.DavidnetSDK.applyHighscore(seconds, { category: "time-attack" });
+  } catch (e) {
+    console.warn("Could not submit time-attack score", e);
+  }
+}
+
+// Unlock an achievement - safe to call every time the condition is met.
+async function onBossDefeated() {
+  try {
+    const { isNew } = await window.DavidnetSDK.unlockAchievement({
+      id: "first_boss_kill",
+      name: "Giant Slayer",
+      description: "Defeat the first boss",
+      icon: "⚔️"
+    });
+    if (isNew) showMessage("Achievement unlocked: Giant Slayer!");
+  } catch (e) {
+    console.warn("Could not unlock achievement", e);
   }
 }
 
@@ -451,13 +499,19 @@ function sendMove(move) {
 					<h4 style="margin: 0;">What <code>window.DavidnetSDK</code> gives you</h4>
 					<ul style="margin: 0; padding-left: 20px; color: {token.theme.color.text.secondary}">
 						<li>
-							<strong>Highscores &amp; a leaderboard</strong> — submit a score, see the player's
+							<strong>Highscores &amp; leaderboards</strong> — submit a score, see the player's
 							personal best, and see the top 10 globally. The server always keeps only the best
-							score per player, so it's safe to submit on every game over.
+							score per player, so it's safe to submit on every game over. You can have more than
+							one leaderboard per game (e.g. one per level or mode) by giving each a category name.
+						</li>
+						<li>
+							<strong>Achievements</strong> — unlock a named achievement for a player (you pick the
+							id, name, description and icon). Shows up on the player's own cross-game achievements
+							page, so it's a good way to reward players who find your game's secrets.
 						</li>
 						<li>
 							<strong>Save data</strong> — store one JSON blob per player (inventory, level
-							progress, settings, ...) and load it back next time they play. About 200kb max.
+							progress, settings, ...) and load it back next time they play. About 1MB max.
 						</li>
 						<li>
 							<strong>Realtime multiplayer</strong> — named rooms and a matchmaking queue, so

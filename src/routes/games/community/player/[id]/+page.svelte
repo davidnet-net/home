@@ -37,6 +37,8 @@
 		"getHighscores",
 		"saveJsonBlob",
 		"getJsonBlob",
+		"unlockAchievement",
+		"getAchievements",
 		"realtimeConnect",
 		"realtimeJoinRoom",
 		"realtimeLeaveRoom",
@@ -794,10 +796,13 @@
 				return respondToGame(msg.requestId, false, undefined, "Invalid score");
 			}
 
+			const category = typeof msg.payload?.category === "string" ? msg.payload.category : "default";
+
 			const result = await postFetch(
 				`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}/highscore`,
 				{
 					score,
+					category,
 					sessionId: msg.payload?.sessionId,
 					timestamp: msg.payload?.timestamp,
 					signature: msg.payload?.signature
@@ -817,12 +822,17 @@
 				);
 			}
 
-			playerHighscore = result.playerHighscore;
-			playerHighscoreFlagged = Boolean(result.playerHighscoreFlagged);
-			if (result.isNewGlobalBest) await loadHighscores();
+			// Only mirror into the page's own highscore display when it's the default leaderboard -
+			// a non-default category's score shouldn't overwrite what's shown for the main one.
+			if (category === "default") {
+				playerHighscore = result.playerHighscore;
+				playerHighscoreFlagged = Boolean(result.playerHighscoreFlagged);
+				if (result.isNewGlobalBest) await loadHighscores();
+			}
 
 			return respondToGame(msg.requestId, true, {
 				score: result.score,
+				category: result.category,
 				playerHighscore: result.playerHighscore,
 				globalHighscore: result.globalHighscore,
 				isNewPersonalBest: result.isNewPersonalBest,
@@ -831,9 +841,11 @@
 		}
 
 		if (msg.type === "getHighscores") {
+			const category = typeof msg.payload?.category === "string" ? msg.payload.category : "default";
+
 			const result = await getFetch(
 				`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}/highscores`,
-				undefined,
+				{ category },
 				{},
 				true
 			);
@@ -849,9 +861,11 @@
 				);
 			}
 
-			playerHighscore = result.playerHighscore;
-			globalHighscore = result.globalHighscore;
-			leaderboard = result.leaderboard;
+			if (category === "default") {
+				playerHighscore = result.playerHighscore;
+				globalHighscore = result.globalHighscore;
+				leaderboard = result.leaderboard;
+			}
 
 			return respondToGame(msg.requestId, true, {
 				playerHighscore: result.playerHighscore,
@@ -897,6 +911,71 @@
 			}
 
 			return respondToGame(msg.requestId, true, { data: result.data, updatedAt: result.updatedAt });
+		}
+
+		if (msg.type === "unlockAchievement") {
+			const result = await postFetch(
+				`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}/achievement`,
+				{
+					id: msg.payload?.id,
+					name: msg.payload?.name,
+					description: msg.payload?.description,
+					icon: msg.payload?.icon,
+					sessionId: msg.payload?.sessionId,
+					timestamp: msg.payload?.timestamp,
+					signature: msg.payload?.signature
+				},
+				{},
+				true
+			);
+
+			if (checkBanResponse(result)) return;
+
+			if (!result.success) {
+				return respondToGame(
+					msg.requestId,
+					false,
+					undefined,
+					result.code || "Failed to unlock achievement"
+				);
+			}
+
+			if (result.isNew) {
+				toast(
+					"Achievement unlocked!",
+					result.achievement?.name ?? "",
+					"military_tech",
+					4000,
+					"success"
+				);
+			}
+
+			return respondToGame(msg.requestId, true, {
+				isNew: result.isNew,
+				achievement: result.achievement
+			});
+		}
+
+		if (msg.type === "getAchievements") {
+			const result = await getFetch(
+				`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}/achievements`,
+				undefined,
+				{},
+				true
+			);
+
+			if (checkBanResponse(result)) return;
+
+			if (!result.success) {
+				return respondToGame(
+					msg.requestId,
+					false,
+					undefined,
+					result.code || "Failed to fetch achievements"
+				);
+			}
+
+			return respondToGame(msg.requestId, true, { achievements: result.achievements });
 		}
 
 		if (msg.type === "realtimeConnect") {
@@ -1371,6 +1450,9 @@
 					{likesCount === 1 ? "Like" : "Likes"}
 				</Button>
 				<Button onclick={openLeaderboard} iconbefore="leaderboard">Leaderboard</Button>
+				<LinkButton href="/games/community/achievements" iconbefore="military_tech">
+					Achievements
+				</LinkButton>
 
 				<div
 					style="width: 1px; height: 24px; background: {token.theme.color.border

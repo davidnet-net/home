@@ -105,6 +105,9 @@
 				<LinkButton href="/games" appearance="default" iconbefore="arrow_back">
 					Back to Games
 				</LinkButton>
+				<LinkButton href="/games/community/achievements" appearance="default" iconbefore="military_tech">
+					My Achievements
+				</LinkButton>
 				<LinkButton href="/games/community/upload" appearance="primary" iconbefore="upload">
 					Upload Game
 				</LinkButton>

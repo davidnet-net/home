@@ -27,3 +27,6 @@ vite.config.ts.timestamp-*
 src/lib/manifests
 .envrc
 .direnv
+# Claude Code (local/session state, not shared)
+.claude/worktrees/
+.claude/settings.local.json

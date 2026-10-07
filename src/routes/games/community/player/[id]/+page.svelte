@@ -40,12 +40,20 @@
 		"getJsonBlob",
 		"unlockAchievement",
 		"getAchievements",
+		"ugcPublishLevel",
+		"ugcListLevels",
+		"ugcGetLevel",
+		"ugcDeleteLevel",
 		"realtimeConnect",
 		"realtimeJoinRoom",
 		"realtimeLeaveRoom",
+		"realtimeRoomInfo",
 		"realtimeSend",
+		"realtimeSetState",
 		"realtimeJoinQueue",
-		"realtimeLeaveQueue"
+		"realtimeLeaveQueue",
+		"realtimeQueueInfo",
+		"realtimeAnnounce"
 	]);
 
 	const REALTIME_MAX_MESSAGE_BYTES = 64 * 1024;
@@ -723,6 +731,25 @@
 					return;
 				}
 
+				if (frame.type === "state") {
+					emitRealtimeEvent("state", {
+						room: frame.room,
+						key: frame.key,
+						value: frame.value,
+						from: frame.from
+					});
+					return;
+				}
+
+				if (frame.type === "announcement") {
+					emitRealtimeEvent("announcement", {
+						data: frame.data,
+						from: frame.from,
+						ts: frame.ts
+					});
+					return;
+				}
+
 				if (frame.type === "error") {
 					emitRealtimeEvent("error", { code: frame.code, message: frame.message });
 				}
@@ -908,6 +935,7 @@
 				`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}/save`,
 				{
 					data: msg.payload?.data,
+					slot: msg.payload?.slot,
 					sessionId: msg.payload?.sessionId,
 					timestamp: msg.payload?.timestamp,
 					signature: msg.payload?.signature
@@ -928,7 +956,7 @@
 		if (msg.type === "getJsonBlob") {
 			const result = await getFetch(
 				`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}/save`,
-				undefined,
+				{ slot: msg.payload?.slot },
 				{},
 				true
 			);
@@ -950,6 +978,8 @@
 					name: msg.payload?.name,
 					description: msg.payload?.description,
 					icon: msg.payload?.icon,
+					progress: msg.payload?.progress,
+					target: msg.payload?.target,
 					sessionId: msg.payload?.sessionId,
 					timestamp: msg.payload?.timestamp,
 					signature: msg.payload?.signature
@@ -1007,6 +1037,108 @@
 			return respondToGame(msg.requestId, true, { achievements: result.achievements });
 		}
 
+		if (msg.type === "ugcPublishLevel") {
+			const result = await postFetch(
+				`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}/levels`,
+				{
+					id: msg.payload?.id,
+					title: msg.payload?.title,
+					data: msg.payload?.data
+				},
+				{},
+				true
+			);
+
+			if (checkBanResponse(result)) return;
+
+			if (!result.success) {
+				return respondToGame(
+					msg.requestId,
+					false,
+					undefined,
+					result.code || "Failed to publish level"
+				);
+			}
+
+			return respondToGame(msg.requestId, true, result.level);
+		}
+
+		if (msg.type === "ugcListLevels") {
+			const result = await getFetch(
+				`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}/levels`,
+				{
+					mine: msg.payload?.mine ? "true" : undefined,
+					limit: msg.payload?.limit,
+					offset: msg.payload?.offset
+				},
+				{},
+				true
+			);
+
+			if (checkBanResponse(result)) return;
+
+			if (!result.success) {
+				return respondToGame(
+					msg.requestId,
+					false,
+					undefined,
+					result.code || "Failed to list levels"
+				);
+			}
+
+			return respondToGame(msg.requestId, true, { levels: result.levels, hasMore: result.hasMore });
+		}
+
+		if (msg.type === "ugcGetLevel") {
+			const levelId = String(msg.payload?.id ?? "");
+			if (!levelId) return respondToGame(msg.requestId, false, undefined, "Missing level id");
+
+			const result = await getFetch(
+				`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}/levels/${levelId}`,
+				undefined,
+				{},
+				true
+			);
+
+			if (checkBanResponse(result)) return;
+
+			if (!result.success) {
+				return respondToGame(
+					msg.requestId,
+					false,
+					undefined,
+					result.code || "Failed to fetch level"
+				);
+			}
+
+			return respondToGame(msg.requestId, true, result.level);
+		}
+
+		if (msg.type === "ugcDeleteLevel") {
+			const levelId = String(msg.payload?.id ?? "");
+			if (!levelId) return respondToGame(msg.requestId, false, undefined, "Missing level id");
+
+			const result = await deleteFetch(
+				`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}/levels/${levelId}`,
+				undefined,
+				{},
+				true
+			);
+
+			if (checkBanResponse(result)) return;
+
+			if (!result.success) {
+				return respondToGame(
+					msg.requestId,
+					false,
+					undefined,
+					result.code || "Failed to delete level"
+				);
+			}
+
+			return respondToGame(msg.requestId, true, { id: result.id });
+		}
+
 		if (msg.type === "realtimeConnect") {
 			try {
 				await connectRealtime();
@@ -1030,12 +1162,42 @@
 			realtimePendingAcks.set(reqId, (frame) => {
 				if (frame.ok) {
 					realtimeJoinedRooms.add(room);
-					respondToGame(reqId, true, { room: frame.room, members: frame.members });
+					respondToGame(reqId, true, {
+						room: frame.room,
+						members: frame.members,
+						state: frame.state
+					});
 				} else {
 					respondToGame(reqId, false, undefined, frame.code || "Failed to join room");
 				}
 			});
 			sendRealtimeFrame({ reqId, type: "join", room });
+			return;
+		}
+
+		if (msg.type === "realtimeRoomInfo") {
+			const room = String(msg.payload?.room ?? "");
+			if (!room) return respondToGame(msg.requestId, false, undefined, "Missing room");
+
+			try {
+				await connectRealtime();
+			} catch {
+				return respondToGame(msg.requestId, false, undefined, "Not connected");
+			}
+
+			const reqId = msg.requestId;
+			realtimePendingAcks.set(reqId, (frame) => {
+				if (frame.ok) {
+					respondToGame(reqId, true, {
+						room: frame.room,
+						memberCount: frame.memberCount,
+						members: frame.members
+					});
+				} else {
+					respondToGame(reqId, false, undefined, frame.code || "Failed to fetch room info");
+				}
+			});
+			sendRealtimeFrame({ reqId, type: "roomInfo", room });
 			return;
 		}
 
@@ -1073,6 +1235,35 @@
 
 			sendRealtimeFrame({ type: "send", room, data, echo });
 			return respondToGame(msg.requestId, true, {});
+		}
+
+		if (msg.type === "realtimeSetState") {
+			const room = String(msg.payload?.room ?? "");
+			const key = String(msg.payload?.key ?? "");
+			const value = msg.payload?.value;
+
+			if (!room || !key)
+				return respondToGame(msg.requestId, false, undefined, "Missing room or key");
+			if (JSON.stringify(value ?? null).length > REALTIME_MAX_MESSAGE_BYTES) {
+				return respondToGame(msg.requestId, false, undefined, "Value too large");
+			}
+
+			try {
+				await connectRealtime();
+			} catch {
+				return respondToGame(msg.requestId, false, undefined, "Not connected");
+			}
+
+			const reqId = msg.requestId;
+			realtimePendingAcks.set(reqId, (frame) => {
+				if (frame.ok) {
+					respondToGame(reqId, true, { room, key });
+				} else {
+					respondToGame(reqId, false, undefined, frame.code || "Failed to set state");
+				}
+			});
+			sendRealtimeFrame({ reqId, type: "setState", room, key, value });
+			return;
 		}
 
 		if (msg.type === "realtimeJoinQueue") {
@@ -1114,6 +1305,50 @@
 				respondToGame(reqId, Boolean(frame.ok), { queue });
 			});
 			sendRealtimeFrame({ reqId, type: "leaveQueue", queue });
+			return;
+		}
+
+		if (msg.type === "realtimeQueueInfo") {
+			const queue = String(msg.payload?.queue ?? "");
+			if (!queue) return respondToGame(msg.requestId, false, undefined, "Missing queue");
+
+			try {
+				await connectRealtime();
+			} catch {
+				return respondToGame(msg.requestId, false, undefined, "Not connected");
+			}
+
+			const reqId = msg.requestId;
+			realtimePendingAcks.set(reqId, (frame) => {
+				if (frame.ok) {
+					respondToGame(reqId, true, { queue: frame.queue, waiting: frame.waiting });
+				} else {
+					respondToGame(reqId, false, undefined, frame.code || "Failed to fetch queue info");
+				}
+			});
+			sendRealtimeFrame({ reqId, type: "queueInfo", queue });
+			return;
+		}
+
+		if (msg.type === "realtimeAnnounce") {
+			const data = msg.payload?.data;
+			const echo = Boolean(msg.payload?.echo);
+
+			if (JSON.stringify(data ?? null).length > REALTIME_MAX_MESSAGE_BYTES) {
+				return respondToGame(msg.requestId, false, undefined, "Message too large");
+			}
+
+			try {
+				await connectRealtime();
+			} catch {
+				return respondToGame(msg.requestId, false, undefined, "Not connected");
+			}
+
+			const reqId = msg.requestId;
+			realtimePendingAcks.set(reqId, (frame) => {
+				respondToGame(reqId, Boolean(frame.ok), {});
+			});
+			sendRealtimeFrame({ reqId, type: "announce", data, echo });
 			return;
 		}
 	}
@@ -1173,7 +1408,8 @@
 					disabled={isUpdating} />
 				<span style="color: {token.theme.color.text.tertiary}; font-size: 0.8rem;">
 					Leave empty to keep the current game files. If provided, it must contain an
-					<strong>index.html</strong> at the root, same as the original upload.
+					<strong>index.html</strong>
+					 at the root, same as the original upload.
 				</span>
 			</Flex>
 

@@ -554,8 +554,14 @@
 			clearInterval(playtimeIntervalId);
 			playtimeIntervalId = undefined;
 		}
-		document.removeEventListener("visibilitychange", handlePlaytimeVisibilityChange);
-		window.removeEventListener("beforeunload", flushPlaytimeOnUnload);
+		// onDestroy (unlike onMount) also runs during SSR, where document/window don't exist -
+		// startPlaytimeTracking never ran there either, so there's nothing to tear down anyway.
+		if (typeof document !== "undefined") {
+			document.removeEventListener("visibilitychange", handlePlaytimeVisibilityChange);
+		}
+		if (typeof window !== "undefined") {
+			window.removeEventListener("beforeunload", flushPlaytimeOnUnload);
+		}
 		flushPlaytime();
 	}
 

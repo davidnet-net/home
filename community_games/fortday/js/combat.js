@@ -385,6 +385,7 @@ function die(killerId){
     updateHotbarUI(); updateMatsUI(); updateAmmoUI();
   }
   netSend({type:'dead',by:killerId,w,drops});
+  startKillcam(killerId);
   addKF(killerId==='storm'?'De storm heeft je te pakken gekregen':`Je bent uitgeschakeld door ${kn}`,'mine');
   $('elim').style.display='flex';
   const by=$('elim-by'); by.innerHTML='';

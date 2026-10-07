@@ -8,7 +8,7 @@
 let lastWheel=0, lastAutoBuild=0;
 
 // only (re)lock when the mouse isn't locked yet — re-locking on every click (= every shot) used to wipe held keys
-function focusGame(){ if(isLocked) return; try{ window.focus(); }catch(e){} if(gameStarted&&!gameOver) renderer.domElement.requestPointerLock(); }
+function focusGame(){ if(isDead&&specActive&&!isPit()){ cycleSpectate(1); return; } if(isLocked) return; try{ window.focus(); }catch(e){} if(gameStarted&&!gameOver) renderer.domElement.requestPointerLock(); }
 renderer.domElement.addEventListener('click',focusGame);
 $('lockp').addEventListener('click',focusGame);
 document.addEventListener('pointerlockchange',()=>{
@@ -69,14 +69,15 @@ document.addEventListener('keydown',e=>{
   if(myEmote&&act&&act!=='chat') stopEmote();
   if(e.code==='Escape'){ if(editing){ finishEdit(false); backToGun(); } document.exitPointerLock(); return; }
   if(inBus){ if(act==='jump') jumpFromBus(false); return; }
-  if(isDead||!act) return;
+  if(isDead){ if(e.code==='ArrowRight'||act==='right') cycleSpectate(1); else if(e.code==='ArrowLeft'||act==='left') cycleSpectate(-1); return; }
+  if(!act) return;
   if(act.startsWith('slot')){ const i=+act.slice(4)-1; if(inventory[i]) switchSlot(i); return; }
   switch(act){
     case 'pickaxe': switchSlot(-1); break;
     case 'wall': case 'floor': case 'ramp': if(buildMode===act) backToGun(); else setMode(act); break;
     case 'edit': startEdit(); break;
     case 'reload': if(buildMode==='gun'&&!isReloading) startReload(); break;
-    case 'use': tryPickup(); break;
+    case 'use': if(nearChest) openChest(nearChest.id); else tryPickup(); break;
     case 'drop': dropCurrent(); break;
   }
 });
@@ -131,9 +132,9 @@ function animate(ts){
   holdActions(now);
   updateGhost();
   updateBullets(dt); updateProjectiles(dt); updateEffects(dt);
-  updatePickups(dt,ts); updateFalling(dt);
+  updatePickups(dt,ts); updateChests(dt); updateFalling(dt);
   updateUse(now); updateBar(now);
-  updateOthers(dt); updateEdit(); updateEmote(dt);
+  updateOthers(dt); updateEdit(); updateEmote(dt); updateSpectate(dt);
   if(isBR()) updateStorm(dt,now);
 
   // keep the sun (and its shadow area) centred on the player
@@ -143,8 +144,9 @@ function animate(ts){
 
   mmTimer+=dt; if(mmTimer>.06){ mmTimer=0; renderMinimap(); }
 
-  renderer.autoClear=true; renderer.render(scene,myEmote?emoteCam:camera);
-  if(!myEmote){
+  const viewCam=myEmote?emoteCam:(specActive&&isDead)?specCam:camera;
+  renderer.autoClear=true; renderer.render(scene,viewCam);
+  if(viewCam===camera){
     renderer.autoClear=false; renderer.clearDepth();
     wCamera.aspect=camera.aspect; wCamera.updateProjectionMatrix();
     renderer.render(wScene,wCamera);
@@ -152,8 +154,8 @@ function animate(ts){
   }
 }
 window.addEventListener('resize',()=>{
-  camera.aspect=wCamera.aspect=emoteCam.aspect=innerWidth/innerHeight;
-  camera.updateProjectionMatrix(); wCamera.updateProjectionMatrix(); emoteCam.updateProjectionMatrix();
+  camera.aspect=wCamera.aspect=emoteCam.aspect=specCam.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix(); wCamera.updateProjectionMatrix(); emoteCam.updateProjectionMatrix(); specCam.updateProjectionMatrix();
   renderer.setSize(innerWidth,innerHeight);
 });
 

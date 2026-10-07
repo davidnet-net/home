@@ -151,7 +151,7 @@ const angLerp=(a,b,k)=>{ let d=((b-a+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)
 function updateOthers(dt){
   const kPos=1-Math.exp(-dt*13), kRot=1-Math.exp(-dt*16), kAnim=1-Math.exp(-dt*14);
   others.forEach(p=>{
-    if(p.target&&p.group.visible){
+    if(p.target&&p.group.visible&&Number.isFinite(p.group.position.x+p.group.position.z)){
       const g=p.group.position, ox=g.x, oz=g.z;
       g.lerp(p.target,kPos);
       p.group.rotation.y=angLerp(p.group.rotation.y,p.targetYaw,kRot);
@@ -193,6 +193,9 @@ function animateAvatar(p,dt,k){
   let lL=sw, lR=-sw, aL=-sw*.6, aR=sw*.6, aLz=0, aRz=0, bob=Math.abs(Math.sin(p.phase))*.05*sp;
   let rootY=0, rootX=0, rootSpin=0, rootTilt=0;
   if(p.air){ lL=.75; lR=-.35; aL=2.6; aR=2.6; bob=0; }
+  // crouch: lower body + bent legs · slide: sitting back with legs forward
+  if(p.slide){ lL=1.35; lR=1.25; rootY=-.74; rootTilt=.42; bob=0; }
+  else if(p.crouch&&!p.air){ lL=1.0+sw*.35; lR=1.0-sw*.35; rootY=-.42; rootTilt=-.12; bob*=.4; }
   const kind=p.heldType?ITEMS[p.heldType]&&ITEMS[p.heldType].kind:null;
   if(kind==='gun'||kind==='launcher'){ aR=1.45; aL=1.3; aLz=.45; }     // both hands on the weapon, pointing forward
   else if(kind==='melee') aR=.55-sw*.3;

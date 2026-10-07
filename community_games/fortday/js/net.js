@@ -12,6 +12,7 @@ function sendPos(){
     ry:+camYaw.y.toFixed(3),a:isDead?0:1};
   if(inBus) m.b=1;
   if(!onGround) m.j=1;
+  if(slide) m.s=1; else if(crouching) m.c=1;
   const ht=buildMode==='gun'?curType():null, it=curItem();
   if(ht){ m.h=ht; if(it&&hasRarity(ht)) m.r=it.rarity|0; }
   if(isPit()){ m.k=pitKills; m.d=pitDeaths; }
@@ -31,10 +32,11 @@ function onMsg({room,data,from}){
   switch(data.type){
     case 'pos':{
       const p=others.get(uid); if(!p) break;
+      if(!Number.isFinite(data.x)||!Number.isFinite(data.y)||!Number.isFinite(data.z)) break;   // ignore broken positions
       const tgt=new THREE.Vector3(data.x,data.y,data.z);
       // smoothed every frame in updateOthers(); snap when they (re)appear
       if(!p.seen||!p.group.visible||p.group.position.distanceTo(tgt)>12){ p.group.position.copy(tgt); p.group.rotation.y=data.ry; }
-      p.target=tgt; p.targetYaw=data.ry; p.air=!!data.j;
+      p.target=tgt; p.targetYaw=data.ry; p.air=!!data.j; p.crouch=!!data.c; p.slide=!!data.s;
       setHeld(p,typeof data.h==='string'&&ITEMS[data.h]?data.h:null,data.r|0);
       p.seen=true;
       if(data.a!==undefined){ const al=!!data.a; if(aliveMap.get(uid)!==false||al) aliveMap.set(uid,al); p.group.visible=al&&!data.b; }
@@ -69,10 +71,12 @@ function onMsg({room,data,from}){
     case 'pick': takePickup(pickupItems.find(p=>p.id===data.id)); break;
     case 'drop': if(data.item&&ITEMS[data.item.type]) addPickup(data.id,data.item,data.x,data.y,data.z,false,true); break;
     case 'prop': removeProp(data.id); break;
+    case 'chest': openChest(data.id,true); break;
     case 'chat': addChat(uid,String(data.text||'').slice(0,120)); break;
     case 'dead':{
       aliveMap.set(uid,false);
       const p=others.get(uid); if(p) p.group.visible=false;
+      onSpectatedDied(uid,data.by);
       (data.drops||[]).forEach(d=>{ if(d&&d.item&&ITEMS[d.item.type]) addPickup(d.id,d.item,d.x,d.y,d.z,false,true); });
       const byName=data.by==='storm'?'🌀 De storm':data.by?nameOf(data.by):'?';
       if(data.by===myUserId) onMyKill(uid,data.w);

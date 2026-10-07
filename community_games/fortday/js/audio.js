@@ -93,6 +93,12 @@ const SFX=(()=>{
     beep(hi){ if(!ensure()||!ok()) return; const t=ctx.currentTime; tone(t,out(.5),{type:'sine',f0:hi?1320:880,peak:.25,dec:.15}); },
     emote(){ if(!ensure()||!ok()) return; const t=ctx.currentTime, o=out(.45);
       [523,659,784,659,880].forEach((f,i)=>tone(t+i*.09,o,{type:'triangle',f0:f,peak:.16,dec:.14})); },
+    slide(){ if(!ensure()||!ok()) return; const t=ctx.currentTime; noise(t,out(.5),{type:'bandpass',freq:500,f1:180,q:.8,peak:.35,a:.03,dec:.75}); },
+    chest(pos){ if(!ensure()||!ok()) return; const t=ctx.currentTime, o=out(distVol(pos));
+      noise(t,o,{type:'bandpass',freq:300,f1:900,q:3,peak:.3,a:.02,dec:.3});
+      [784,988,1175,1568].forEach((f,i)=>tone(t+.12+i*.07,o,{type:'sine',f0:f,peak:.22,dec:.35})); },
+    chestHum(v){ if(!ensure()||!ok()||v<=0) return; const t=ctx.currentTime, o=out(v*.35);
+      [1320,1760].forEach((f,i)=>tone(t+i*.12,o,{type:'sine',f0:f,peak:.12,a:.05,dec:.5})); },
     chat(){ if(!ensure()||!ok()) return; const t=ctx.currentTime, o=out(.4); tone(t,o,{type:'sine',f0:1000,peak:.15,dec:.06}); tone(t+.06,o,{type:'sine',f0:1500,peak:.15,dec:.08}); },
     elim(){ if(!ensure()||!ok()) return; const t=ctx.currentTime, o=out(.5);
       [784,988,1318].forEach((f,i)=>tone(t+i*.05,o,{type:'square',f0:f,peak:.12,dec:.18})); },

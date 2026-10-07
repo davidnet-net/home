@@ -291,6 +291,12 @@
 			.btn-cosmetic {
 				background: #db2777;
 				border: 1px solid #f472b6;
+				justify-content: center;
+				font-size: 0.95rem;
+			}
+			.btn-cosmetic:hover:not(:disabled) {
+				background: #be185d;
+				box-shadow: 0 0 15px rgba(219, 39, 119, 0.5);
 			}
 			.btn-mission {
 				background: #d97706;
@@ -605,96 +611,119 @@
 					</span>
 				</h2>
 				<div id="shop-content">
-					<div style="color: #cbd5e1; margin-bottom: 10px">
-						Welkom. Brandstof wordt bijgevuld. Reparaties en upgrades beschikbaar.
-					</div>
+					<!-- HOOFD SHOP MENU -->
+					<div id="main-shop-panel">
+						<div style="color: #cbd5e1; margin-bottom: 10px">
+							Welkom. Brandstof wordt bijgevuld. Reparaties en upgrades beschikbaar.
+						</div>
 
-					<div class="shop-section">
-						<h3>Per-Run Upgrades (Verlies je bij crash)</h3>
-						<div class="shop-grid">
-							<button class="btn btn-shop" id="btn-up-fuel" onclick="buyUpgrade('fuel')">
-								Grotere Tank
-								<span>20 ♦</span>
-							</button>
-							<button class="btn btn-shop" id="btn-up-engine" onclick="buyUpgrade('engine')">
-								Sterkere Motor
-								<span>30 ♦</span>
-							</button>
-							<button class="btn btn-shop" id="btn-buy-shield" onclick="buyUpgrade('shield')">
-								Schild Generator
-								<span>50 ♦</span>
-							</button>
+						<div class="shop-section">
+							<h3>Per-Run Upgrades (Verlies je bij crash)</h3>
+							<div class="shop-grid">
+								<button class="btn btn-shop" id="btn-up-fuel" onclick="buyUpgrade('fuel')">
+									Grotere Tank
+									<span>20 ♦</span>
+								</button>
+								<button class="btn btn-shop" id="btn-up-engine" onclick="buyUpgrade('engine')">
+									Sterkere Motor
+									<span>30 ♦</span>
+								</button>
+								<button class="btn btn-shop" id="btn-buy-shield" onclick="buyUpgrade('shield')">
+									Schild Generator
+									<span>50 ♦</span>
+								</button>
+								<button
+									class="btn btn-shop"
+									id="btn-fix-leak"
+									onclick="buyUpgrade('fix_leak')"
+									style="display: none; background: #dc2626; border-color: #f87171">
+									Repareer Lek
+									<span>20 ♦</span>
+								</button>
+							</div>
+						</div>
+
+						<div class="shop-section">
+							<h3>Permanente Ontgrendelingen</h3>
+							<div class="shop-grid">
+								<button class="btn btn-perm" id="btn-mod-boost" onclick="buyUpgrade('mod_boost')">
+									Turbo Boost (
+									<kbd>Spatie</kbd>
+									)
+									<span>150 ♦</span>
+								</button>
+								<button class="btn btn-perm" id="btn-mod-magnet" onclick="buyUpgrade('mod_magnet')">
+									Magneet (
+									<kbd>Shift</kbd>
+									)
+									<span>200 ♦</span>
+								</button>
+								<button class="btn btn-perm" id="btn-ship-sport" onclick="buyUpgrade('ship_sport')">
+									Sport Schip
+									<span>300 ♦</span>
+								</button>
+								<button
+									class="btn btn-perm"
+									id="btn-ship-tanker"
+									onclick="buyUpgrade('ship_tanker')">
+									Zware Tanker
+									<span>300 ♦</span>
+								</button>
+							</div>
+						</div>
+
+						<div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #334155">
 							<button
-								class="btn btn-shop"
-								id="btn-fix-leak"
-								onclick="buyUpgrade('fix_leak')"
-								style="display: none; background: #dc2626; border-color: #f87171">
-								Repareer Lek
-								<span>20 ♦</span>
+								class="btn btn-cosmetic"
+								style="width: 100%; font-size: 1.1rem; padding: 12px"
+								onclick="togglePanel('cosmetics')">
+								🎨 Open Cosmetica & Skins Menu
+							</button>
+						</div>
+
+						<div id="mission-offer-container" class="hidden">
+							<button class="btn btn-mission" id="btn-accept-mission" onclick="acceptMission()">
+								Missie Aannemen
+							</button>
+						</div>
+
+						<div
+							style="
+								margin-top: 15px;
+								padding-top: 15px;
+								border-top: 1px solid #334155;
+								display: flex;
+								gap: 10px;
+							">
+							<button class="btn btn-info" style="flex: 1" onclick="openLeaderboards()">
+								🏆 Leaderboards
+							</button>
+							<button class="btn btn-achieve" style="flex: 1" onclick="openAchievements()">
+								🎖️ Achievements
 							</button>
 						</div>
 					</div>
 
-					<div class="shop-section">
-						<h3>Permanente Ontgrendelingen</h3>
-						<div class="shop-grid">
-							<button class="btn btn-perm" id="btn-mod-boost" onclick="buyUpgrade('mod_boost')">
-								Turbo Boost (
-								<kbd>Spatie</kbd>
-								)
-								<span>150 ♦</span>
-							</button>
-							<button class="btn btn-perm" id="btn-mod-magnet" onclick="buyUpgrade('mod_magnet')">
-								Magneet (
-								<kbd>Shift</kbd>
-								)
-								<span>200 ♦</span>
-							</button>
-							<button class="btn btn-perm" id="btn-ship-sport" onclick="buyUpgrade('ship_sport')">
-								Sport Schip
-								<span>300 ♦</span>
-							</button>
-							<button class="btn btn-perm" id="btn-ship-tanker" onclick="buyUpgrade('ship_tanker')">
-								Zware Tanker
-								<span>300 ♦</span>
-							</button>
+					<!-- VERBORGEN COSMETICA MENU -->
+					<div id="cosmetics-panel" class="hidden">
+						<button class="btn" style="margin-bottom: 10px" onclick="togglePanel('main')">
+							⬅ Terug naar Upgrades
+						</button>
+						<div class="shop-section" style="margin-top: 0; border-top: none">
+							<h3>Missie Beloningen (Cosmetica)</h3>
+							<p style="font-size: 12px; color: #94a3b8; margin-top: -5px; margin-bottom: 15px">
+								Ontgrendel door missies te voltooien. Klik om aan te trekken.
+							</p>
+
+							<h4 style="color: #c084fc; font-size: 14px; margin: 0 0 5px 0">Raket Kleuren</h4>
+							<div class="shop-grid" id="grid-body-colors"></div>
+
+							<h4 style="color: #c084fc; font-size: 14px; margin: 15px 0 5px 0">Trail Kleuren</h4>
+							<div class="shop-grid" id="grid-trail-colors"></div>
+
+							<h4 style="color: #c084fc; font-size: 14px; margin: 15px 0 5px 0">Hoeden</h4>
+							<div class="shop-grid" id="grid-hats"></div>
 						</div>
-					</div>
-
-					<div class="shop-section">
-						<h3>Cosmetica (Permanent)</h3>
-						<div class="shop-grid">
-							<button class="btn btn-cosmetic" id="btn-cos-pink" onclick="buyUpgrade('cos_pink')">
-								Roze Vlam
-								<span>50 ♦</span>
-							</button>
-							<button class="btn btn-cosmetic" id="btn-cos-blue" onclick="buyUpgrade('cos_blue')">
-								Blauwe Vlam
-								<span>50 ♦</span>
-							</button>
-						</div>
-					</div>
-
-					<div id="mission-offer-container" class="hidden">
-						<button class="btn btn-mission" id="btn-accept-mission" onclick="acceptMission()">
-							Missie Aannemen
-						</button>
-					</div>
-
-					<div
-						style="
-							margin-top: 15px;
-							padding-top: 15px;
-							border-top: 1px solid #334155;
-							display: flex;
-							gap: 10px;
-						">
-						<button class="btn btn-info" style="flex: 1" onclick="openLeaderboards()">
-							🏆 Leaderboards
-						</button>
-						<button class="btn btn-achieve" style="flex: 1" onclick="openAchievements()">
-							🎖️ Achievements
-						</button>
 					</div>
 				</div>
 				<div style="text-align: center; margin-top: 15px; color: #94a3b8; font-size: 14px">
@@ -768,7 +797,6 @@
 			</div>
 		</div>
 
-		<!-- Algemene Popup Modal (Voor Leaderboards & Achievements) -->
 		<div id="modal-overlay" class="hidden">
 			<div class="modal-box">
 				<h2 id="modal-title" style="color: #f8fafc; text-align: center; margin-top: 0">
@@ -824,14 +852,7 @@
 			let dataLoadPromise = Promise.resolve();
 			let player = {};
 			let runUpgrades = { fuelLvl: 0, engineLvl: 0, shield: false };
-			let permUnlocks = {
-				boost: false,
-				magnet: false,
-				ship_sport: false,
-				ship_tanker: false,
-				cos_pink: false,
-				cos_blue: false
-			};
+			let permUnlocks = { boost: false, magnet: false, ship_sport: false, ship_tanker: false };
 			let stats = {
 				crystals: 0,
 				score: 0,
@@ -841,7 +862,7 @@
 				maxPadReached: 0,
 				totalCrystalsCollected: 0
 			};
-			let cosmetics = { thrustColor: "#f97316" };
+			let cosmetics = { thrustColor: "#f97316", bodyColor: "default", hat: "none" };
 			let currentShipIdx = 0;
 
 			let currentMission = null;
@@ -888,6 +909,32 @@
 			const TURN_SPEED = 0.05;
 			const FUEL_CONS = 1.5;
 			const REFILL_RATE = 10;
+
+			// Nieuw Cosmetica Missie-systeem
+			const cosmeticUnlocks = {
+				body: [
+					{ id: "default", name: "Standaard", req: 0 },
+					{ id: "crimson", name: "Crimson Red", req: 2 },
+					{ id: "midnight", name: "Midnight Blue", req: 5 },
+					{ id: "golden", name: "Golden Elite", req: 10 },
+					{ id: "toxic", name: "Toxic Green", req: 15 },
+					{ id: "phantom", name: "Phantom White", req: 20 }
+				],
+				trail: [
+					{ id: "#f97316", name: "Oranje Vlam", req: 0 },
+					{ id: "#c084fc", name: "Paarse Vlam", req: 3 },
+					{ id: "#4ade80", name: "Neon Groen", req: 7 },
+					{ id: "#22d3ee", name: "Quantum Cyan", req: 12 },
+					{ id: "#dc2626", name: "Bloedrood", req: 18 }
+				],
+				hat: [
+					{ id: "none", name: "Geen Hoed", req: 0 },
+					{ id: "helmet", name: "Ruimte Helm", req: 4 },
+					{ id: "cap", name: "Petje", req: 8 },
+					{ id: "crown", name: "Kroontje", req: 14 },
+					{ id: "halo", name: "Halo", req: 25 }
+				]
+			};
 
 			// Input Afhandeling
 			const keys = { up: false, left: false, right: false, space: false, shift: false };
@@ -983,7 +1030,13 @@
 				} catch (e) {
 					console.warn("DavidnetSDK.getJsonBlob failed, using defaults", e);
 				}
+
+				// Zorg voor default values
+				if (!cosmetics.bodyColor) cosmetics.bodyColor = "default";
+				if (!cosmetics.hat) cosmetics.hat = "none";
+				if (!cosmetics.thrustColor) cosmetics.thrustColor = "#f97316";
 			}
+
 			function saveData() {
 				try {
 					window.DavidnetSDK.saveJsonBlob({ permUnlocks, stats, cosmetics, currentShipIdx }).catch(
@@ -991,6 +1044,16 @@
 					);
 				} catch (e) {
 					console.warn("DavidnetSDK.saveJsonBlob failed", e);
+				}
+			}
+
+			function togglePanel(panelName) {
+				if (panelName === "cosmetics") {
+					document.getElementById("main-shop-panel").classList.add("hidden");
+					document.getElementById("cosmetics-panel").classList.remove("hidden");
+				} else {
+					document.getElementById("cosmetics-panel").classList.add("hidden");
+					document.getElementById("main-shop-panel").classList.remove("hidden");
 				}
 			}
 
@@ -1455,7 +1518,12 @@
 
 					let distSq = (player.x - h.x) ** 2 + (player.y - h.y) ** 2;
 					if (distSq < (h.size + 15) ** 2) {
-						if (player.hasShield) {
+						if (player.isLanded) {
+							// Volledig veilig op de pad! Het gevaar spat onschadelijk uit elkaar.
+							addParticles(h.x, h.y, 0, 0, "#64748b", 20, 1);
+							hazards.splice(i, 1);
+							continue;
+						} else if (player.hasShield) {
 							player.hasShield = false;
 							hazards.splice(i, 1);
 							player.vy = h.type === "meteor" ? 5 : -5;
@@ -1479,7 +1547,7 @@
 				}
 			}
 
-			/** * SHOP & MISSIES */
+			/** * SHOP & MISSIES & COSMETICA */
 			function handlePadLanding(padId, isEmergency) {
 				if (activePadIndex === padId) return;
 				activePadIndex = padId;
@@ -1540,9 +1608,39 @@
 					missionOffer = { type: type, targetPadIndex: padId + dist, reward: rew, timeLeft: time };
 				}
 
+				togglePanel("main"); // Reset panel view als je op een pad landt
 				updateShopUI();
 				document.getElementById("shop-overlay").classList.add("active");
 				saveData();
+			}
+
+			function buildCosmeticGrid(type, arr) {
+				let html = "";
+				arr.forEach((item) => {
+					let isUnlocked = (stats.missionsCompleted || 0) >= item.req;
+					let isEquipped = false;
+					if (type === "body") isEquipped = cosmetics.bodyColor === item.id;
+					if (type === "trail") isEquipped = cosmetics.thrustColor === item.id;
+					if (type === "hat") isEquipped = cosmetics.hat === item.id;
+
+					let btnClass = isEquipped ? "btn btn-shop" : "btn btn-cosmetic";
+					let btnText = isEquipped
+						? `${item.name} (Aan)`
+						: isUnlocked
+							? `Kies ${item.name}`
+							: `🔒 ${item.req} Missies`;
+
+					html += `<button class="${!isUnlocked ? "btn" : btnClass}" ${!isUnlocked ? 'disabled style="background:#334155; border-color:#475569;"' : `onclick="equipCosmetic('${type}', '${item.id}')"`}>${btnText}</button>`;
+				});
+				return html;
+			}
+
+			function equipCosmetic(type, id) {
+				if (type === "body") cosmetics.bodyColor = id;
+				if (type === "trail") cosmetics.thrustColor = id;
+				if (type === "hat") cosmetics.hat = id;
+				saveData();
+				updateShopUI();
 			}
 
 			function updateShopUI() {
@@ -1595,24 +1693,20 @@
 						: permUnlocks.ship_tanker
 							? "Kies Tanker"
 							: `Zware Tanker <span>300 ♦</span>`;
-				let btnPink = document.getElementById("btn-cos-pink");
-				btnPink.disabled =
-					(stats.crystals < 50 && !permUnlocks.cos_pink) || cosmetics.thrustColor === "#ec4899";
-				btnPink.innerHTML =
-					cosmetics.thrustColor === "#ec4899"
-						? "Roze Vlam (Actief)"
-						: permUnlocks.cos_pink
-							? "Kies Roze Vlam"
-							: `Roze Vlam <span>50 ♦</span>`;
-				let btnBlue = document.getElementById("btn-cos-blue");
-				btnBlue.disabled =
-					(stats.crystals < 50 && !permUnlocks.cos_blue) || cosmetics.thrustColor === "#0ea5e9";
-				btnBlue.innerHTML =
-					cosmetics.thrustColor === "#0ea5e9"
-						? "Blauwe Vlam (Actief)"
-						: permUnlocks.cos_blue
-							? "Kies Blauwe Vlam"
-							: `Blauwe Vlam <span>50 ♦</span>`;
+
+				// Laad de cosmetische missie grids
+				document.getElementById("grid-body-colors").innerHTML = buildCosmeticGrid(
+					"body",
+					cosmeticUnlocks.body
+				);
+				document.getElementById("grid-trail-colors").innerHTML = buildCosmeticGrid(
+					"trail",
+					cosmeticUnlocks.trail
+				);
+				document.getElementById("grid-hats").innerHTML = buildCosmeticGrid(
+					"hat",
+					cosmeticUnlocks.hat
+				);
 
 				let mCont = document.getElementById("mission-offer-container");
 				if (missionOffer && !currentMission) {
@@ -1671,22 +1765,6 @@
 						currentShipIdx = 2;
 						applyShip();
 					}
-				} else if (type === "cos_pink") {
-					if (!permUnlocks.cos_pink && stats.crystals >= 50) {
-						stats.crystals -= 50;
-						permUnlocks.cos_pink = true;
-					}
-					if (permUnlocks.cos_pink) {
-						cosmetics.thrustColor = "#ec4899";
-					}
-				} else if (type === "cos_blue") {
-					if (!permUnlocks.cos_blue && stats.crystals >= 50) {
-						stats.crystals -= 50;
-						permUnlocks.cos_blue = true;
-					}
-					if (permUnlocks.cos_blue) {
-						cosmetics.thrustColor = "#0ea5e9";
-					}
 				}
 				saveData();
 				updateShopUI();
@@ -1742,7 +1820,9 @@
 								y: player.y,
 								angle: player.angle,
 								isThrusting: (keys.up || (keys.space && permUnlocks.boost)) && player.fuel > 0,
-								color: cosmetics.thrustColor,
+								thrustColor: cosmetics.thrustColor,
+								bodyColor: cosmetics.bodyColor,
+								hat: cosmetics.hat,
 								shipIdx: currentShipIdx
 							})
 							.catch(() => {});
@@ -2029,6 +2109,7 @@
 					cy = 80;
 				let scale = 0.015;
 
+				// Kruis en Radar basis
 				radarCtx.strokeStyle = "rgba(255,255,255,0.1)";
 				radarCtx.beginPath();
 				radarCtx.moveTo(cx, 0);
@@ -2037,19 +2118,52 @@
 				radarCtx.lineTo(160, cy);
 				radarCtx.stroke();
 
-				// Teken terrein op minimap
-				radarCtx.strokeStyle = "rgba(255,255,255,0.3)";
-				radarCtx.lineWidth = 1;
+				// Teken Terreinvloer (met clipping om enorme glitch blocks te voorkomen)
+				radarCtx.strokeStyle = "rgba(255,255,255,0.5)";
+				radarCtx.lineWidth = 1.5;
 				radarCtx.beginPath();
+				let isDrawingFloor = false;
 				for (let i = 0; i < terrain.length; i++) {
 					let t = terrain[i];
 					let rx = cx + (t.x - player.x) * scale;
 					let ry = cy + (t.y - player.y) * scale;
-					if (i === 0) radarCtx.moveTo(rx, ry);
-					else radarCtx.lineTo(rx, ry);
-					if (t.isPad) {
-						radarCtx.fillStyle = "#10b981";
-						radarCtx.fillRect(rx - 2, ry - 2, 4, 3);
+
+					if (rx >= -20 && rx <= 180) {
+						if (!isDrawingFloor) {
+							radarCtx.moveTo(rx, ry);
+							isDrawingFloor = true;
+						} else {
+							radarCtx.lineTo(rx, ry);
+						}
+						if (t.isPad) {
+							radarCtx.fillStyle = "#10b981";
+							radarCtx.fillRect(rx - 2, ry - 2, 4, 3);
+						}
+					} else {
+						isDrawingFloor = false;
+					}
+				}
+				radarCtx.stroke();
+
+				// Teken Plafond op minimap
+				radarCtx.strokeStyle = "rgba(255,255,255,0.15)";
+				radarCtx.beginPath();
+				let isDrawingCeil = false;
+				for (let i = 0; i < terrain.length; i++) {
+					let t = terrain[i];
+					if (t.ceilY <= -1000) continue;
+					let rx = cx + (t.x - player.x) * scale;
+					let ry = cy + (t.ceilY - player.y) * scale;
+
+					if (rx >= -20 && rx <= 180) {
+						if (!isDrawingCeil) {
+							radarCtx.moveTo(rx, ry);
+							isDrawingCeil = true;
+						} else {
+							radarCtx.lineTo(rx, ry);
+						}
+					} else {
+						isDrawingCeil = false;
 					}
 				}
 				radarCtx.stroke();
@@ -2088,6 +2202,130 @@
 				context.fillStyle = "#0f172a";
 				context.textAlign = "center";
 				context.fillText(text, 0, yOffset - 3);
+			}
+
+			// Hulpscript voor kleurencombinaties
+			function getShipColors(shipCfg, bodyColorId) {
+				if (bodyColorId === "crimson") return { c1: "#991b1b", c2: "#f87171" };
+				if (bodyColorId === "midnight") return { c1: "#1e3a8a", c2: "#60a5fa" };
+				if (bodyColorId === "golden") return { c1: "#b45309", c2: "#fde047" };
+				if (bodyColorId === "toxic") return { c1: "#166534", c2: "#4ade80" };
+				if (bodyColorId === "phantom") return { c1: "#f8fafc", c2: "#94a3b8" };
+				return { c1: shipCfg.color1, c2: shipCfg.color2 };
+			}
+
+			// Algemene Tekenfunctie voor Raketten (Jij + Andere Spelers)
+			function drawShip(context, shipCfg, state, x, y, angle) {
+				context.save();
+				context.translate(x, y);
+				context.rotate(angle + Math.PI / 2);
+				if (state.globalAlpha) context.globalAlpha = state.globalAlpha;
+
+				let colors = getShipColors(shipCfg, state.bodyColor);
+
+				if (state.isThrusting) {
+					context.fillStyle = state.isBoosting ? "#fef08a" : state.thrustColor || "#f97316";
+					let tLen = state.isBoosting ? 35 : 20;
+					context.beginPath();
+					context.moveTo(-shipCfg.width / 3, shipCfg.height / 2);
+					context.lineTo(shipCfg.width / 3, shipCfg.height / 2);
+					context.lineTo(0, shipCfg.height / 2 + Math.random() * tLen + 15);
+					context.fill();
+				}
+
+				context.fillStyle = colors.c1;
+				context.beginPath();
+				context.moveTo(0, -shipCfg.height / 2);
+				context.lineTo(shipCfg.width / 2, shipCfg.height / 2);
+				context.lineTo(-shipCfg.width / 2, shipCfg.height / 2);
+				context.fill();
+
+				context.fillStyle = colors.c2;
+				context.beginPath();
+				context.moveTo(-shipCfg.width / 2, shipCfg.height / 2);
+				context.lineTo(-shipCfg.width / 2 - 8, shipCfg.height / 2 + 5);
+				context.lineTo(-shipCfg.width / 2 + 3, shipCfg.height / 2 - 5);
+				context.fill();
+				context.beginPath();
+				context.moveTo(shipCfg.width / 2, shipCfg.height / 2);
+				context.lineTo(shipCfg.width / 2 + 8, shipCfg.height / 2 + 5);
+				context.lineTo(shipCfg.width / 2 - 3, shipCfg.height / 2 - 5);
+				context.fill();
+
+				context.fillStyle = "#38bdf8";
+				context.beginPath();
+				context.arc(0, -shipCfg.height / 6, 4, 0, Math.PI * 2);
+				context.fill();
+
+				// Cosmetische Hoeden Tekenen
+				if (state.hat === "helmet") {
+					context.fillStyle = "rgba(255,255,255,0.4)";
+					context.beginPath();
+					context.arc(0, -shipCfg.height / 6, 8, 0, Math.PI * 2);
+					context.fill();
+					context.strokeStyle = "rgba(255,255,255,0.8)";
+					context.lineWidth = 1;
+					context.stroke();
+				} else if (state.hat === "cap") {
+					context.fillStyle = "#ef4444";
+					context.beginPath();
+					context.arc(0, -shipCfg.height / 2 - 2, 6, Math.PI, 0);
+					context.fill();
+					context.fillRect(-6, -shipCfg.height / 2 - 2, 16, 3);
+				} else if (state.hat === "crown") {
+					context.fillStyle = "#fbbf24";
+					context.beginPath();
+					context.moveTo(-6, -shipCfg.height / 2);
+					context.lineTo(-8, -shipCfg.height / 2 - 8);
+					context.lineTo(-2, -shipCfg.height / 2 - 4);
+					context.lineTo(0, -shipCfg.height / 2 - 10);
+					context.lineTo(2, -shipCfg.height / 2 - 4);
+					context.lineTo(8, -shipCfg.height / 2 - 8);
+					context.lineTo(6, -shipCfg.height / 2);
+					context.fill();
+				} else if (state.hat === "halo") {
+					context.strokeStyle = "#fef08a";
+					context.lineWidth = 2;
+					context.beginPath();
+					context.ellipse(0, -shipCfg.height / 2 - 8, 8, 3, 0, 0, Math.PI * 2);
+					context.stroke();
+				}
+
+				if (state.hasShield) {
+					context.strokeStyle = "rgba(56,189,248,0.8)";
+					context.lineWidth = 3;
+					context.shadowBlur = 10;
+					context.shadowColor = "#38bdf8";
+					context.beginPath();
+					context.arc(0, 0, Math.max(shipCfg.width, shipCfg.height) + 5, 0, Math.PI * 2);
+					context.stroke();
+					context.shadowBlur = 0;
+				}
+
+				if (state.hasPackage) {
+					context.fillStyle = "#fbbf24";
+					context.fillRect(-5, shipCfg.height / 2 - 10, 10, 10);
+					context.strokeStyle = "#b45309";
+					context.lineWidth = 1;
+					context.strokeRect(-5, shipCfg.height / 2 - 10, 10, 10);
+				}
+
+				// Naam & Chat
+				context.save();
+				context.rotate(-angle - Math.PI / 2);
+				context.font = "bold 13px sans-serif";
+				let nW = context.measureText(state.name).width;
+				context.fillStyle = "rgba(15, 23, 42, 0.8)";
+				context.fillRect(-nW / 2 - 6, -55, nW + 12, 20);
+				context.fillStyle = state.isLocal ? "#10b981" : "#38bdf8";
+				context.textAlign = "center";
+				context.fillText(state.name, 0, -40);
+
+				if (state.chat && performance.now() - state.chat.time < 7000) {
+					drawChatBubble(context, state.chat.text, -75);
+				}
+				context.restore();
+				context.restore();
 			}
 
 			function draw() {
@@ -2248,116 +2486,56 @@
 
 				drawParticles();
 
-				// TEKEN MULTIPLAYER ANDERE SPELERS
+				// TEKEN ANDERE SPELERS
 				for (let uid in otherPlayers) {
 					let op = otherPlayers[uid];
 					if (performance.now() - op.lastSeen > 3000) continue;
-					let opShipCfg = SHIPS[op.shipIdx] || SHIPS[0];
 
-					ctx.save();
-					ctx.translate(op.x, op.y);
-					ctx.rotate(op.angle + Math.PI / 2);
-					ctx.globalAlpha = 0.6;
-
-					if (op.isThrusting) {
-						ctx.fillStyle = op.color || "#f97316";
-						ctx.beginPath();
-						ctx.moveTo(-opShipCfg.width / 3, opShipCfg.height / 2);
-						ctx.lineTo(opShipCfg.width / 3, opShipCfg.height / 2);
-						ctx.lineTo(0, opShipCfg.height / 2 + 25);
-						ctx.fill();
-					}
-					ctx.fillStyle = opShipCfg.color1;
-					ctx.beginPath();
-					ctx.moveTo(0, -opShipCfg.height / 2);
-					ctx.lineTo(opShipCfg.width / 2, opShipCfg.height / 2);
-					ctx.lineTo(-opShipCfg.width / 2, opShipCfg.height / 2);
-					ctx.fill();
-					ctx.fillStyle = opShipCfg.color2;
-					ctx.beginPath();
-					ctx.moveTo(-opShipCfg.width / 2, opShipCfg.height / 2);
-					ctx.lineTo(-opShipCfg.width / 2 - 8, opShipCfg.height / 2 + 5);
-					ctx.lineTo(-opShipCfg.width / 2 + 3, opShipCfg.height / 2 - 5);
-					ctx.fill();
-					ctx.beginPath();
-					ctx.moveTo(opShipCfg.width / 2, opShipCfg.height / 2);
-					ctx.lineTo(opShipCfg.width / 2 + 8, opShipCfg.height / 2 + 5);
-					ctx.lineTo(opShipCfg.width / 2 - 3, opShipCfg.height / 2 - 5);
-					ctx.fill();
-					ctx.fillStyle = "#38bdf8";
-					ctx.beginPath();
-					ctx.arc(0, -opShipCfg.height / 6, 4, 0, Math.PI * 2);
-					ctx.fill();
-
-					ctx.save();
-					ctx.rotate(-op.angle - Math.PI / 2);
-					ctx.font = "bold 13px sans-serif";
-					let nW = ctx.measureText(op.name).width;
-					ctx.fillStyle = "rgba(15, 23, 42, 0.8)";
-					ctx.fillRect(-nW / 2 - 6, -55, nW + 12, 20);
-					ctx.fillStyle = "#38bdf8";
-					ctx.textAlign = "center";
-					ctx.fillText(op.name, 0, -40);
-
-					if (op.chat && performance.now() - op.chat.time < 7000) {
-						drawChatBubble(ctx, op.chat.text, -75);
-					}
-					ctx.restore();
-					ctx.restore();
+					drawShip(
+						ctx,
+						SHIPS[op.shipIdx] || SHIPS[0],
+						{
+							bodyColor: op.bodyColor,
+							thrustColor: op.thrustColor,
+							hat: op.hat,
+							isThrusting: op.isThrusting,
+							isBoosting: false,
+							hasShield: false,
+							hasPackage: false,
+							name: op.name,
+							chat: op.chat,
+							globalAlpha: 0.6,
+							isLocal: false
+						},
+						op.x,
+						op.y,
+						op.angle
+					);
 				}
 
-				// TEKEN LOKALE SPELER
+				// TEKEN JOUW SPELER
 				if (gameState === "PLAYING") {
-					let shipCfg = SHIPS[currentShipIdx];
-					ctx.save();
-					ctx.translate(player.x, player.y);
-					ctx.rotate(player.angle + Math.PI / 2);
-					if ((keys.up || (keys.space && permUnlocks.boost)) && player.fuel > 0) {
-						ctx.fillStyle = keys.space ? "#fef08a" : cosmetics.thrustColor;
-						ctx.beginPath();
-						ctx.moveTo(-shipCfg.width / 3, shipCfg.height / 2);
-						ctx.lineTo(shipCfg.width / 3, shipCfg.height / 2);
-						ctx.lineTo(0, shipCfg.height / 2 + Math.random() * (keys.space ? 35 : 20) + 15);
-						ctx.fill();
-					}
-					ctx.fillStyle = shipCfg.color1;
-					ctx.beginPath();
-					ctx.moveTo(0, -shipCfg.height / 2);
-					ctx.lineTo(shipCfg.width / 2, shipCfg.height / 2);
-					ctx.lineTo(-shipCfg.width / 2, shipCfg.height / 2);
-					ctx.fill();
-					ctx.fillStyle = shipCfg.color2;
-					ctx.beginPath();
-					ctx.moveTo(-shipCfg.width / 2, shipCfg.height / 2);
-					ctx.lineTo(-shipCfg.width / 2 - 8, shipCfg.height / 2 + 5);
-					ctx.lineTo(-shipCfg.width / 2 + 3, shipCfg.height / 2 - 5);
-					ctx.fill();
-					ctx.beginPath();
-					ctx.moveTo(shipCfg.width / 2, shipCfg.height / 2);
-					ctx.lineTo(shipCfg.width / 2 + 8, shipCfg.height / 2 + 5);
-					ctx.lineTo(shipCfg.width / 2 - 3, shipCfg.height / 2 - 5);
-					ctx.fill();
-					ctx.fillStyle = "#38bdf8";
-					ctx.beginPath();
-					ctx.arc(0, -shipCfg.height / 6, 4, 0, Math.PI * 2);
-					ctx.fill();
-					if (player.hasShield) {
-						ctx.strokeStyle = "rgba(56,189,248,0.8)";
-						ctx.lineWidth = 3;
-						ctx.shadowBlur = 10;
-						ctx.shadowColor = "#38bdf8";
-						ctx.beginPath();
-						ctx.arc(0, 0, Math.max(shipCfg.width, shipCfg.height) + 5, 0, Math.PI * 2);
-						ctx.stroke();
-						ctx.shadowBlur = 0;
-					}
-					if (currentMission && currentMission.type === "pakket") {
-						ctx.fillStyle = "#fbbf24";
-						ctx.fillRect(-5, shipCfg.height / 2 - 10, 10, 10);
-						ctx.strokeStyle = "#b45309";
-						ctx.lineWidth = 1;
-						ctx.strokeRect(-5, shipCfg.height / 2 - 10, 10, 10);
-					}
+					let isT = (keys.up || (keys.space && permUnlocks.boost)) && player.fuel > 0;
+					let hasP = currentMission && currentMission.type === "pakket";
+					drawShip(
+						ctx,
+						SHIPS[currentShipIdx],
+						{
+							bodyColor: cosmetics.bodyColor,
+							thrustColor: cosmetics.thrustColor,
+							hat: cosmetics.hat,
+							isThrusting: isT,
+							isBoosting: keys.space,
+							hasShield: player.hasShield,
+							hasPackage: hasP,
+							name: "Jij",
+							chat: playerChat,
+							isLocal: true
+						},
+						player.x,
+						player.y,
+						player.angle
+					);
 
 					particles.forEach((p) => {
 						if (p.text) {
@@ -2370,24 +2548,8 @@
 							ctx.restore();
 						}
 					});
-
-					ctx.save();
-					ctx.rotate(-player.angle - Math.PI / 2);
-					let myName = "Jij";
-					ctx.font = "bold 13px sans-serif";
-					let nWMe = ctx.measureText(myName).width;
-					ctx.fillStyle = "rgba(15, 23, 42, 0.8)";
-					ctx.fillRect(-nWMe / 2 - 6, -55, nWMe + 12, 20);
-					ctx.fillStyle = "#10b981";
-					ctx.textAlign = "center";
-					ctx.fillText(myName, 0, -40);
-
-					if (playerChat && performance.now() - playerChat.time < 7000) {
-						drawChatBubble(ctx, playerChat.text, -75);
-					}
-					ctx.restore();
-					ctx.restore();
 				}
+
 				ctx.restore();
 
 				if (b.weather !== "none") {
@@ -2443,11 +2605,9 @@
 					activePlayersCount = (roomData.members ? roomData.members.length : 0) + 1;
 					document.getElementById("player-count").innerText = activePlayersCount;
 
-					// Bepaal of kies de Gedeelde Seed (eerste speler in kamer kiest als er nog geen is, of gebruik room state)
 					if (roomData.state && roomData.state.worldSeed) {
 						seed = roomData.state.worldSeed;
 					} else {
-						// Jij bent mogelijk de eerste, of er is nog geen seed ingesteld
 						seed = Math.floor(Math.random() * 1000000);
 						try {
 							await window.DavidnetSDK.realtime.setState(MULTIPLAYER_ROOM, "worldSeed", seed);
@@ -2477,7 +2637,9 @@
 							otherPlayers[uid].y = data.y;
 							otherPlayers[uid].angle = data.angle;
 							otherPlayers[uid].isThrusting = data.isThrusting;
-							otherPlayers[uid].color = data.color;
+							otherPlayers[uid].thrustColor = data.thrustColor;
+							otherPlayers[uid].bodyColor = data.bodyColor;
+							otherPlayers[uid].hat = data.hat;
 							otherPlayers[uid].shipIdx = data.shipIdx;
 							otherPlayers[uid].name = senderName;
 							otherPlayers[uid].lastSeen = performance.now();

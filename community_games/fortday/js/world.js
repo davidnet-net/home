@@ -76,8 +76,9 @@ function genBRWorld(seed,theme){
   }
   let n=0;
   const P=(type,gx,gy,gz,rot,color,hp)=>placeBuild(type,gx,gy,gz,rot,MAP_TEAM,'m'+(n++),{color,hp});
-  const loot=[];
+  const loot=[], chests=[];
   const L=(cx,cz,y,legend)=>loot.push({x:cx*GRID+(R()-.5)*1.2,y,z:cz*GRID+(R()-.5)*1.2,legend});
+  const C=(cx,cz,y)=>chests.push({x:cx*GRID,y,z:cz*GRID,rot:Math.floor(R()*4)*Math.PI/2});
   function perimeter(x0,z0,w,d){
     const out=[];
     for(let i=0;i<w;i++){ out.push([x0+i,z0-.5,0]); out.push([x0+i,z0+d-.5,0]); }
@@ -100,6 +101,7 @@ function genBRWorld(seed,theme){
       for(let i=0;i<2;i++) for(let j=0;j<3;j++){ if(x0+i===hole[0]&&z0+j===hole[1]) continue; P('floor',x0+i,k,z0+j,0,k===N?top:col,hp); }
     }
     L(x0+(N%2?1:0),z0+(N%2?2:0),N*GRID_H+WALL_T+.6,true);
+    C(x0+(N%2?0:1),z0+(N%2?0:2),N*GRID_H+WALL_T);      // a chest on the roof
     L(x0+1,z0+2,.6,false);
   }
   const HOUSE_PAL=[[0xb5523b,0x6e2f22],[0xd8c3a5,0x8a5a3a],[0x7d8ea3,0x3f4a5a],[0x9fb38a,0x5b4636],[0xe0d6c3,0x9b3b2e],[0xc9a66b,0x4b3a2a]];
@@ -117,6 +119,7 @@ function genBRWorld(seed,theme){
       if(stairs&&k===1&&i===1&&j===0) continue;
       P('floor',x0+i,k,z0+j,0,k===stories?roof:col,hp);
     }
+    if(R()<.75){ const s=Math.floor(R()*stories); C(x0+Math.floor(R()*w),z0+d-1,s*GRID_H+(s>0?WALL_T:0)); }
     for(let s=0;s<stories;s++){
       const cnt=1+(R()<.5?1:0);
       for(let c=0;c<cnt;c++){ const i=Math.floor(R()*w), j=1+Math.floor(R()*(d-1)); L(x0+i,z0+Math.min(d-1,j),s*GRID_H+(s>0?WALL_T:0)+.6,false); }
@@ -134,7 +137,9 @@ function genBRWorld(seed,theme){
   for(let i=0;i<45;i++){ const x=(R()*2-1)*(BR_B-6), z=(R()*2-1)*(BR_B-6); if(inUsed(x,z,3)) continue; addProp('r'+(pid++),theme.rock,x,z,1+R()*1.4,R); }
   // Floor loot out in the open
   for(let i=0;i<55;i++){ const x=(R()*2-1)*(BR_B-10), z=(R()*2-1)*(BR_B-10); if(inUsed(x,z,1)) continue; loot.push({x,y:.6,z,legend:R()<.04}); }
+  for(let i=0;i<14;i++){ const x=(R()*2-1)*(BR_B-12), z=(R()*2-1)*(BR_B-12); if(inUsed(x,z,2)) continue; chests.push({x,y:0,z,rot:R()*Math.PI*2}); }
   loot.forEach((l,i)=>addPickup('l'+i,rollLoot(R,l.legend),l.x,l.y,l.z,false));
+  chests.forEach((c,i)=>addChest('c'+i,c.x,c.y,c.z,c.rot));
 }
 
 // ═══════════════════════════════════════════════════════════

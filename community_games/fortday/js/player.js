@@ -82,6 +82,15 @@ function canStand(px,pz,feet){
 }
 
 let stepT=0, highGroundDone=false;
+// ── Crouch & slide ──
+let crouching=false, slide=null, slideCd=0, crouchPrev=false, slideLastFeet=0;
+function canStandUp(){ const f=getFeetY(); return ceilingY(camera.position.x,camera.position.z,f)>=f+STAND_HEAD; }
+function setEyeTarget(dt){
+  const tEye=slide?SLIDE_EYE:crouching?CROUCH_EYE:STAND_EYE;
+  HEAD=(slide||crouching)?CROUCH_HEAD:STAND_HEAD;
+  const ne=PEYE+(tEye-PEYE)*(1-Math.exp(-dt*16));
+  camera.position.y+=ne-PEYE; PEYE=ne;          // feet stay where they are
+}
 function updatePlayer(dt){
   if(isDead) return;
   // moving or jumping cancels an emote
@@ -105,8 +114,19 @@ function updatePlayer(dt){
   if(bindDown('right')||keys.ArrowRight){mx+=rgt.x;mz+=rgt.z;}
   const ml=Math.hypot(mx,mz); if(ml>0){mx/=ml;mz/=ml;}
 
-  const sprinting=bindDown('sprint');
+  // crouch / slide input: pressing crouch while sprinting on the ground starts a slide
+  const wantCrouch=bindDown('crouch')&&!brGlide;
+  const hSpeed=Math.hypot(vel.x,vel.z);
+  slideCd=Math.max(0,slideCd-dt);
+  if(wantCrouch&&!crouchPrev&&onGround&&!slide&&slideCd<=0&&hSpeed>SPEED*1.2){
+    slide={t:0,speed:Math.max(hSpeed*1.3,SPEED*2.15),dx:vel.x/hSpeed,dz:vel.z/hSpeed};
+    slideLastFeet=getFeetY(); SFX.slide();
+  }
+  crouchPrev=wantCrouch;
+  if(!slide) crouching=wantCrouch||(crouching&&!canStandUp());    // stay down if there's no room to stand
+  const sprinting=bindDown('sprint')&&!crouching&&!slide;
   let spd=SPEED*(sprinting?1.6:1);
+  if(crouching&&!slide) spd=SPEED*.5;
   if(usingItem) spd*=.55;
   if(aiming) spd*=.7;
   if(brGlide) spd=17;
@@ -114,6 +134,21 @@ function updatePlayer(dt){
   const acc=1-Math.exp(-dt*(onGround?18:brGlide?6:5));
   vel.x+=(mx*spd-vel.x)*acc; vel.z+=(mz*spd-vel.z)*acc;
 
+  if(slide){
+    slide.t+=dt;
+    const f=getFeetY();
+    if(onGround&&f<slideLastFeet-.002) slide.speed=Math.min(28,slide.speed+dt*9);   // downhill keeps you going
+    else slide.speed*=Math.exp(-dt*.5);
+    slideLastFeet=f;
+    // a little steering
+    if(ml>0){ slide.dx+=mx*dt*1.6; slide.dz+=mz*dt*1.6; const l=Math.hypot(slide.dx,slide.dz)||1; slide.dx/=l; slide.dz/=l; }
+    vel.x=slide.dx*slide.speed; vel.z=slide.dz*slide.speed;
+    const jump=bindDown('jump')&&onGround;
+    if(slide.speed<SPEED*1.05||slide.t>1.6||jump||(!wantCrouch&&slide.t>.35)){
+      slide=null; slideCd=.35;
+      crouching=wantCrouch||!canStandUp();
+    }
+  }
   if(bindDown('jump')&&onGround&&!brGlide){ vel.y=JUMP_V; onGround=false; }
   if(!onGround) vel.y+=GRAV*dt;
   if(brGlide) vel.y=Math.max(vel.y,getFeetY()>30?-14:-8);
@@ -141,16 +176,19 @@ function updatePlayer(dt){
   if(onGround&&!wasGround&&fallV<-9) SFX.land();
   if(onGround&&brGlide){ brGlide=false; $('glide').style.display='none'; }
 
+  if(brGlide||inBus){ slide=null; crouching=false; }
+  setEyeTarget(dt);
   const B=worldB;
   camera.position.x=clamp(camera.position.x,-B,B);
   camera.position.z=clamp(camera.position.z,-B,B);
   camera.quaternion.setFromEuler(camYaw);
+  if(slide) camera.rotateZ(Math.sin(Math.min(1,slide.t*4))*.06);
 
   if(!highGroundDone&&onGround&&feet>24){ highGroundDone=true; ach('high_ground'); }
 
   // Footsteps
   const moving=ml>0&&onGround;
-  if(moving){ stepT-=dt; if(stepT<=0){ stepT=sprinting?.27:.36; SFX.step(); } } else stepT=0;
+  if(moving&&!crouching&&!slide){ stepT-=dt; if(stepT<=0){ stepT=sprinting?.27:.36; SFX.step(); } } else stepT=0;   // sneaking is silent
 
   // Weapon bob / recoil / pickaxe swing
   if(moving) gunBobT+=dt*9;

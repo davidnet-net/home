@@ -398,7 +398,7 @@ function respawnPit(first){
   cancelReload(); cancelUse();
   giveDefaultLoadout(); setMode('gun'); showGun(curType());
   updateHpUI(); updateAmmoUI(); updateHotbarUI();
-  $('elim').style.display='none';
+  $('elim').style.display='none'; stopSpectate();
   spawnProtUntil=performance.now()+2000;
   if(!first) netSend({type:'respawn',x:+best[0].toFixed(2),y:0,z:+best[1].toFixed(2)});
   sendPos();

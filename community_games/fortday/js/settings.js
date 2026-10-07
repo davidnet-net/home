@@ -14,6 +14,10 @@ async function loadSettings(){
     if(d&&typeof d==='object'){
       settings.muted=!!d.muted;
       if(d.binds&&typeof d.binds==='object') Object.keys(DEFAULT_BINDS).forEach(a=>{ if(typeof d.binds[a]==='string'&&d.binds[a].length<24) settings.binds[a]=d.binds[a]; });
+      // v2 defaults: C = crouch/slide, V = ramp. Move old saves along if they still had ramp on C.
+      if(d.binds&&!d.binds.crouch&&d.binds.ramp==='KeyC'){ settings.binds.ramp='KeyV'; settings.binds.crouch='KeyC'; }
+      // never leave two actions on one key: give the later one its default (or nothing)
+      const seen={}; Object.keys(DEFAULT_BINDS).forEach(a=>{ const c=settings.binds[a]; if(seen[c]&&seen[c]!==a){ settings.binds[a]=Object.values(settings.binds).includes(DEFAULT_BINDS[a])?'':DEFAULT_BINDS[a]; } seen[settings.binds[a]]=a; });
       settings.skin=sanitizeSkin(d.skin);
     }
   }catch(e){}
@@ -33,12 +37,12 @@ function closeModal(id){ $(id).style.display='none'; clearKeys(); }
 
 // ═══ KEY BINDINGS ═══
 const ACTION_LABEL={
-  forward:'Vooruit', back:'Achteruit', left:'Links', right:'Rechts', jump:'Springen', sprint:'Sprinten',
+  forward:'Vooruit', back:'Achteruit', left:'Links', right:'Rechts', jump:'Springen', sprint:'Sprinten', crouch:'Hurken / sliden',
   slot1:'Item slot 1', slot2:'Item slot 2', slot3:'Item slot 3', slot4:'Item slot 4', slot5:'Item slot 5', pickaxe:'Pikhouweel',
   wall:'Muur bouwen', floor:'Vloer bouwen', ramp:'Helling bouwen', edit:'Editen',
   reload:'Herladen', use:'Oppakken', drop:'Item laten vallen', chat:'Chat', emote:'Emote', menu:'Hoofdmenu'
 };
-const ACTION_GROUPS=[['Bewegen',['forward','back','left','right','jump','sprint']],['Items',['slot1','slot2','slot3','slot4','slot5','pickaxe','reload','use','drop']],
+const ACTION_GROUPS=[['Bewegen',['forward','back','left','right','jump','sprint','crouch']],['Items',['slot1','slot2','slot3','slot4','slot5','pickaxe','reload','use','drop']],
   ['Bouwen',['wall','floor','ramp','edit']],['Overig',['chat','emote','menu']]];
 let rebinding=null;
 function openKeybinds(){ renderKeybinds(); openModal('kb-modal'); }
@@ -72,7 +76,7 @@ function resetKeybinds(){ BINDS={...DEFAULT_BINDS}; settings.binds=BINDS; saveSe
 function refreshKeyHints(){
   const k=a=>keyLabel(BINDS[a]);
   const hint=$('hint');
-  if(hint) hint.textContent=`${k('slot1')}-${k('slot5')} / Scroll: Items · ${k('pickaxe')}: Pikhouweel · ${k('wall')}: Muur · ${k('floor')}: Vloer · ${k('ramp')}: Helling · ${k('edit')}: Edit · ${k('reload')}: Herladen · ${k('use')}: Oppakken · ${k('drop')}: Laten vallen · ${k('chat')}: Chat · ${k('emote')}: Emote · ${k('menu')}: Hoofdmenu`;
+  if(hint) hint.textContent=`${k('slot1')}-${k('slot5')} / Scroll: Items · ${k('pickaxe')}: Pikhouweel · ${k('wall')}: Muur · ${k('floor')}: Vloer · ${k('ramp')}: Helling · ${k('edit')}: Edit · ${k('reload')}: Herladen · ${k('use')}: Oppakken · ${k('drop')}: Laten vallen · ${k('crouch')}: Hurken (sprint = sliden) · ${k('chat')}: Chat · ${k('emote')}: Emote · ${k('menu')}: Hoofdmenu`;
   if(typeof buildHotbar==='function'&&$('ws-pick')){ buildHotbar(); updateHotbarUI(); }
 }
 

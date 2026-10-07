@@ -5,7 +5,10 @@
 // ═══════════════════════════════════════════════════════════
 const GRID=4, GRID_H=4, WALL_T=0.28;
 const SPEED=11, JUMP_V=12, GRAV=-26;
-const PEYE=1.65, PR=0.38, HEAD=1.8;
+// eye height + body height change when you crouch/slide (feet = camera.y - PEYE)
+const STAND_EYE=1.65, CROUCH_EYE=1.02, SLIDE_EYE=.78, STAND_HEAD=1.8, CROUCH_HEAD=1.15;
+let PEYE=STAND_EYE, HEAD=STAND_HEAD;
+const PR=0.38;
 const MAX_HP=100, MAX_SH=100;
 const BUILD_COST=10, MAP_TEAM=-1, MAX_WOOD=999;
 const ARENA_B=57, BR_B=200;
@@ -163,8 +166,8 @@ const keys={};
 const DEFAULT_BINDS={
   forward:'KeyW', back:'KeyS', left:'KeyA', right:'KeyD', jump:'Space', sprint:'ShiftLeft',
   slot1:'Digit1', slot2:'Digit2', slot3:'Digit3', slot4:'Digit4', slot5:'Digit5', pickaxe:'KeyX',
-  wall:'KeyQ', floor:'KeyF', ramp:'KeyC', edit:'KeyG',
-  reload:'KeyR', use:'KeyE', drop:'KeyZ', chat:'KeyT', emote:'KeyB', menu:'KeyM'
+  wall:'KeyQ', floor:'KeyF', ramp:'KeyV', edit:'KeyG',
+  reload:'KeyR', use:'KeyE', drop:'KeyZ', crouch:'KeyC', chat:'KeyT', emote:'KeyB', menu:'KeyM'
 };
 let BINDS={...DEFAULT_BINDS};
 const bindDown=a=>!!keys[BINDS[a]];

@@ -4,6 +4,7 @@
 		authState,
 		Avatar,
 		Button,
+		Checkbox,
 		deleteFetch,
 		Flex,
 		getFetch,
@@ -63,10 +64,14 @@
 	let showDeleteModal = $state(false);
 	let isDeleting = $state(false);
 
-	// --- Update game files (creator only) ---
+	// --- Update game (creator only): files, icon, title, description, AI disclosure - all optional ---
 	let showUpdateModal = $state(false);
 	let isUpdating = $state(false);
 	let updateFiles = $state<FileList | null>(null);
+	let updateIconFiles = $state<FileList | null>(null);
+	let updateTitle = $state("");
+	let updateDescription = $state("");
+	let updateIsAiGenerated = $state(false);
 	let updateErrorMessage = $state("");
 
 	let isReportModalOpen = $state(false);
@@ -146,10 +151,7 @@
 		})();
 	});
 
-	onMount(async () => {
-		window.addEventListener("message", handleGameMessage);
-
-		await whenAuthReady();
+	async function refreshGameData() {
 		try {
 			const result = await getFetch(
 				`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}`,
@@ -168,9 +170,15 @@
 			}
 		} catch (err) {
 			errorMessage = "Failed to load game data.";
-		} finally {
-			loading = false;
 		}
+	}
+
+	onMount(async () => {
+		window.addEventListener("message", handleGameMessage);
+
+		await whenAuthReady();
+		await refreshGameData();
+		loading = false;
 
 		loadHighscores();
 	});
@@ -271,10 +279,20 @@
 		}
 	}
 
-	// --- UPDATE GAME FILES (creator only) ---
+	// --- UPDATE GAME (creator only): files, icon, title, description, AI disclosure ---
+	function openUpdateModal() {
+		updateTitle = gameData?.title ?? "";
+		updateDescription = gameData?.description ?? "";
+		updateIsAiGenerated = Boolean(gameData?.isAiGenerated);
+		updateFiles = null;
+		updateIconFiles = null;
+		updateErrorMessage = "";
+		showUpdateModal = true;
+	}
+
 	async function executeUpdateGame() {
-		if (!updateFiles || updateFiles.length === 0) {
-			updateErrorMessage = "Please select a .zip file containing your updated game.";
+		if (!updateTitle.trim()) {
+			updateErrorMessage = "Title cannot be empty.";
 			return;
 		}
 
@@ -282,7 +300,15 @@
 		updateErrorMessage = "";
 		try {
 			const formData = new FormData();
-			formData.append("game", updateFiles[0]);
+			if (updateFiles && updateFiles.length > 0) {
+				formData.append("game", updateFiles[0]);
+			}
+			if (updateIconFiles && updateIconFiles.length > 0) {
+				formData.append("icon", updateIconFiles[0]);
+			}
+			formData.append("title", updateTitle);
+			formData.append("description", updateDescription);
+			formData.append("isAiGenerated", String(updateIsAiGenerated));
 
 			const result = await putFetch(
 				`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}/upload`,
@@ -294,10 +320,13 @@
 			if (checkBanResponse(result)) return;
 
 			if (result.success) {
-				toast("Updated", "Game files have been updated.", "check_circle", 4000, "success");
+				toast("Updated", "Your game has been updated.", "check_circle", 4000, "success");
 				showUpdateModal = false;
+				const didReplaceFiles = Boolean(updateFiles && updateFiles.length > 0);
 				updateFiles = null;
-				resetGame();
+				updateIconFiles = null;
+				await refreshGameData();
+				if (didReplaceFiles) resetGame();
 			} else {
 				updateErrorMessage = result.message || result.code || "Failed to update game.";
 				toast("Update Failed", updateErrorMessage, "error", 4000, "danger");
@@ -1092,29 +1121,66 @@
 
 {#if showUpdateModal}
 	<Modal
-		title="Update game files"
+		title="Update game"
 		onclose={() => {
 			showUpdateModal = false;
-			updateFiles = null;
 			updateErrorMessage = "";
 		}}>
-		<p>
-			Upload a new .zip to replace <strong>{gameData?.title}</strong>
-			's files. It must contain an <strong>index.html</strong>
-			at the root, same as the original upload. Your highscores, saves and icon are kept - only
-			the game files themselves are replaced.
-		</p>
+		<Flex direction="column" gap="medium">
+			<p style="margin: 0; color: {token.theme.color.text.secondary}">
+				Everything below is optional and independent - change just the title, just the icon, just
+				the AI disclosure, or upload a new .zip to replace the game's code, in any combination.
+				Highscores and saves are always kept.
+			</p>
 
-		<input
-			type="file"
-			accept=".zip,application/zip"
-			bind:files={updateFiles}
-			disabled={isUpdating}
-			style="margin-top: 12px;" />
+			<Flex direction="column" gap="xsmall">
+				<span style="font-weight: bold; font-size: 0.9rem;">Title</span>
+				<TextField bind:value={updateTitle} maxlength={100} disabled={isUpdating} />
+			</Flex>
 
-		{#if updateErrorMessage}
-			<p style="color: {token.theme.color.text.danger}; margin-top: 8px;">{updateErrorMessage}</p>
-		{/if}
+			<Flex direction="column" gap="xsmall">
+				<span style="font-weight: bold; font-size: 0.9rem;">Description</span>
+				<TextField
+					bind:value={updateDescription}
+					maxlength={500}
+					placeholder="How do you play?"
+					disabled={isUpdating} />
+			</Flex>
+
+			<Flex direction="column" gap="xsmall">
+				<span style="font-weight: bold; font-size: 0.9rem;">Icon</span>
+				<input
+					type="file"
+					accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
+					bind:files={updateIconFiles}
+					disabled={isUpdating} />
+				<span style="color: {token.theme.color.text.tertiary}; font-size: 0.8rem;">
+					Leave empty to keep the current icon.
+				</span>
+			</Flex>
+
+			<Flex alignItems="center" gap="small">
+				<Checkbox bind:checked={updateIsAiGenerated} disabled={isUpdating} />
+				<span>This game was created entirely by AI (not just AI-assisted)</span>
+			</Flex>
+
+			<Flex direction="column" gap="xsmall">
+				<span style="font-weight: bold; font-size: 0.9rem;">Game code (.zip)</span>
+				<input
+					type="file"
+					accept=".zip,application/zip"
+					bind:files={updateFiles}
+					disabled={isUpdating} />
+				<span style="color: {token.theme.color.text.tertiary}; font-size: 0.8rem;">
+					Leave empty to keep the current game files. If provided, it must contain an
+					<strong>index.html</strong> at the root, same as the original upload.
+				</span>
+			</Flex>
+
+			{#if updateErrorMessage}
+				<p style="color: {token.theme.color.text.danger}; margin: 0;">{updateErrorMessage}</p>
+			{/if}
+		</Flex>
 
 		{#snippet actions()}
 			<Flex gap="small" justifyContent="end">
@@ -1122,13 +1188,12 @@
 					appearance="default"
 					onclick={() => {
 						showUpdateModal = false;
-						updateFiles = null;
 						updateErrorMessage = "";
 					}}>
 					Cancel
 				</Button>
 				<Button appearance="primary" loading={isUpdating} onclick={executeUpdateGame}>
-					Upload new version
+					Save changes
 				</Button>
 			</Flex>
 		{/snippet}
@@ -1473,10 +1538,7 @@
 							.default}; margin: 0 4px;">
 					</div>
 					<IconButton icon="manage_accounts" tip="Manage player data" onclick={openManage} />
-					<IconButton
-						icon="upload_file"
-						tip="Update game files"
-						onclick={() => (showUpdateModal = true)} />
+					<IconButton icon="edit" tip="Update game" onclick={openUpdateModal} />
 					<IconButton
 						icon="delete"
 						tip="Delete game"

@@ -322,7 +322,8 @@ function sendMove(move) {
 	<Modal title="Are you sure?" onclose={() => (showConfirmModal = false)}>
 		<p>
 			You are about to publish <strong>{title}</strong>
-			. Currently, you cannot edit the game files after uploading. Ensure your
+			. You'll be able to update the title, description, icon, AI disclosure and game files at any
+			time after uploading. Ensure your
 			<strong>index.html</strong>
 			is at the root of the ZIP file.
 		</p>

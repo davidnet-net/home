@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fortday</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" type="image/png" href="img/logo-icon.png">
+</head>
+<body>
+
+<!-- ═══ MENU ═══ -->
+<div id="menu">
+  <h1><img id="logo" src="img/logo.svg" alt="FORTDAY"></h1>
+
+  <div id="qpanel">
+    <div class="qp-top">JE ZIT IN DE WACHTRIJ VOOR</div>
+    <div id="qp-mode"></div>
+    <div id="qp-line"><span id="qp-msg" class="dots">Zoeken naar spelers</span> · <span id="qp-time">0:00</span></div>
+    <div id="qp-bar"><div id="qp-fill"></div></div>
+    <div id="qp-count"></div>
+    <button id="qcancel" onclick="cancelQueue()">ANNULEREN</button>
+  </div>
+
+  <div class="qgrid">
+    <button class="qbtn qbr" data-mode="br" onclick="joinBR()">👑 BATTLE ROYALE<small>MIN. 4 SPELERS · BATTLE BUS · STORM · LOOT</small><small id="qc-br">&nbsp;</small></button>
+    <button class="qbtn q1" data-mode="1v1" onclick="joinQueue('1v1',2)">1 V 1<small id="qc-1v1">&nbsp;</small></button>
+    <button class="qbtn q2" data-mode="2v2" onclick="joinQueue('2v2',4)">2 V 2<small id="qc-2v2">&nbsp;</small></button>
+    <button class="qbtn q8" data-mode="1v1v1" onclick="joinQueue('1v1v1',3)">1v1v1<small id="qc-1v1v1">&nbsp;</small></button>
+    <button class="qbtn qf" data-mode="ffa4" onclick="joinQueue('ffa4',4)">1v1v1v1<small id="qc-ffa4">&nbsp;</small></button>
+    <button class="qbtn qp" data-mode="pit" onclick="joinPit()">🔥 THE PIT<small>∞ SPELERS · ∞ RESPAWNS · IEDEREEN TEGEN IEDEREEN</small><small id="qc-pit">&nbsp;</small></button>
+  </div>
+  <div id="qstatus"></div>
+
+  <div id="menu-row">
+    <button id="sound-btn" onclick="toggleSound()">🔊 Geluid aan</button>
+    <button id="ach-btn" onclick="toggleAchPanel()">🏅 Achievements</button>
+    <button onclick="openEditor()">🧍 Speler-editor</button>
+    <button onclick="openKeybinds()">⌨️ Toetsen</button>
+  </div>
+  <div id="achpanel"></div>
+
+  <div id="lb">
+    <div id="lb-tabs">
+      <button id="lbt-kills" class="on" onclick="showLB('kills')">💀 KILLS</button>
+      <button id="lbt-wins" onclick="showLB('wins')">🏆 WINS</button>
+    </div>
+    <div id="lb-rows"><div id="lb-empty">Leaderboard laden…</div></div>
+    <div id="lb-me"></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<!-- ═══ HUD ═══ -->
+<div id="hud">
+  <div id="xhair">
+    <div class="xline" id="xl-t"></div><div class="xline" id="xl-b"></div>
+    <div class="xline" id="xl-l"></div><div class="xline" id="xl-r"></div>
+    <div class="xline" id="xl-c"></div>
+  </div>
+  <div id="hitmark"></div>
+  <div id="vig"></div>
+  <div id="storm-tint"></div>
+  <div id="scope"></div>
+
+  <div id="team-pill"></div>
+  <div id="topbar">
+    <div id="mode-pill"></div>
+    <div id="alive-pill">👥 —</div>
+  </div>
+  <div id="storm-pill"></div>
+  <div id="bmode">WAPEN</div>
+  <div id="kf"></div>
+
+  <div id="bus-prompt"></div>
+  <div id="emote-wheel"></div>
+  <div id="glide">🪂 Je zweeft — stuur met WASD</div>
+
+  <div id="chat">
+    <div id="chat-log"></div>
+    <input id="chat-input" maxlength="120" autocomplete="off" spellcheck="false"
+      placeholder="Typ een bericht… (Enter = sturen · Esc = sluiten)">
+  </div>
+
+  <div id="statbar">
+    <div class="sbar" id="sh-wrap"><div id="sh-fill"></div><span id="sh-text">🛡️ 0</span></div>
+    <div class="sbar" id="hp-wrap"><div id="hp-fill"></div><span id="hp-text">❤️ 100</span></div>
+  </div>
+
+  <div id="hotbar"></div>
+  <div id="mats">🪵 ∞</div>
+
+  <div id="ammobox">
+    <div><span id="ammo-cur">—</span><span id="ammo-sep"> / </span><span id="ammo-res">—</span></div>
+    <div id="weap-name">—</div>
+  </div>
+
+  <div id="reload-wrap">
+    <div id="reload-label">Herladen</div>
+    <div id="reload-track"><div id="reload-fill"></div></div>
+  </div>
+
+  <div id="minimap-wrap"><canvas id="minimap" width="170" height="170"></canvas></div>
+
+  <div id="pickup-prompt"></div>
+  <div id="hint">1-5 / Scroll: Items · X: Pikhouweel · Q: Muur · F: Vloer · C: Helling · G: Edit · R: Herladen · E: Oppakken · Rechtermuis: Richten · T: Chat · M: Hoofdmenu</div>
+
+  <div id="pitboard"><h4><span>THE PIT</span><span id="pb-count"></span></h4><div id="pb-rows"></div></div>
+  <div id="killpop"><div class="t">ELIMINATIE</div><div class="s" id="killpop-s"></div></div>
+
+  <div id="elim">
+    <div id="elim-title">UITGESCHAKELD</div>
+    <div id="elim-by"></div>
+    <div id="elim-place"></div>
+    <div id="elim-btns">
+      <button onclick="leaveToMenu(false)">🏠 HOOFDMENU</button>
+      <button onclick="leaveToMenu(true)">🔁 OPNIEUW</button>
+    </div>
+  </div>
+</div>
+
+<div id="lockp" style="display:none">
+  <p>Klik om te spelen</p>
+  <div class="lock-row">
+    <button class="lock-btn" onclick="event.stopPropagation();openKeybinds()">⌨️ TOETSEN</button>
+    <button class="lock-btn" onclick="event.stopPropagation();openEditor()">🧍 SPELER</button>
+    <button id="lock-menu" onclick="event.stopPropagation();leaveToMenu(false)">🏠 HOOFDMENU</button>
+  </div>
+</div>
+
+<div id="end" style="display:none">
+  <h2 id="end-title"></h2>
+  <p id="end-sub"></p>
+  <div id="end-btns">
+    <button onclick="leaveToMenu(false)">🏠 HOOFDMENU</button>
+    <button onclick="leaveToMenu(true)">🔁 OPNIEUW SPELEN</button>
+  </div>
+</div>
+
+<!-- ═══ KEYBINDS ═══ -->
+<div class="modal" id="kb-modal" onclick="if(event.target===this)closeModal('kb-modal')">
+  <div class="mbox">
+    <div class="mhead"><b>⌨️ Toetsen aanpassen</b><button onclick="closeModal('kb-modal')">✕</button></div>
+    <p class="mnote">Klik op een toets en druk daarna op de nieuwe toets. Esc = annuleren. Bezette toetsen worden omgewisseld.</p>
+    <div id="kb-list"></div>
+    <div class="mfoot"><button onclick="resetKeybinds()">↺ Standaard</button><button class="pri" onclick="closeModal('kb-modal')">Klaar</button></div>
+  </div>
+</div>
+
+<!-- ═══ PLAYER EDITOR ═══ -->
+<div class="modal" id="pe-modal" onclick="if(event.target===this)closeModal('pe-modal')">
+  <div class="mbox pe">
+    <div class="mhead"><b>🧍 Speler-editor</b><button onclick="closeModal('pe-modal')">✕</button></div>
+    <div class="pe-wrap">
+      <div class="pe-left"><canvas id="pe-canvas" width="240" height="300"></canvas><button onclick="randomSkin()">🎲 Willekeurig</button></div>
+      <div class="pe-right">
+        <div class="pe-h">Hoed</div><div class="pe-chips" id="pe-hats"></div>
+        <div class="pe-h">Lichaam</div><div class="pe-chips" id="pe-bodies"></div>
+        <div class="pe-h">Gezicht</div><div class="pe-chips" id="pe-faces"></div>
+        <div class="pe-h">Kleuren</div>
+        <div class="pe-cols">
+          <label>Huid <input type="color" id="pe-skin"></label>
+          <label>Shirt <input type="color" id="pe-outfit"></label>
+          <label>Broek <input type="color" id="pe-pants"></label>
+          <label>Hoed <input type="color" id="pe-hatColor"></label>
+        </div>
+      </div>
+    </div>
+    <div class="mfoot"><span class="mnote">Wordt automatisch opgeslagen · andere spelers zien je zo</span><button class="pri" onclick="closeModal('pe-modal')">Klaar</button></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+<script src="js/core.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/items.js"></script>
+<script src="js/avatar.js"></script>
+<script src="js/emote.js"></script>
+<script src="js/build.js"></script>
+<script src="js/edit.js"></script>
+<script src="js/world.js"></script>
+<script src="js/maps.js"></script>
+<script src="js/player.js"></script>
+<script src="js/combat.js"></script>
+<script src="js/net.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/modes.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

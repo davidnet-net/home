@@ -102,10 +102,13 @@
 			</Flex>
 
 			<Flex width="fit-content" height="fit-content" gap="medium">
-				<LinkButton href="/games" appearance="default" iconbefore="arrow_back">
-					Back to Games
+				<LinkButton href="/games" appearance="default" iconbefore="history">
+					Legacy Games
 				</LinkButton>
-				<LinkButton href="/games/community/achievements" appearance="default" iconbefore="military_tech">
+				<LinkButton
+					href="/games/community/achievements"
+					appearance="default"
+					iconbefore="military_tech">
 					My Achievements
 				</LinkButton>
 				<LinkButton href="/games/community/upload" appearance="primary" iconbefore="upload">

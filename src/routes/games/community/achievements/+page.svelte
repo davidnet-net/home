@@ -65,11 +65,20 @@
 	let achievements = $state<Achievement[]>([]);
 	let loading = $state(true);
 	let errorMessage = $state("");
+	let totalPlaytimeMs = $state(0);
+	let loadingPlaytime = $state(true);
 
 	function gameIconUrl(a: Achievement): string | undefined {
 		return a.gameIconFilename
 			? `${PUBLIC_BACKEND_URL}/social/community-games/${a.gameId}/file/${a.gameIconFilename}`
 			: undefined;
+	}
+
+	function formatPlaytime(ms: number): string {
+		const totalMinutes = Math.floor(ms / 60000);
+		const hours = Math.floor(totalMinutes / 60);
+		const minutes = totalMinutes % 60;
+		return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 	}
 
 	onMount(async () => {
@@ -94,6 +103,22 @@
 		} finally {
 			loading = false;
 		}
+
+		try {
+			const playtimeResult = await getFetch(
+				`${PUBLIC_BACKEND_URL}/social/community-games/playtime/total`,
+				undefined,
+				{},
+				true
+			);
+			if (playtimeResult.success) {
+				totalPlaytimeMs = playtimeResult.totalPlaytimeMs ?? 0;
+			}
+		} catch (err) {
+			// Silently ignore - the rest of the page still works without this stat.
+		} finally {
+			loadingPlaytime = false;
+		}
 	});
 
 	const gamesUnlockedIn = $derived(new Set(achievements.map((a) => a.gameId)).size);
@@ -109,6 +134,11 @@
 						{achievements.length}
 						{achievements.length === 1 ? "achievement" : "achievements"} unlocked across {gamesUnlockedIn}
 						{gamesUnlockedIn === 1 ? "game" : "games"}
+					</span>
+				{/if}
+				{#if !loadingPlaytime}
+					<span style="color: {token.theme.color.text.tertiary}; font-size: 0.9rem;">
+						⏱️ {formatPlaytime(totalPlaytimeMs)} total playtime across all community games
 					</span>
 				{/if}
 			</Flex>

@@ -128,7 +128,7 @@
 					aria-hidden="true"
 					style="height: 20rem; width: auto; display: block; transform: rotate(40deg);" />
 			</div>
-			<LinkButton iconafter="arrow_forward" appearance="subtle" href="/games">
+			<LinkButton iconafter="arrow_forward" appearance="subtle" href="/games/community">
 				{m.page_dashboard_play_a_game()}
 			</LinkButton>
 		</Flex>
@@ -136,7 +136,9 @@
 	<Flex width="90%" marginTop="giant" direction="column" gap="small">
 		<Flex justifyContent="spaceBetween" height="fit-content">
 			<h2>{m.common_apps_heading()}</h2>
-			<LinkButton href="/apps" iconafter="arrow_forward">{m.page_dashboard_all_apps_link()}</LinkButton>
+			<LinkButton href="/apps" iconafter="arrow_forward">
+				{m.page_dashboard_all_apps_link()}
+			</LinkButton>
 		</Flex>
 		<Flex gap="medium" height="fit-content" marginBottom="giant" flexWrap="wrap">
 			<HorizontalCard

@@ -89,6 +89,9 @@
 	);
 
 	// --- Highscores / leaderboard ---
+	// This is the "default" category's score, shown in the always-visible summary panel below the
+	// game (not the modal below) - kept separate from the modal's state so switching categories in
+	// the modal never disturbs this summary.
 	let playerHighscore = $state<number | null>(null);
 	let playerHighscoreFlagged = $state(false);
 	let globalHighscore = $state<{
@@ -99,9 +102,26 @@
 		score: number;
 		rank: number;
 	} | null>(null);
-	let leaderboard = $state<any[]>([]);
+
+	// --- Leaderboard modal (browses any of the game's named leaderboard categories) ---
 	let isLeaderboardOpen = $state(false);
 	let isLoadingLeaderboard = $state(false);
+	let leaderboardCategories = $state(["default"]);
+	let selectedLeaderboardCategory = $state("default");
+	let leaderboard = $state<any[]>([]);
+	let modalPlayerScore = $state<number | null>(null);
+	let modalPlayerScoreFlagged = $state(false);
+
+	// --- Playtime ---
+	// totalPlaytimeMs is the player's all-time total for this game, ticked up locally every second
+	// while this tab is visible so it reads as "live" without hammering the backend - the actual
+	// accumulation is flushed to the server in small, periodic pings (see flushPlaytime).
+	let totalPlaytimeMs = $state(0);
+	let playtimeIntervalId: ReturnType<typeof setInterval> | undefined;
+	let pendingPlaytimeMs = 0;
+	let msSinceLastPlaytimeFlush = 0;
+	const PLAYTIME_TICK_MS = 1000;
+	const PLAYTIME_FLUSH_INTERVAL_MS = 30_000;
 
 	// --- Wipe save ---
 	let showWipeModal = $state(false);
@@ -188,7 +208,9 @@
 		await refreshGameData();
 		loading = false;
 
-		loadHighscores();
+		loadDefaultHighscoreSummary();
+		loadPlaytime();
+		startPlaytimeTracking();
 	});
 
 	onDestroy(() => {
@@ -196,6 +218,7 @@
 			window.removeEventListener("message", handleGameMessage);
 		}
 		disconnectRealtime();
+		stopPlaytimeTracking();
 	});
 
 	function resetGame() {
@@ -348,11 +371,12 @@
 	}
 
 	// --- HIGHSCORES ---
-	async function loadHighscores() {
+	// Refreshes the always-visible "default" category summary shown below the game itself.
+	async function loadDefaultHighscoreSummary() {
 		try {
 			const result = await getFetch(
 				`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}/highscores`,
-				undefined,
+				{ category: "default" },
 				{},
 				true
 			);
@@ -363,18 +387,176 @@
 				playerHighscore = result.playerHighscore;
 				playerHighscoreFlagged = Boolean(result.playerHighscoreFlagged);
 				globalHighscore = result.globalHighscore;
-				leaderboard = result.leaderboard;
 			}
 		} catch (err) {
 			// Silently ignore
 		}
 	}
 
+	// Discovers every leaderboard category this game has ever submitted a score under, so the
+	// modal can offer a tab per category instead of only ever showing "default".
+	async function loadLeaderboardCategories() {
+		try {
+			const result = await getFetch(
+				`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}/highscores/categories`,
+				undefined,
+				{},
+				true
+			);
+
+			if (result.success && Array.isArray(result.categories) && result.categories.length > 0) {
+				leaderboardCategories = result.categories.includes("default")
+					? ["default", ...result.categories.filter((c: string) => c !== "default")]
+					: result.categories;
+			}
+		} catch (err) {
+			// Silently ignore - the modal still works with just "default".
+		}
+	}
+
+	function humanizeCategoryName(category: string): string {
+		if (category === "default") return "Main";
+		return category
+			.replace(/[_-]+/g, " ")
+			.trim()
+			.replace(/\b\w/g, (c) => c.toUpperCase());
+	}
+
+	function formatPlaytime(ms: number): string {
+		const totalMinutes = Math.floor(ms / 60000);
+		const hours = Math.floor(totalMinutes / 60);
+		const minutes = totalMinutes % 60;
+		return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+	}
+
+	// Always fetches fresh from the backend (no caching) - this is what keeps leaderboard data
+	// from going stale when switching categories or reopening the modal.
+	async function loadModalLeaderboard(category: string) {
+		isLoadingLeaderboard = true;
+		try {
+			const result = await getFetch(
+				`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}/highscores`,
+				{ category },
+				{},
+				true
+			);
+
+			if (checkBanResponse(result)) return;
+
+			if (result.success) {
+				modalPlayerScore = result.playerHighscore;
+				modalPlayerScoreFlagged = Boolean(result.playerHighscoreFlagged);
+				leaderboard = result.leaderboard;
+
+				if (category === "default") {
+					playerHighscore = result.playerHighscore;
+					playerHighscoreFlagged = Boolean(result.playerHighscoreFlagged);
+					globalHighscore = result.globalHighscore;
+				}
+			}
+		} finally {
+			isLoadingLeaderboard = false;
+		}
+	}
+
 	async function openLeaderboard() {
 		isLeaderboardOpen = true;
-		isLoadingLeaderboard = true;
-		await loadHighscores();
-		isLoadingLeaderboard = false;
+		await loadLeaderboardCategories();
+		if (!leaderboardCategories.includes(selectedLeaderboardCategory)) {
+			selectedLeaderboardCategory = leaderboardCategories[0] ?? "default";
+		}
+		await loadModalLeaderboard(selectedLeaderboardCategory);
+	}
+
+	async function selectLeaderboardCategory(category: string) {
+		if (category === selectedLeaderboardCategory) return;
+		selectedLeaderboardCategory = category;
+		await loadModalLeaderboard(category);
+	}
+
+	// --- PLAYTIME TRACKING ---
+	async function loadPlaytime() {
+		try {
+			const result = await getFetch(
+				`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}/playtime`,
+				undefined,
+				{},
+				true
+			);
+			if (result.success) {
+				totalPlaytimeMs = result.totalPlaytimeMs ?? 0;
+			}
+		} catch (err) {
+			// Silently ignore
+		}
+	}
+
+	async function flushPlaytime() {
+		if (pendingPlaytimeMs <= 0) return;
+		const deltaMs = pendingPlaytimeMs;
+		pendingPlaytimeMs = 0;
+		msSinceLastPlaytimeFlush = 0;
+
+		try {
+			await postFetch(
+				`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}/playtime/ping`,
+				{ deltaMs },
+				{},
+				true
+			);
+		} catch (err) {
+			// Best-effort - a lost ping only costs at most one flush interval of playtime.
+		}
+	}
+
+	// Sends a final ping with fetch's keepalive flag so it still has a chance to land even if the
+	// tab is being closed right now, which a normal fetch (or SvelteKit's wrapped postFetch) can't
+	// guarantee. Built by hand because keepalive isn't exposed through postFetch.
+	function flushPlaytimeOnUnload() {
+		if (pendingPlaytimeMs <= 0 || !identityState.token?.raw) return;
+		const deltaMs = pendingPlaytimeMs;
+		pendingPlaytimeMs = 0;
+
+		try {
+			fetch(`${PUBLIC_BACKEND_URL}/social/community-games/${gameId}/playtime/ping`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${identityState.token.raw}`
+				},
+				body: JSON.stringify({ deltaMs }),
+				keepalive: true
+			});
+		} catch (err) {
+			// Best-effort.
+		}
+	}
+
+	function handlePlaytimeVisibilityChange() {
+		if (document.visibilityState === "hidden") flushPlaytime();
+	}
+
+	function startPlaytimeTracking() {
+		if (playtimeIntervalId) return;
+		playtimeIntervalId = setInterval(() => {
+			if (document.visibilityState !== "visible") return;
+			totalPlaytimeMs += PLAYTIME_TICK_MS;
+			pendingPlaytimeMs += PLAYTIME_TICK_MS;
+			msSinceLastPlaytimeFlush += PLAYTIME_TICK_MS;
+			if (msSinceLastPlaytimeFlush >= PLAYTIME_FLUSH_INTERVAL_MS) flushPlaytime();
+		}, PLAYTIME_TICK_MS);
+		document.addEventListener("visibilitychange", handlePlaytimeVisibilityChange);
+		window.addEventListener("beforeunload", flushPlaytimeOnUnload);
+	}
+
+	function stopPlaytimeTracking() {
+		if (playtimeIntervalId) {
+			clearInterval(playtimeIntervalId);
+			playtimeIntervalId = undefined;
+		}
+		document.removeEventListener("visibilitychange", handlePlaytimeVisibilityChange);
+		window.removeEventListener("beforeunload", flushPlaytimeOnUnload);
+		flushPlaytime();
 	}
 
 	// --- WIPE SAVE ---
@@ -883,7 +1065,13 @@
 			if (category === "default") {
 				playerHighscore = result.playerHighscore;
 				playerHighscoreFlagged = Boolean(result.playerHighscoreFlagged);
-				if (result.isNewGlobalBest) await loadHighscores();
+				if (result.isNewGlobalBest) await loadDefaultHighscoreSummary();
+			}
+
+			// Keep the leaderboard modal in sync if it's open and showing the category that was
+			// just submitted to - otherwise it would show a stale list until manually reopened.
+			if (isLeaderboardOpen && selectedLeaderboardCategory === category) {
+				await loadModalLeaderboard(category);
 			}
 
 			return respondToGame(msg.requestId, true, {
@@ -917,10 +1105,12 @@
 				);
 			}
 
+			// Mirrors into the page's own "default" summary only - the leaderboard modal manages its
+			// own state independently (see loadModalLeaderboard) so a game polling via the SDK can't
+			// make the modal jump to a different category out from under the player.
 			if (category === "default") {
 				playerHighscore = result.playerHighscore;
 				globalHighscore = result.globalHighscore;
-				leaderboard = result.leaderboard;
 			}
 
 			return respondToGame(msg.requestId, true, {
@@ -1409,7 +1599,7 @@
 				<span style="color: {token.theme.color.text.tertiary}; font-size: 0.8rem;">
 					Leave empty to keep the current game files. If provided, it must contain an
 					<strong>index.html</strong>
-					 at the root, same as the original upload.
+					at the root, same as the original upload.
 				</span>
 			</Flex>
 
@@ -1476,16 +1666,28 @@
 
 {#if isLeaderboardOpen}
 	<Modal title="Leaderboard" onclose={() => (isLeaderboardOpen = false)}>
-		{#if isLoadingLeaderboard}
-			<Flex justifyContent="center" alignItems="center" height="200px">
-				<Spinner size="medium" />
-			</Flex>
-		{:else}
-			<Flex direction="column" gap="medium">
+		<Flex direction="column" gap="medium">
+			{#if leaderboardCategories.length > 1}
+				<Flex gap="xsmall" flexWrap="wrap">
+					{#each leaderboardCategories as category (category)}
+						<Button
+							appearance={category === selectedLeaderboardCategory ? "primary" : "subtle"}
+							onclick={() => selectLeaderboardCategory(category)}>
+							{humanizeCategoryName(category)}
+						</Button>
+					{/each}
+				</Flex>
+			{/if}
+
+			{#if isLoadingLeaderboard}
+				<Flex justifyContent="center" alignItems="center" height="200px">
+					<Spinner size="medium" />
+				</Flex>
+			{:else}
 				<Flex direction="column" gap="xsmall">
 					<span style="color: {token.theme.color.text.tertiary}">Your highscore</span>
-					<span style="font-size: 1.4rem; font-weight: bold;">{playerHighscore ?? "—"}</span>
-					{#if playerHighscoreFlagged}
+					<span style="font-size: 1.4rem; font-weight: bold;">{modalPlayerScore ?? "—"}</span>
+					{#if modalPlayerScoreFlagged}
 						<span style="color: {token.theme.color.text.tertiary}; font-size: 0.85rem;">
 							⏳ Under review — this score is unusually high, so it's hidden from the public
 							leaderboard until a moderator checks it.
@@ -1498,7 +1700,26 @@
 						<Flex alignItems="center" gap="small" style="padding: 6px 0;">
 							<span style="width: 1.5rem; font-weight: bold;">#{entry.rank}</span>
 							<Avatar size="small" src={entry.avatarUrl} alt={entry.username} />
-							<span style="flex: 1;">@{entry.username}</span>
+							<Flex direction="column" gap="xsmall" style="flex: 1; min-width: 0;">
+								<span style="overflow-wrap: break-word;">@{entry.username}</span>
+								<Flex
+									alignItems="center"
+									gap="xsmall"
+									style="color: {token.theme.color.text.tertiary}; font-size: 0.75rem;">
+									{#if entry.language}
+										<Flex alignItems="center" gap="xsmall">
+											<Icon icon="translate" size="small" />
+											<span>{entry.language}</span>
+										</Flex>
+									{/if}
+									{#if entry.playtimeMs}
+										<Flex alignItems="center" gap="xsmall">
+											<Icon icon="schedule" size="small" />
+											<span>{formatPlaytime(entry.playtimeMs)}</span>
+										</Flex>
+									{/if}
+								</Flex>
+							</Flex>
 							<span style="font-weight: bold;">{entry.score}</span>
 						</Flex>
 					{:else}
@@ -1507,8 +1728,8 @@
 						</p>
 					{/each}
 				</Flex>
-			</Flex>
-		{/if}
+			{/if}
+		</Flex>
 
 		{#snippet actions()}
 			<Flex justifyContent="end">
@@ -1836,6 +2057,11 @@
 							Your highscore
 						</span>
 						<span style="font-size: 1.4rem; font-weight: bold;">{playerHighscore ?? "—"}</span>
+						{#if playerHighscoreFlagged}
+							<span style="color: {token.theme.color.text.tertiary}; font-size: 0.75rem;">
+								⏳ Under review
+							</span>
+						{/if}
 					</div>
 
 					<div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
@@ -1854,6 +2080,15 @@
 						{:else}
 							<span style="font-size: 1.4rem; font-weight: bold;">—</span>
 						{/if}
+					</div>
+
+					<div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+						<span style="color: {token.theme.color.text.tertiary}; font-size: 0.85rem;">
+							⏱️ Your playtime
+						</span>
+						<span style="font-size: 1.4rem; font-weight: bold;">
+							{formatPlaytime(totalPlaytimeMs)}
+						</span>
 					</div>
 				</div>
 			</div>

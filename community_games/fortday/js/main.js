@@ -7,14 +7,14 @@
 //  R reload · right mouse: aim · T chat · M main menu · Space: jump (or leave the bus)
 let lastWheel=0, lastAutoBuild=0;
 
-function focusGame(){ try{ window.focus(); }catch(e){} if(gameStarted&&!gameOver) renderer.domElement.requestPointerLock(); }
+// only (re)lock when the mouse isn't locked yet — re-locking on every click (= every shot) used to wipe held keys
+function focusGame(){ if(isLocked) return; try{ window.focus(); }catch(e){} if(gameStarted&&!gameOver) renderer.domElement.requestPointerLock(); }
 renderer.domElement.addEventListener('click',focusGame);
 $('lockp').addEventListener('click',focusGame);
 document.addEventListener('pointerlockchange',()=>{
   isLocked=document.pointerLockElement===renderer.domElement;
   $('lockp').style.display=(!isLocked&&gameStarted&&!gameOver&&!(isDead&&!isPit())&&!chatOpen)?'flex':'none';
-  if(!isLocked){ mouseHeld=false; aiming=false; }
-  resetInputState();
+  if(!isLocked){ mouseHeld=false; aiming=false; resetInputState(); }   // only when the lock is LOST
 });
 // Re-sync input whenever focus/fullscreen/visibility changes, so keys never get "stuck" or dead
 function resetInputState(){
@@ -23,8 +23,8 @@ function resetInputState(){
   if(chatOpen&&document.activeElement!==$('chat-input')) closeChat();
 }
 window.addEventListener('blur',resetInputState);
-window.addEventListener('focus',resetInputState);
-document.addEventListener('visibilitychange',resetInputState);
+window.addEventListener('focus',()=>{ if(chatOpen&&document.activeElement!==$('chat-input')) closeChat(); });
+document.addEventListener('visibilitychange',()=>{ if(document.hidden) resetInputState(); });
 document.addEventListener('fullscreenchange',()=>{ resetInputState(); if(document.fullscreenElement&&gameStarted&&!gameOver) setTimeout(focusGame,50); });
 document.addEventListener('webkitfullscreenchange',resetInputState);
 

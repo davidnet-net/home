@@ -171,14 +171,30 @@
 				position: absolute;
 				bottom: 20px;
 				left: 20px;
-				width: 300px;
+				width: 350px;
 				max-height: 150px;
-				overflow-y: hidden;
 				display: flex;
 				flex-direction: column;
 				gap: 5px;
 				pointer-events: none;
-				z-index: 10;
+				z-index: 200;
+				overflow: hidden;
+			}
+			#chat-log.expanded {
+				max-height: 300px;
+				background: rgba(15, 23, 42, 0.9);
+				border: 1px solid #475569;
+				border-radius: 8px;
+				padding: 10px;
+				pointer-events: auto;
+				overflow-y: auto;
+			}
+			#chat-log.expanded::-webkit-scrollbar {
+				width: 8px;
+			}
+			#chat-log.expanded::-webkit-scrollbar-thumb {
+				background: #c084fc;
+				border-radius: 4px;
 			}
 			.chat-msg {
 				background: rgba(15, 23, 42, 0.8);
@@ -188,6 +204,7 @@
 				font-size: 13px;
 				text-shadow: 1px 1px 1px black;
 				animation: fadeIn 0.3s;
+				word-wrap: break-word;
 			}
 
 			#shop-overlay {
@@ -449,7 +466,7 @@
 				background: rgba(15, 23, 42, 0.95);
 				color: white;
 				outline: none;
-				z-index: 100;
+				z-index: 201;
 				box-shadow: 0 0 20px rgba(192, 132, 252, 0.4);
 				font-family: inherit;
 				pointer-events: auto;
@@ -588,7 +605,6 @@
 				<div id="landing-assist" style="font-size: 24px"></div>
 			</div>
 
-			<!-- Linksonder tijdelijke chatberichten log -->
 			<div id="chat-log"></div>
 
 			<div id="radar-box"><canvas id="radarCanvas"></canvas></div>
@@ -611,7 +627,6 @@
 					</span>
 				</h2>
 				<div id="shop-content">
-					<!-- HOOFD SHOP MENU -->
 					<div id="main-shop-panel">
 						<div style="color: #cbd5e1; margin-bottom: 10px">
 							Welkom. Brandstof wordt bijgevuld. Reparaties en upgrades beschikbaar.
@@ -704,7 +719,6 @@
 						</div>
 					</div>
 
-					<!-- VERBORGEN COSMETICA MENU -->
 					<div id="cosmetics-panel" class="hidden">
 						<button class="btn" style="margin-bottom: 10px" onclick="togglePanel('main')">
 							⬅ Terug naar Upgrades
@@ -813,8 +827,23 @@
 		</div>
 
 		<script>
+			// --- ACHIEVEMENT RATE LIMIT FIX ---
+			// We slaan lokaal op welke achievements we deze sessie al verstuurd hebben
+			// zodat we niet elke frame (60x per seconde) de API spammen.
+			const sessionAchievements = new Set();
+			function tryUnlockAchievement(achData) {
+				if (sessionAchievements.has(achData.id)) return;
+				sessionAchievements.add(achData.id);
+				try {
+					window.DavidnetSDK.unlockAchievement(achData).catch(() => {
+						// Negeren we als het mislukt om verdere spam te voorkomen.
+					});
+				} catch (e) {}
+			}
+
 			/** * SEED-BASED RANDOM & HOST SEED SYNC */
-			let seed = 133742;
+			let baseSeed = 133742;
+			let seed = baseSeed;
 			function seededRandom() {
 				let x = Math.sin(seed++) * 10000;
 				return x - Math.floor(x);
@@ -833,7 +862,6 @@
 			let lastFrameTime = performance.now();
 			let frameAccumulator = 0;
 
-			// Entiteiten
 			let particles = [];
 			let weatherParticles = [];
 			let stars = [];
@@ -847,8 +875,8 @@
 			let playerChat = null;
 			let activePlayersCount = 1;
 			const MULTIPLAYER_ROOM = "ruimte-vlieger-global-zone";
+			let chatHistory = [];
 
-			// Opslag & Status
 			let dataLoadPromise = Promise.resolve();
 			let player = {};
 			let runUpgrades = { fuelLvl: 0, engineLvl: 0, shield: false };
@@ -868,11 +896,8 @@
 			let currentMission = null;
 			let activePadIndex = -1;
 			let missionOffer = null;
-
-			// Events
 			let activeEvents = { fuelLeak: false, meteorAlarmTimer: 0 };
 
-			// Configuratie
 			const SHIPS = [
 				{
 					name: "Starter",
@@ -910,7 +935,6 @@
 			const FUEL_CONS = 1.5;
 			const REFILL_RATE = 10;
 
-			// Nieuw Cosmetica Missie-systeem
 			const cosmeticUnlocks = {
 				body: [
 					{ id: "default", name: "Standaard", req: 0 },
@@ -936,7 +960,6 @@
 				]
 			};
 
-			// Input Afhandeling
 			const keys = { up: false, left: false, right: false, space: false, shift: false };
 			window.addEventListener("keydown", (e) => {
 				if (document.activeElement && document.activeElement.tagName === "INPUT") return;
@@ -944,7 +967,10 @@
 				if (e.code === "KeyT" && gameState === "PLAYING") {
 					e.preventDefault();
 					const chatInput = document.getElementById("chat-input");
+					const chatLog = document.getElementById("chat-log");
 					chatInput.classList.remove("hidden");
+					chatLog.classList.add("expanded");
+					renderChat();
 					chatInput.focus();
 					return;
 				}
@@ -963,7 +989,7 @@
 				if (e.code === "ShiftLeft" || e.code === "ShiftRight") keys.shift = false;
 			});
 
-			// Chat Verzenden
+			// Chat Systeem
 			document.getElementById("chat-input").addEventListener("keydown", (e) => {
 				if (e.key === "Enter") {
 					let msg = e.target.value.trim();
@@ -976,29 +1002,45 @@
 						playerChat = { text: msg, time: performance.now() };
 						appendChatLog("Jij", msg);
 					}
-					e.target.value = "";
-					e.target.classList.add("hidden");
-					e.target.blur();
-					canvas.focus();
+					closeChat(e.target);
 				} else if (e.key === "Escape") {
-					e.target.value = "";
-					e.target.classList.add("hidden");
-					e.target.blur();
-					canvas.focus();
+					closeChat(e.target);
 				}
 			});
 
-			function appendChatLog(sender, text) {
-				const log = document.getElementById("chat-log");
-				const div = document.createElement("div");
-				div.className = "chat-msg";
-				div.innerHTML = `<strong>${sender}:</strong> ${text}`;
-				log.appendChild(div);
-				if (log.children.length > 5) log.removeChild(log.children[0]);
-				setTimeout(() => {
-					if (div.parentNode) div.remove();
-				}, 6000);
+			function closeChat(inputEl) {
+				inputEl.value = "";
+				inputEl.classList.add("hidden");
+				inputEl.blur();
+				document.getElementById("chat-log").classList.remove("expanded");
+				renderChat();
+				canvas.focus();
 			}
+
+			function appendChatLog(sender, text) {
+				chatHistory.push({ sender, text, time: performance.now() });
+				if (chatHistory.length > 50) chatHistory.shift();
+				renderChat();
+			}
+
+			function renderChat() {
+				const log = document.getElementById("chat-log");
+				const isExpanded = log.classList.contains("expanded");
+				let html = "";
+				let now = performance.now();
+				chatHistory.forEach((msg) => {
+					let age = now - msg.time;
+					if (isExpanded || age < 6000) {
+						html += `<div class="chat-msg"><strong>${msg.sender}:</strong> ${msg.text}</div>`;
+					}
+				});
+				log.innerHTML = html;
+				if (isExpanded) log.scrollTop = log.scrollHeight;
+			}
+
+			setInterval(() => {
+				if (!document.getElementById("chat-log").classList.contains("expanded")) renderChat();
+			}, 1000);
 
 			function resize() {
 				canvas.width = window.innerWidth;
@@ -1007,7 +1049,6 @@
 			window.addEventListener("resize", resize);
 			resize();
 
-			/** * DAVIDNET SDK OPSLAG & MODALS */
 			async function loadData() {
 				try {
 					let result = await window.DavidnetSDK.getJsonBlob();
@@ -1028,10 +1069,8 @@
 						if (p.currentShipIdx !== undefined) currentShipIdx = p.currentShipIdx;
 					}
 				} catch (e) {
-					console.warn("DavidnetSDK.getJsonBlob failed, using defaults", e);
+					console.warn("LoadData failed", e);
 				}
-
-				// Zorg voor default values
 				if (!cosmetics.bodyColor) cosmetics.bodyColor = "default";
 				if (!cosmetics.hat) cosmetics.hat = "none";
 				if (!cosmetics.thrustColor) cosmetics.thrustColor = "#f97316";
@@ -1040,11 +1079,9 @@
 			function saveData() {
 				try {
 					window.DavidnetSDK.saveJsonBlob({ permUnlocks, stats, cosmetics, currentShipIdx }).catch(
-						(e) => console.warn("DavidnetSDK.saveJsonBlob failed", e)
+						() => {}
 					);
-				} catch (e) {
-					console.warn("DavidnetSDK.saveJsonBlob failed", e);
-				}
+				} catch (e) {}
 			}
 
 			function togglePanel(panelName) {
@@ -1057,6 +1094,9 @@
 				}
 			}
 
+			const safeFetchLb = (opts) =>
+				window.DavidnetSDK.getHighscores(opts).catch((e) => ({ leaderboard: [] }));
+
 			async function openLeaderboards() {
 				document.getElementById("modal-overlay").classList.remove("hidden");
 				document.getElementById("modal-title").innerText = "🏆 Wereldwijde Ranglijsten";
@@ -1066,10 +1106,10 @@
 
 				try {
 					let [scoreLb, crystalLb, padLb, missionLb] = await Promise.all([
-						window.DavidnetSDK.getHighscores(),
-						window.DavidnetSDK.getHighscores({ category: "crystals" }),
-						window.DavidnetSDK.getHighscores({ category: "max-pad" }),
-						window.DavidnetSDK.getHighscores({ category: "missions" })
+						safeFetchLb(),
+						safeFetchLb({ category: "crystals" }),
+						safeFetchLb({ category: "max-pad" }),
+						safeFetchLb({ category: "missions" })
 					]);
 
 					function buildTable(title, icon, dataObj) {
@@ -1113,7 +1153,7 @@
 
 					if (list.length === 0) {
 						content.innerHTML =
-							'<p style="text-align:center; color:#94a3b8; padding:20px;">Nog geen achievements ontgrendeld of gestart. Vlieg door en speel de game!</p>';
+							'<p style="text-align:center; color:#94a3b8; padding:20px;">Geen achievements gevonden.</p>';
 						return;
 					}
 
@@ -1132,18 +1172,17 @@
 								: "";
 
 						html += `
-                <div class="${cardClass}">
-                    <div class="ach-info">
-                        <div class="ach-icon">${ach.icon || "🏆"}</div>
-                        <div>
-                            <div style="font-size:16px; font-weight:bold; color: #f8fafc; margin-bottom:4px;">${ach.name}</div>
-                            <div style="font-size:13px; color: #94a3b8; margin-bottom:6px;">${ach.description || ""}</div>
-                            <div style="font-size:12px; color: #38bdf8;">${statusText}</div>
-                        </div>
-                    </div>
-                    <div style="font-size:12px; color:#cbd5e1; text-align:right;">${rarity}</div>
-                </div>
-            `;
+                        <div class="${cardClass}">
+                            <div class="ach-info">
+                                <div class="ach-icon">${ach.icon || "🏆"}</div>
+                                <div>
+                                    <div style="font-size:16px; font-weight:bold; color: #f8fafc; margin-bottom:4px;">${ach.name}</div>
+                                    <div style="font-size:13px; color: #94a3b8; margin-bottom:6px;">${ach.description || ""}</div>
+                                    <div style="font-size:12px; color: #38bdf8;">${statusText}</div>
+                                </div>
+                            </div>
+                            <div style="font-size:12px; color:#cbd5e1; text-align:right;">${rarity}</div>
+                        </div>`;
 					});
 					content.innerHTML = html;
 				} catch (e) {
@@ -1152,7 +1191,6 @@
 				}
 			}
 
-			/** * BIOMES & WERELD GENERATIE */
 			const BIOMES = [
 				{
 					endX: 6000,
@@ -1252,8 +1290,8 @@
 					isEmergency: false
 				});
 
-				let isCave = false;
-				let caveTimer = 0;
+				let isCave = false,
+					caveTimer = 0;
 
 				for (let i = 1; i < 700; i++) {
 					let isPad = i % 12 === 0;
@@ -1277,7 +1315,6 @@
 
 					if (isPad) padCounter++;
 					let pId = isPad ? padCounter : -1;
-
 					let emergency = isPad && seededRandom() < 0.1 && pId > 2;
 					if (emergency) dx = 80;
 
@@ -1304,9 +1341,9 @@
 				}
 			}
 
-			/** * RESET & START */
 			async function startGame() {
 				await dataLoadPromise;
+				seed = baseSeed;
 				initBackgrounds();
 				generateWorld();
 				canvas.focus();
@@ -1354,6 +1391,23 @@
 				animationId = requestAnimationFrame(gameLoop);
 			}
 
+			async function stuurScoresNaarServer() {
+				try {
+					await window.DavidnetSDK.applyHighscore(Math.max(0, Math.floor(stats.bestScore)));
+					await window.DavidnetSDK.applyHighscore(stats.totalCrystalsCollected || 0, {
+						category: "crystals"
+					});
+					await window.DavidnetSDK.applyHighscore(stats.maxPadReached || 0, {
+						category: "max-pad"
+					});
+					await window.DavidnetSDK.applyHighscore(stats.missionsCompleted || 0, {
+						category: "missions"
+					});
+				} catch (e) {
+					console.warn("Fout bij opslaan leaderboards:", e);
+				}
+			}
+
 			function gameOver(reason) {
 				gameState = "GAMEOVER";
 				document.getElementById("ui-layer").classList.add("hidden");
@@ -1371,45 +1425,29 @@
 				if (stats.score > stats.bestScore) stats.bestScore = stats.score;
 				saveData();
 
-				try {
-					window.DavidnetSDK.unlockAchievement({
-						id: "first_crash",
-						name: "Crash Test Dummy",
-						description: "Je bent gecrasht",
-						icon: "💥"
-					}).catch(() => {});
-				} catch (e) {}
+				tryUnlockAchievement({
+					id: "first_crash",
+					name: "Crash Test Dummy",
+					description: "Je bent gecrasht",
+					icon: "💥"
+				});
 
-				try {
-					window.DavidnetSDK.applyHighscore(Math.max(0, Math.floor(stats.score))).catch(() => {});
-					window.DavidnetSDK.applyHighscore(stats.crystals, { category: "crystals" }).catch(
-						() => {}
-					);
-					window.DavidnetSDK.applyHighscore(stats.maxPadReached || 0, {
-						category: "max-pad"
-					}).catch(() => {});
-					window.DavidnetSDK.applyHighscore(stats.missionsCompleted || 0, {
-						category: "missions"
-					}).catch(() => {});
-				} catch (e) {
-					console.warn("DavidnetSDK.applyHighscore failed", e);
-				}
+				stuurScoresNaarServer();
 
 				document.getElementById("message-overlay").classList.remove("hidden");
 				document.getElementById("title-text").innerHTML = "GECRASHT!";
 				document.getElementById("title-text").style.color = "#ef4444";
 				document.getElementById("desc-text").innerHTML = `
-        <strong>Oorzaak:</strong> ${extraDesc}<br><br>
-        <strong>Score deze run:</strong> ${stats.score} (Beste: ${stats.bestScore})<br>
-        <strong>Totale Kristallen over:</strong> ${stats.crystals} ♦<br><br>
-        <span style="color:#ef4444;">Run-upgrades (Tank/Motor/Schild) zijn verloren.<br>Kristallen en Modules zijn veilig!</span>
-    `;
+                    <strong>Oorzaak:</strong> ${extraDesc}<br><br>
+                    <strong>Score deze run:</strong> ${Math.floor(stats.score)} (Beste: ${Math.floor(stats.bestScore)})<br>
+                    <strong>Totale Kristallen over:</strong> ${stats.crystals} ♦<br><br>
+                    <span style="color:#ef4444;">Run-upgrades (Tank/Motor/Schild) zijn verloren.<br>Kristallen en Modules zijn veilig!</span>
+                `;
 				document.getElementById("start-btn").innerText = "Nieuwe Run";
 
 				runUpgrades = { fuelLvl: 0, engineLvl: 0, shield: false };
 			}
 
-			/** * EFFECTEN & HAZARDS */
 			function addParticles(x, y, vx, vy, color, count, lifeMult = 1, sizeMult = 1) {
 				for (let i = 0; i < count; i++)
 					particles.push({
@@ -1511,6 +1549,7 @@
 						h.x += h.vx;
 						h.y = h.floatBaseY + Math.sin(h.floatTime) * 50;
 					}
+
 					if (h.x < camera.x - 500 || h.y > camera.y + canvas.height + 500) {
 						hazards.splice(i, 1);
 						continue;
@@ -1519,7 +1558,6 @@
 					let distSq = (player.x - h.x) ** 2 + (player.y - h.y) ** 2;
 					if (distSq < (h.size + 15) ** 2) {
 						if (player.isLanded) {
-							// Volledig veilig op de pad! Het gevaar spat onschadelijk uit elkaar.
 							addParticles(h.x, h.y, 0, 0, "#64748b", 20, 1);
 							hazards.splice(i, 1);
 							continue;
@@ -1534,6 +1572,12 @@
 								() => (document.getElementById("danger-overlay").style.background = `transparent`),
 								200
 							);
+							tryUnlockAchievement({
+								id: "shield_tank",
+								name: "Schildpad",
+								description: "Overleef een fatale klap dankzij je schild",
+								icon: "🛡️"
+							});
 						} else {
 							addParticles(player.x, player.y, 0, 0, "#ef4444", 80, 2);
 							gameOver(h.type);
@@ -1543,11 +1587,16 @@
 						h.nearMissed = true;
 						stats.score += 50;
 						spawnFloatingText(player.x, player.y - 40, "Near Miss! +50", "#10b981");
+						tryUnlockAchievement({
+							id: "near_miss",
+							name: "Daredevil",
+							description: "Scheer rakelings langs een gevaar",
+							icon: "☄️"
+						});
 					}
 				}
 			}
 
-			/** * SHOP & MISSIES & COSMETICA */
 			function handlePadLanding(padId, isEmergency) {
 				if (activePadIndex === padId) return;
 				activePadIndex = padId;
@@ -1555,22 +1604,20 @@
 
 				if (padId > 0) {
 					stats.maxPadReached = Math.max(stats.maxPadReached || 0, padId);
-					try {
-						window.DavidnetSDK.unlockAchievement({
-							id: "pad_landing",
-							name: "Veilig Geland",
-							description: "Land succesvol op een platform",
-							icon: "🛬"
-						}).catch(() => {});
-						window.DavidnetSDK.unlockAchievement({
-							id: "pad_master",
-							name: "Diepe Ruimte Verkenner",
-							description: "Bereik pad 10",
-							icon: "🚀",
-							progress: stats.maxPadReached,
-							target: 10
-						}).catch(() => {});
-					} catch (e) {}
+					tryUnlockAchievement({
+						id: "pad_landing",
+						name: "Veilig Geland",
+						description: "Land succesvol op een platform",
+						icon: "🛬"
+					});
+					tryUnlockAchievement({
+						id: "pad_master",
+						name: "Diepe Ruimte Verkenner",
+						description: "Bereik pad 10",
+						icon: "🚀",
+						progress: stats.maxPadReached,
+						target: 10
+					});
 				}
 
 				if (currentMission && currentMission.targetPadIndex === padId) {
@@ -1579,22 +1626,20 @@
 					stats.missionsCompleted = (stats.missionsCompleted || 0) + 1;
 					addParticles(player.x, player.y - 40, 0, -2, "#c084fc", 50, 2);
 					spawnFloatingText(player.x, player.y - 80, "Missie Voltooid!", "#fbbf24");
-					try {
-						window.DavidnetSDK.unlockAchievement({
-							id: "mission_complete",
-							name: "Nieuwe Koerier",
-							description: "Voltooi je eerste missie",
-							icon: "📦"
-						}).catch(() => {});
-						window.DavidnetSDK.unlockAchievement({
-							id: "mission_pro",
-							name: "Top Koerier",
-							description: "Voltooi 10 missies",
-							icon: "🏆",
-							progress: stats.missionsCompleted,
-							target: 10
-						}).catch(() => {});
-					} catch (e) {}
+					tryUnlockAchievement({
+						id: "mission_complete",
+						name: "Nieuwe Koerier",
+						description: "Voltooi je eerste missie",
+						icon: "📦"
+					});
+					tryUnlockAchievement({
+						id: "mission_pro",
+						name: "Top Koerier",
+						description: "Voltooi 10 missies",
+						icon: "🏆",
+						progress: stats.missionsCompleted,
+						target: 10
+					});
 				}
 
 				missionOffer = null;
@@ -1608,7 +1653,7 @@
 					missionOffer = { type: type, targetPadIndex: padId + dist, reward: rew, timeLeft: time };
 				}
 
-				togglePanel("main"); // Reset panel view als je op een pad landt
+				togglePanel("main");
 				updateShopUI();
 				document.getElementById("shop-overlay").classList.add("active");
 				saveData();
@@ -1622,14 +1667,12 @@
 					if (type === "body") isEquipped = cosmetics.bodyColor === item.id;
 					if (type === "trail") isEquipped = cosmetics.thrustColor === item.id;
 					if (type === "hat") isEquipped = cosmetics.hat === item.id;
-
 					let btnClass = isEquipped ? "btn btn-shop" : "btn btn-cosmetic";
 					let btnText = isEquipped
 						? `${item.name} (Aan)`
 						: isUnlocked
 							? `Kies ${item.name}`
 							: `🔒 ${item.req} Missies`;
-
 					html += `<button class="${!isUnlocked ? "btn" : btnClass}" ${!isUnlocked ? 'disabled style="background:#334155; border-color:#475569;"' : `onclick="equipCosmetic('${type}', '${item.id}')"`}>${btnText}</button>`;
 				});
 				return html;
@@ -1665,6 +1708,7 @@
 				} else {
 					btnLeak.style.display = "none";
 				}
+
 				let btnBoost = document.getElementById("btn-mod-boost");
 				btnBoost.disabled = stats.crystals < 150 || permUnlocks.boost;
 				btnBoost.innerHTML = permUnlocks.boost
@@ -1694,7 +1738,6 @@
 							? "Kies Tanker"
 							: `Zware Tanker <span>300 ♦</span>`;
 
-				// Laad de cosmetische missie grids
 				document.getElementById("grid-body-colors").innerHTML = buildCosmeticGrid(
 					"body",
 					cosmeticUnlocks.body
@@ -1726,6 +1769,7 @@
 				if (gameState !== "PLAYING" || !player.isLanded) return;
 				let costF = 20 + runUpgrades.fuelLvl * 20;
 				let costE = 30 + runUpgrades.engineLvl * 20;
+
 				if (type === "fuel" && stats.crystals >= costF) {
 					stats.crystals -= costF;
 					runUpgrades.fuelLvl++;
@@ -1776,6 +1820,7 @@
 				player.thrust = s.baseThrust + runUpgrades.engineLvl * 0.03;
 				player.fuel = player.maxFuel;
 			}
+
 			function acceptMission() {
 				if (missionOffer) {
 					currentMission = missionOffer;
@@ -1786,9 +1831,9 @@
 			}
 
 			function updateMissionUI() {
-				const p = document.getElementById("mission-panel");
-				const d = document.getElementById("mission-desc");
-				const t = document.getElementById("mission-timer");
+				const p = document.getElementById("mission-panel"),
+					d = document.getElementById("mission-desc"),
+					t = document.getElementById("mission-timer");
 				if (currentMission) {
 					p.style.display = "block";
 					let i =
@@ -1805,7 +1850,6 @@
 				} else p.style.display = "none";
 			}
 
-			/** * HOOFD UPDATE LOOP */
 			function update(dt) {
 				updateParticlesAndHazards();
 				if (gameState !== "PLAYING") return;
@@ -1833,6 +1877,15 @@
 				let currentBiome = getBiome(player.x);
 				let shipCfg = SHIPS[currentShipIdx];
 
+				if (currentBiome.name === "Alien Afgrond") {
+					tryUnlockAchievement({
+						id: "deep_space",
+						name: "Naar de Afgrond",
+						description: "Bereik de Alien Afgrond biome",
+						icon: "👽"
+					});
+				}
+
 				if (keys.left) player.angle -= TURN_SPEED;
 				if (keys.right) player.angle += TURN_SPEED;
 
@@ -1844,13 +1897,11 @@
 					player.vx += Math.cos(player.angle) * currentThrust;
 					player.vy += Math.sin(player.angle) * currentThrust;
 					player.fuel -= fuelDrain;
-
 					if (player.isLanded) {
 						player.isLanded = false;
 						document.getElementById("shop-overlay").classList.remove("active");
 						activePadIndex = -1;
 					}
-
 					let exX = player.x - Math.cos(player.angle) * (shipCfg.height / 2);
 					let exY = player.y - Math.sin(player.angle) * (shipCfg.height / 2);
 					addParticles(
@@ -1923,20 +1974,18 @@
 								let amount = Math.floor(Math.random() * 5) + 3;
 								stats.crystals += amount;
 								stats.totalCrystalsCollected = (stats.totalCrystalsCollected || 0) + amount;
-								try {
-									window.DavidnetSDK.unlockAchievement({
-										id: "crystal_collector",
-										name: "Kristal Zoeker",
-										progress: stats.totalCrystalsCollected,
-										target: 100
-									}).catch(() => {});
-									window.DavidnetSDK.unlockAchievement({
-										id: "crystal_hoarder",
-										name: "Kristal Magneet",
-										progress: stats.totalCrystalsCollected,
-										target: 1000
-									}).catch(() => {});
-								} catch (e) {}
+								tryUnlockAchievement({
+									id: "crystal_collector",
+									name: "Kristal Zoeker",
+									progress: stats.totalCrystalsCollected,
+									target: 100
+								});
+								tryUnlockAchievement({
+									id: "crystal_hoarder",
+									name: "Kristal Magneet",
+									progress: stats.totalCrystalsCollected,
+									target: 1000
+								});
 								addParticles(c.x, cy, 0, 0, "#c084fc", 15, 1.5);
 								updateShopUI();
 								saveData();
@@ -1973,8 +2022,8 @@
 				let altitude = 9999;
 
 				if (segIdx !== -1) {
-					let p1 = terrain[segIdx];
-					let p2 = terrain[segIdx + 1];
+					let p1 = terrain[segIdx],
+						p2 = terrain[segIdx + 1];
 					let t = (player.x - p1.x) / (p2.x - p1.x);
 					let terrainY = p1.y + t * (p2.y - p1.y);
 					let ceilingY = p1.ceilY + t * (p2.ceilY - p1.ceilY);
@@ -1991,6 +2040,12 @@
 							player.hasShield = false;
 							player.vy = 4;
 							addParticles(player.x, player.y, 0, 0, "#38bdf8", 30, 1.5);
+							tryUnlockAchievement({
+								id: "shield_tank",
+								name: "Schildpad",
+								description: "Overleef een fatale klap dankzij je schild",
+								icon: "🛡️"
+							});
 						} else {
 							addParticles(player.x, player.y, 0, 0, "#ef4444", 80, 2);
 							gameOver("ceiling");
@@ -2007,8 +2062,9 @@
 						assist.innerHTML = checks.join(" | ");
 					}
 
-					if (altitude < 200 && player.vy > 1.0 && (!p1.isPad || speed >= 3.5 || angDev >= 0.6))
+					if (altitude < 200 && player.vy > 1.0 && (!p1.isPad || speed >= 3.5 || angDev >= 0.6)) {
 						isDangerous = true;
+					}
 
 					if (pBottom >= terrainY) {
 						if (p1.isPad && speed < 3.5 && angDev < 0.6) {
@@ -2024,13 +2080,18 @@
 								player.hasShield = false;
 								player.vy = -5;
 								addParticles(player.x, player.y, 0, 0, "#38bdf8", 30, 1.5);
+								tryUnlockAchievement({
+									id: "shield_tank",
+									name: "Schildpad",
+									description: "Overleef een fatale klap dankzij je schild",
+									icon: "🛡️"
+								});
 							} else {
 								addParticles(player.x, player.y, 0, 0, "#ef4444", 80, 2);
 								addParticles(player.x, player.y, 0, 0, "#64748b", 100, 3);
 								let r = "terrain";
-								if (p1.isPad) {
-									r = speed >= 3.5 ? "speed" : "angle";
-								} else if (player.fuel <= 0) r = "fuel";
+								if (p1.isPad) r = speed >= 3.5 ? "speed" : "angle";
+								else if (player.fuel <= 0) r = "fuel";
 								gameOver(r);
 								return;
 							}
@@ -2057,9 +2118,18 @@
 				fB.className = "bar-fill";
 				if (fPerc < 20) fB.classList.add("critical");
 				else if (fPerc < 50) fB.classList.add("low");
-				document.getElementById("speed-text").innerText = (
-					Math.sqrt(player.vx ** 2 + player.vy ** 2) * 10
-				).toFixed(0);
+
+				let speedUI = (Math.sqrt(player.vx ** 2 + player.vy ** 2) * 10).toFixed(0);
+				document.getElementById("speed-text").innerText = speedUI;
+				if (speedUI >= 200) {
+					tryUnlockAchievement({
+						id: "speed_demon",
+						name: "Snelheidsduivel",
+						description: "Behaal een bizarre snelheid (200+ m/s)",
+						icon: "⚡"
+					});
+				}
+
 				let alt = 0;
 				for (let i = 0; i < terrain.length - 1; i++) {
 					if (player.x >= terrain[i].x && player.x <= terrain[i + 1].x) {
@@ -2073,13 +2143,21 @@
 				document.getElementById("crystal-text").innerText = stats.crystals;
 				document.getElementById("biome-text").innerText = biome.name;
 
+				if (stats.crystals >= 500) {
+					tryUnlockAchievement({
+						id: "rich_pilot",
+						name: "Ruimte Kapitalist",
+						description: "Heb minimaal 500 kristallen in bezit",
+						icon: "💰"
+					});
+				}
+
 				let envW = document.getElementById("env-warning");
 				if (biome.desc) {
 					envW.innerText = biome.desc;
 					envW.classList.remove("hidden");
-				} else {
-					envW.classList.add("hidden");
-				}
+				} else envW.classList.add("hidden");
+
 				let gEvent = document.getElementById("global-event-warning");
 				let evText = [];
 				if (activeEvents.meteorAlarmTimer > 0) evText.push("⚠️ METEOREN ALARM ⚠️");
@@ -2087,9 +2165,8 @@
 				if (evText.length > 0) {
 					gEvent.innerHTML = evText.join("<br>");
 					gEvent.classList.remove("hidden");
-				} else {
-					gEvent.classList.add("hidden");
-				}
+				} else gEvent.classList.add("hidden");
+
 				let fS = document.getElementById("flight-status");
 				if (player.isLanded) {
 					fS.innerText = "GELAND Op Pad " + activePadIndex;
@@ -2109,7 +2186,6 @@
 					cy = 80;
 				let scale = 0.015;
 
-				// Kruis en Radar basis
 				radarCtx.strokeStyle = "rgba(255,255,255,0.1)";
 				radarCtx.beginPath();
 				radarCtx.moveTo(cx, 0);
@@ -2118,7 +2194,6 @@
 				radarCtx.lineTo(160, cy);
 				radarCtx.stroke();
 
-				// Teken Terreinvloer (met clipping om enorme glitch blocks te voorkomen)
 				radarCtx.strokeStyle = "rgba(255,255,255,0.5)";
 				radarCtx.lineWidth = 1.5;
 				radarCtx.beginPath();
@@ -2127,25 +2202,19 @@
 					let t = terrain[i];
 					let rx = cx + (t.x - player.x) * scale;
 					let ry = cy + (t.y - player.y) * scale;
-
 					if (rx >= -20 && rx <= 180) {
 						if (!isDrawingFloor) {
 							radarCtx.moveTo(rx, ry);
 							isDrawingFloor = true;
-						} else {
-							radarCtx.lineTo(rx, ry);
-						}
+						} else radarCtx.lineTo(rx, ry);
 						if (t.isPad) {
 							radarCtx.fillStyle = "#10b981";
 							radarCtx.fillRect(rx - 2, ry - 2, 4, 3);
 						}
-					} else {
-						isDrawingFloor = false;
-					}
+					} else isDrawingFloor = false;
 				}
 				radarCtx.stroke();
 
-				// Teken Plafond op minimap
 				radarCtx.strokeStyle = "rgba(255,255,255,0.15)";
 				radarCtx.beginPath();
 				let isDrawingCeil = false;
@@ -2154,21 +2223,15 @@
 					if (t.ceilY <= -1000) continue;
 					let rx = cx + (t.x - player.x) * scale;
 					let ry = cy + (t.ceilY - player.y) * scale;
-
 					if (rx >= -20 && rx <= 180) {
 						if (!isDrawingCeil) {
 							radarCtx.moveTo(rx, ry);
 							isDrawingCeil = true;
-						} else {
-							radarCtx.lineTo(rx, ry);
-						}
-					} else {
-						isDrawingCeil = false;
-					}
+						} else radarCtx.lineTo(rx, ry);
+					} else isDrawingCeil = false;
 				}
 				radarCtx.stroke();
 
-				// Teken andere spelers op de minimap als blauwe stippen
 				for (let uid in otherPlayers) {
 					let op = otherPlayers[uid];
 					if (performance.now() - op.lastSeen > 3000) continue;
@@ -2180,7 +2243,6 @@
 					radarCtx.fill();
 				}
 
-				// Jijzelf in het midden
 				radarCtx.fillStyle = "#10b981";
 				radarCtx.beginPath();
 				radarCtx.arc(cx, cy, 3, 0, Math.PI * 2);
@@ -2204,7 +2266,6 @@
 				context.fillText(text, 0, yOffset - 3);
 			}
 
-			// Hulpscript voor kleurencombinaties
 			function getShipColors(shipCfg, bodyColorId) {
 				if (bodyColorId === "crimson") return { c1: "#991b1b", c2: "#f87171" };
 				if (bodyColorId === "midnight") return { c1: "#1e3a8a", c2: "#60a5fa" };
@@ -2214,13 +2275,11 @@
 				return { c1: shipCfg.color1, c2: shipCfg.color2 };
 			}
 
-			// Algemene Tekenfunctie voor Raketten (Jij + Andere Spelers)
 			function drawShip(context, shipCfg, state, x, y, angle) {
 				context.save();
 				context.translate(x, y);
 				context.rotate(angle + Math.PI / 2);
 				if (state.globalAlpha) context.globalAlpha = state.globalAlpha;
-
 				let colors = getShipColors(shipCfg, state.bodyColor);
 
 				if (state.isThrusting) {
@@ -2257,7 +2316,6 @@
 				context.arc(0, -shipCfg.height / 6, 4, 0, Math.PI * 2);
 				context.fill();
 
-				// Cosmetische Hoeden Tekenen
 				if (state.hat === "helmet") {
 					context.fillStyle = "rgba(255,255,255,0.4)";
 					context.beginPath();
@@ -2310,7 +2368,6 @@
 					context.strokeRect(-5, shipCfg.height / 2 - 10, 10, 10);
 				}
 
-				// Naam & Chat
 				context.save();
 				context.rotate(-angle - Math.PI / 2);
 				context.font = "bold 13px sans-serif";
@@ -2320,10 +2377,8 @@
 				context.fillStyle = state.isLocal ? "#10b981" : "#38bdf8";
 				context.textAlign = "center";
 				context.fillText(state.name, 0, -40);
-
-				if (state.chat && performance.now() - state.chat.time < 7000) {
+				if (state.chat && performance.now() - state.chat.time < 7000)
 					drawChatBubble(context, state.chat.text, -75);
-				}
 				context.restore();
 				context.restore();
 			}
@@ -2371,6 +2426,7 @@
 						let p1 = terrain[i],
 							p2 = terrain[i + 1];
 						if (p2.x < camera.x - 200 || p1.x > camera.x + canvas.width + 200) continue;
+
 						if (p1.ceilY > -1000) {
 							ctx.beginPath();
 							ctx.moveTo(p1.x, -3000);
@@ -2486,11 +2542,9 @@
 
 				drawParticles();
 
-				// TEKEN ANDERE SPELERS
 				for (let uid in otherPlayers) {
 					let op = otherPlayers[uid];
 					if (performance.now() - op.lastSeen > 3000) continue;
-
 					drawShip(
 						ctx,
 						SHIPS[op.shipIdx] || SHIPS[0],
@@ -2513,7 +2567,6 @@
 					);
 				}
 
-				// TEKEN JOUW SPELER
 				if (gameState === "PLAYING") {
 					let isT = (keys.up || (keys.space && permUnlocks.boost)) && player.fuel > 0;
 					let hasP = currentMission && currentMission.type === "pakket";
@@ -2549,7 +2602,6 @@
 						}
 					});
 				}
-
 				ctx.restore();
 
 				if (b.weather !== "none") {
@@ -2571,26 +2623,21 @@
 						ctx.fill();
 						if (wp.y > canvas.height || wp.x < 0) weatherParticles.splice(i, 1);
 					}
-				} else {
-					weatherParticles = [];
-				}
+				} else weatherParticles = [];
 
 				drawRadar();
 			}
 
-			/** * FIXED TIMESTEP LOOP */
 			function gameLoop(now) {
 				if (!now) now = performance.now();
 				let dt = now - lastFrameTime;
 				lastFrameTime = now;
 				if (dt > 100) dt = 16.666;
-
 				frameAccumulator += dt;
 				while (frameAccumulator >= 16.666) {
 					update(16.666);
 					frameAccumulator -= 16.666;
 				}
-
 				draw();
 				animationId = requestAnimationFrame(gameLoop);
 			}
@@ -2598,7 +2645,6 @@
 			async function initGame() {
 				document.getElementById("start-btn").addEventListener("click", startGame);
 				dataLoadPromise = loadData();
-				initBackgrounds();
 
 				try {
 					const roomData = await window.DavidnetSDK.realtime.joinRoom(MULTIPLAYER_ROOM);
@@ -2606,17 +2652,21 @@
 					document.getElementById("player-count").innerText = activePlayersCount;
 
 					if (roomData.state && roomData.state.worldSeed) {
-						seed = roomData.state.worldSeed;
+						baseSeed = roomData.state.worldSeed;
 					} else {
-						seed = Math.floor(Math.random() * 1000000);
+						baseSeed = Math.floor(Math.random() * 1000000);
 						try {
-							await window.DavidnetSDK.realtime.setState(MULTIPLAYER_ROOM, "worldSeed", seed);
+							await window.DavidnetSDK.realtime.setState(MULTIPLAYER_ROOM, "worldSeed", baseSeed);
 						} catch (err) {}
 					}
+					seed = baseSeed;
+					initBackgrounds();
 
 					window.DavidnetSDK.realtime.onState(({ key, value }) => {
 						if (key === "worldSeed" && value) {
-							seed = value;
+							baseSeed = value;
+							seed = baseSeed;
+							initBackgrounds();
 							generateWorld();
 						}
 					});

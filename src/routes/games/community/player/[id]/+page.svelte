@@ -1030,7 +1030,8 @@
 			return respondToGame(msg.requestId, true, {
 				sessionId: result.sessionId,
 				secret: result.secret,
-				expiresAt: result.expiresAt
+				expiresAt: result.expiresAt,
+				rateLimit: result.rateLimit
 			});
 		}
 
@@ -1086,7 +1087,8 @@
 				playerHighscore: result.playerHighscore,
 				globalHighscore: result.globalHighscore,
 				isNewPersonalBest: result.isNewPersonalBest,
-				isNewGlobalBest: result.isNewGlobalBest
+				isNewGlobalBest: result.isNewGlobalBest,
+				rateLimit: result.rateLimit
 			});
 		}
 
@@ -1122,7 +1124,8 @@
 			return respondToGame(msg.requestId, true, {
 				playerHighscore: result.playerHighscore,
 				globalHighscore: result.globalHighscore,
-				leaderboard: result.leaderboard
+				leaderboard: result.leaderboard,
+				rateLimit: result.rateLimit
 			});
 		}
 
@@ -1146,7 +1149,10 @@
 				return respondToGame(msg.requestId, false, undefined, result.code || "Failed to save");
 			}
 
-			return respondToGame(msg.requestId, true, { savedAt: result.savedAt });
+			return respondToGame(msg.requestId, true, {
+				savedAt: result.savedAt,
+				rateLimit: result.rateLimit
+			});
 		}
 
 		if (msg.type === "getJsonBlob") {
@@ -1163,7 +1169,11 @@
 				return respondToGame(msg.requestId, false, undefined, result.code || "Failed to load save");
 			}
 
-			return respondToGame(msg.requestId, true, { data: result.data, updatedAt: result.updatedAt });
+			return respondToGame(msg.requestId, true, {
+				data: result.data,
+				updatedAt: result.updatedAt,
+				rateLimit: result.rateLimit
+			});
 		}
 
 		if (msg.type === "unlockAchievement") {
@@ -1207,7 +1217,8 @@
 
 			return respondToGame(msg.requestId, true, {
 				isNew: result.isNew,
-				achievement: result.achievement
+				achievement: result.achievement,
+				rateLimit: result.rateLimit
 			});
 		}
 
@@ -1230,7 +1241,10 @@
 				);
 			}
 
-			return respondToGame(msg.requestId, true, { achievements: result.achievements });
+			return respondToGame(msg.requestId, true, {
+				achievements: result.achievements,
+				rateLimit: result.rateLimit
+			});
 		}
 
 		if (msg.type === "ugcPublishLevel") {
@@ -1256,7 +1270,7 @@
 				);
 			}
 
-			return respondToGame(msg.requestId, true, result.level);
+			return respondToGame(msg.requestId, true, { ...result.level, rateLimit: result.rateLimit });
 		}
 
 		if (msg.type === "ugcListLevels") {
@@ -1282,7 +1296,11 @@
 				);
 			}
 
-			return respondToGame(msg.requestId, true, { levels: result.levels, hasMore: result.hasMore });
+			return respondToGame(msg.requestId, true, {
+				levels: result.levels,
+				hasMore: result.hasMore,
+				rateLimit: result.rateLimit
+			});
 		}
 
 		if (msg.type === "ugcGetLevel") {
@@ -1307,7 +1325,7 @@
 				);
 			}
 
-			return respondToGame(msg.requestId, true, result.level);
+			return respondToGame(msg.requestId, true, { ...result.level, rateLimit: result.rateLimit });
 		}
 
 		if (msg.type === "ugcDeleteLevel") {
@@ -1332,7 +1350,7 @@
 				);
 			}
 
-			return respondToGame(msg.requestId, true, { id: result.id });
+			return respondToGame(msg.requestId, true, { id: result.id, rateLimit: result.rateLimit });
 		}
 
 		if (msg.type === "realtimeConnect") {
@@ -1929,7 +1947,9 @@
 				csp="default-src * https: http: 'unsafe-inline' 'unsafe-eval' data: blob:; img-src * https: http: data: blob:; media-src * https: http: data: blob:; font-src * https: http: data:; style-src * https: http: 'unsafe-inline'; script-src * https: http: 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; frame-src 'none';"
 				style="height: 75vh; width: 100%; display: block; background: #000; border: 2px solid {token
 					.theme.color.border.default}; border-radius: {token.global.radius.huge};"
-				src="{PUBLIC_BACKEND_URL}/social/community-games/{gameId}/file/index.html"
+				src="{PUBLIC_BACKEND_URL}/social/community-games/{gameId}/file/index.html?v={encodeURIComponent(
+					new Date(gameData.updatedAt).getTime()
+				)}"
 				title={gameData.title}>
 			</iframe>
 

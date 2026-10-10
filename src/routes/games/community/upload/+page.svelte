@@ -57,6 +57,22 @@ iframe's Content-Security-Policy:
   to write any postMessage or networking code yourself; just call these functions from your game
   code.
 
+## Rate limits
+
+Every method below (except the \`realtime.*\` namespace, which has its own separate limit enforced
+over the WebSocket - see its section) shares ONE budget per player per game: 60 calls per 10
+seconds. That is generous for normal use - occasional score/save/achievement submissions, polling a
+leaderboard every few seconds - but will start rejecting calls once something loops every frame.
+
+- Every successful call below resolves with an extra \`rateLimit: { limit, remaining, resetAt }\`
+  field tacked onto its normal result. Watch \`remaining\` and slow yourself down BEFORE you ever get
+  rejected, instead of waiting to hit the wall.
+- \`DavidnetSDK.getRateLimitStatus()\` returns that same \`{ limit, remaining, resetAt } | null\` shape
+  synchronously, with no network call - \`null\` until your first SDK call has resolved at least once.
+- If you do exceed it, the call's promise rejects like any other error - one more reason every call
+  must be wrapped in try/catch (see Rules, below). \`resetAt\` is an epoch-ms timestamp for when the
+  budget refills.
+
 ## API
 
 ### DavidnetSDK.applyHighscore(score: number, options?: { category?: string })
@@ -105,8 +121,10 @@ short and stable (e.g. \`"first_win"\`, not something you'll rename later). \`na
 to the player; \`description\` and \`icon\` (an emoji works well) are optional.
 
 **Without \`progress\`/\`target\`:** classic instant unlock. First call wins: if the player already has
-this \`id\`, the stored name/description/icon don't change. Safe to call every time the unlock
-condition is true (e.g. every frame a boss is defeated) — repeat calls are cheap no-ops.
+this \`id\`, the stored name/description/icon don't change. Repeat calls are cheap no-ops server-side,
+but each one is still a network round trip that counts against your rate limit - call it ONCE when
+the unlock condition first becomes true (e.g. on the "boss defeated" event, not every frame the boss
+stays dead), not in a loop that re-checks the condition every frame.
 
 **With \`progress\` + \`target\`** (both positive integers): tracks a progress bar instead of unlocking
 instantly — call this every time progress changes (e.g. \`{ progress: 12, target: 50 }\` for "12 of 50
@@ -244,6 +262,9 @@ errors not tied to a specific call (e.g. rate-limited).
   polyfilled with in-memory-only storage and is wiped on every reload.
 - Call \`getJsonBlob()\` once on load to restore progress, and \`saveJsonBlob()\` whenever the
   player's state changes meaningfully (on level-complete, on checkpoint, etc) — not every frame.
+- Never call an SDK method in a tight per-frame loop (score/save/achievement submissions, polling
+  a leaderboard) — see Rate limits, above. Use game events (level-complete, boss-defeated,
+  checkpoint) as your trigger, not the render loop.
 - Do not implement your own leaderboard UI assumptions beyond what \`getHighscores()\` returns;
   the platform already renders a full leaderboard and highscore display around your game.
 - For realtime games, treat the server as a dumb relay: it does not validate move legality, game
@@ -284,6 +305,14 @@ async function onGameOver(finalScore) {
   }
 }
 
+// Self-throttle a leaderboard widget that polls getHighscores on a timer: check the rate limit
+// BEFORE firing the next call instead of waiting to get rejected. getRateLimitStatus() is
+// synchronous (no network call) and reflects the budget as of the last SDK call that resolved.
+function canPollLeaderboard() {
+  const status = window.DavidnetSDK.getRateLimitStatus();
+  return !status || status.remaining > 5; // null (no calls yet) or plenty of budget left
+}
+
 // Optional: a second leaderboard, e.g. a per-level or per-mode one.
 async function onTimeAttackFinish(seconds) {
   try {
@@ -293,7 +322,8 @@ async function onTimeAttackFinish(seconds) {
   }
 }
 
-// Unlock an achievement - safe to call every time the condition is met.
+// Unlock an achievement - call this ONCE when the boss actually dies, not every frame
+// while checking "is the boss dead".
 async function onBossDefeated() {
   try {
     const { isNew } = await window.DavidnetSDK.unlockAchievement({
@@ -383,6 +413,109 @@ async function playLevel(levelId) {
 }
 \`\`\`
 `;
+
+	// A trimmed-down, copy-pasteable starting point shown on the "For humans" tab - unlike
+	// sdkGuideMarkdown above (the full reference, meant to be handed to an AI assistant), this is
+	// meant to be read and adapted by a person who is NOT using an AI assistant, so it only shows
+	// the handful of calls almost every game needs, not the full API surface.
+	const sdkStarterSnippet = `// Every one of these functions already exists on window.DavidnetSDK the moment your
+// game loads - there is nothing to install or import, just call them directly.
+
+// 1. Restore the player's progress once when the game boots.
+async function restoreProgress() {
+  try {
+    const { data } = await window.DavidnetSDK.getJsonBlob();
+    if (data) applySaveData(data); // data is null if this player never saved before
+  } catch (e) {
+    console.warn("Could not load save", e);
+  }
+}
+
+// 2. Save progress whenever it changes meaningfully - on checkpoint/level-complete,
+//    NOT every frame.
+async function onCheckpoint(state) {
+  try {
+    await window.DavidnetSDK.saveJsonBlob(state);
+  } catch (e) {
+    console.warn("Could not save progress", e);
+  }
+}
+
+// 3. Submit a score on game over. The server only ever keeps your best, so this is
+//    always safe to call.
+async function onGameOver(finalScore) {
+  try {
+    const { isNewPersonalBest, isNewGlobalBest } = await window.DavidnetSDK.applyHighscore(finalScore);
+    if (isNewGlobalBest) showMessage("New world record!");
+    else if (isNewPersonalBest) showMessage("New personal best!");
+  } catch (e) {
+    console.warn("Could not submit score", e);
+  }
+}
+
+// 4. Unlock an achievement ONCE when something happens - not every frame.
+async function onBossDefeated() {
+  try {
+    const { isNew } = await window.DavidnetSDK.unlockAchievement({
+      id: "first_boss_kill",       // you choose this - keep it short and stable
+      name: "Giant Slayer",        // shown to the player
+      description: "Defeat the first boss",
+      icon: "⚔️"
+    });
+    if (isNew) showMessage("Achievement unlocked: Giant Slayer!");
+  } catch (e) {
+    console.warn("Could not unlock achievement", e);
+  }
+}
+
+// 5. Show the top 10 players, e.g. on a "leaderboard" button.
+async function showLeaderboard() {
+  const { leaderboard, playerHighscore } = await window.DavidnetSDK.getHighscores();
+  renderLeaderboard(leaderboard); // [{ rank, username, displayName, avatarUrl, score }, ...]
+}`;
+
+	// A realtime starter: matchmake two players into a room, then exchange moves. The exact same
+	// calls work for a 50-player action game by passing a bigger groupSize to joinQueue - the server
+	// doesn't care how many players end up in a room.
+	const sdkRealtimeStarterSnippet = `let currentRoom = null;
+
+// 1. Put the player in a matchmaking queue. Once another player also calls this with
+//    the same queue name, the server creates a room for both of them automatically.
+async function findOpponent() {
+  await window.DavidnetSDK.realtime.joinQueue("ranked-1v1", 2);
+}
+
+// 2. Fires once the queue found a full group - you're already joined to "room" at this point.
+window.DavidnetSDK.realtime.onMatched(({ room }) => {
+  currentRoom = room;
+  showMessage("Opponent found!");
+});
+
+// 3. Fires for every message sent to any room you're in.
+window.DavidnetSDK.realtime.onMessage(({ room, data, from }) => {
+  if (room !== currentRoom) return;
+  applyOpponentMove(data, from); // from = { userId, username, displayName, avatarUrl }
+});
+
+// 4. Send your move whenever the player makes one. Fire-and-forget - don't await every
+//    single call in a hot loop, but it's cheap and safe to call often.
+function sendMove(move) {
+  window.DavidnetSDK.realtime.send(currentRoom, { type: "move", move });
+}
+
+// Shared room state (optional): great for player positions, ready-checks, a shared
+// scoreboard - anything a player who joins LATE still needs to see.
+async function joinArena(room) {
+  const { state } = await window.DavidnetSDK.realtime.joinRoom(room);
+  Object.entries(state).forEach(([key, value]) => applyPlayerState(key, value));
+
+  // Live updates for everyone already in the room when someone calls setState.
+  window.DavidnetSDK.realtime.onState(({ key, value }) => applyPlayerState(key, value));
+}
+
+function onMyPositionChanged(room, myUserId, position) {
+  window.DavidnetSDK.realtime.setState(room, myUserId, position);
+}`;
 
 	$effect(() => {
 		(async () => {
@@ -679,6 +812,278 @@ async function playLevel(levelId) {
 						 object — nothing to install, no backend or database of your own to run.
 					</p>
 
+					<h4 style="margin: 0;">Every function, at a glance</h4>
+					<p style="color: {token.theme.color.text.secondary}">
+						This is the entire API. Every one of these already exists on
+						<code>window.DavidnetSDK</code>
+						 — just call them from your game's own JavaScript, there is nothing to import or set up.
+						Every function returns a Promise, so use
+						<code>await</code>
+						 (inside an
+						<code>async function</code>
+						) or
+						<code>.then()</code>
+						, and always wrap calls in try/catch — see "Common mistakes" below.
+					</p>
+					<ul style="margin: 0; padding-left: 20px; color: {token.theme.color.text.secondary}">
+						<li>
+							<code>DavidnetSDK.applyHighscore(score, options?)</code>
+							 — submit a score. <code>options.category</code> picks a leaderboard other than the default
+							one (optional). Resolves:
+							<code>
+								{'{'} score, playerHighscore, globalHighscore, isNewPersonalBest, isNewGlobalBest {'}'}
+							</code>
+						</li>
+						<li>
+							<code>DavidnetSDK.getHighscores(options?)</code>
+							 — get the top 10 plus your own best. Resolves:
+							<code>{'{'} playerHighscore, globalHighscore, leaderboard {'}'}</code>
+							 — <code>leaderboard</code> is
+							<code>[{'{'} rank, username, displayName, avatarUrl, score {'}'}, ...]</code>
+							.
+						</li>
+						<li>
+							<code>DavidnetSDK.saveJsonBlob(data, options?)</code>
+							 — save anything JSON-serializable (≈1MB max). <code>options.slot</code> picks a save slot
+							other than the default one (optional). Resolves: <code>{'{'} savedAt {'}'}</code>
+						</li>
+						<li>
+							<code>DavidnetSDK.getJsonBlob(options?)</code>
+							 — load what was last saved. Resolves: <code>{'{'} data, updatedAt {'}'}</code>
+							 — <code>data</code> is <code>null</code> if nothing was saved yet.
+						</li>
+						<li>
+							<code>DavidnetSDK.unlockAchievement({'{'} id, name, description?, icon?, progress?, target?
+							{'}'})</code>
+							 — unlock (or advance) an achievement. Resolves:
+							<code>
+								{'{'} isNew, achievement: {'{'} id, name, description, icon, progress, target, unlockedAt
+								{'}'} {'}'}
+							</code>
+						</li>
+						<li>
+							<code>DavidnetSDK.getAchievements()</code>
+							 — list this player's achievements for this game, unlocked and in-progress. Resolves:
+							<code>
+								{'{'} achievements: [{'{'} id, name, description, icon, progress, target, unlockedAt,
+								unlockedPercentage {'}'}, ...] {'}'}
+							</code>
+						</li>
+						<li>
+							<code>DavidnetSDK.ugc.publishLevel({'{'} id?, title, data {'}'})</code>
+							 — publish (or, with an existing <code>id</code>, overwrite) a level. Resolves:
+							<code>{'{'} id, title, createdAt, updatedAt {'}'}</code>
+						</li>
+						<li>
+							<code>DavidnetSDK.ugc.listLevels(options?)</code>
+							 — list published levels (<code>options.mine</code>, <code>options.limit</code>,
+							<code>options.offset</code>). Resolves:
+							<code>
+								{'{'} levels: [{'{'} id, title, creator, creatorDisplayName, createdAt, updatedAt {'}'},
+								...], hasMore {'}'}
+							</code>
+						</li>
+						<li>
+							<code>DavidnetSDK.ugc.getLevel(id)</code>
+							 — fetch one level's full data. Resolves:
+							<code>{'{'} id, title, data, creator, creatorDisplayName, createdAt, updatedAt {'}'}</code>
+						</li>
+						<li>
+							<code>DavidnetSDK.ugc.deleteLevel(id)</code>
+							 — delete a level you published. Resolves: <code>{'{'} id {'}'}</code>
+						</li>
+						<li>
+							<code>DavidnetSDK.getRateLimitStatus()</code>
+							 — check your remaining request budget (see "Rate limits", below). Not a Promise — returns
+							<code>{'{'} limit, remaining, resetAt {'}'} | null</code>
+							 immediately.
+						</li>
+						<li>
+							<code>DavidnetSDK.realtime.*</code>
+							 — rooms, matchmaking and announcements for multiplayer games. Fully documented in its own
+							section below, "Realtime multiplayer".
+						</li>
+					</ul>
+
+					<h4 style="margin: 0;">Copy-paste starting point</h4>
+					<p style="color: {token.theme.color.text.secondary}">
+						The handful of calls almost every game ends up using, wired up end to end. Paste this into
+						your game and adapt the
+						<code>applySaveData</code>
+						/
+						<code>showMessage</code>
+						/
+						<code>renderLeaderboard</code>
+						 calls to whatever your game actually does.
+					</p>
+					<CodeSnippet code={sdkStarterSnippet} language="javascript" filename="davidnet-sdk-starter.js" />
+
+					<h4 style="margin: 0;">Realtime multiplayer: DavidnetSDK.realtime</h4>
+					<p style="color: {token.theme.color.text.secondary}">
+						A generic, content-agnostic realtime layer: named rooms (with presence and a shared state
+						channel), a matchmaking queue, and a lobby-wide announcement channel. The platform never
+						looks at what you send, so the exact same functions work for a 2-player turn-based game, a
+						50+ player action game, or a one-way live feed with no "players" concept at all — just pass
+						a bigger <code>groupSize</code> to <code>joinQueue</code>, there's no maximum room/queue size.
+					</p>
+					<p style="color: {token.theme.color.text.secondary}">
+						Every method below auto-connects on first use — you never need to call
+						<code>connect()</code>
+						 yourself unless you specifically want to open the connection early (e.g. on a lobby screen
+						before matchmaking starts).
+					</p>
+					<ul style="margin: 0; padding-left: 20px; color: {token.theme.color.text.secondary}">
+						<li>
+							<code>DavidnetSDK.realtime.connect()</code>
+							 — opens the connection early. Resolves: <code>{'{'}{'}'}</code>
+						</li>
+						<li>
+							<code>DavidnetSDK.realtime.joinRoom(room)</code>
+							 — joins a named room (created on first join, destroyed when empty; join as many as you
+							like). Resolves: <code>{'{'} room, members, state {'}'}</code>
+							 — <code>members</code> is everyone already there
+							(<code>{'{'} userId, username, displayName, avatarUrl {'}'}</code>
+							each), <code>state</code> is every key/value anyone has set via <code>setState</code> so
+							far.
+						</li>
+						<li>
+							<code>DavidnetSDK.realtime.leaveRoom(room)</code>
+							 — Resolves: <code>{'{'} room {'}'}</code>
+						</li>
+						<li>
+							<code>DavidnetSDK.realtime.getRoomInfo(room)</code>
+							 — check member count/list WITHOUT joining (e.g. "3/8 players" on a lobby list before
+							committing). Resolves: <code>{'{'} room, memberCount, members {'}'}</code>
+						</li>
+						<li>
+							<code>DavidnetSDK.realtime.send(room, data, options?)</code>
+							 — broadcasts JSON-serializable <code>data</code> to everyone else currently in
+							<code>room</code>
+							 (max ~64kb). Pass <code>{'{'} echo: true {'}'}</code>
+							 to also get it back yourself via <code>onMessage</code>. Fire-and-forget — resolves once
+							sent, doesn't wait for delivery, safe to call often. Resolves: <code>{'{'}{'}'}</code>
+						</li>
+						<li>
+							<code>DavidnetSDK.realtime.setState(room, key, value)</code>
+							 — sets a named key's value for everyone in the room. The server remembers the LATEST
+							value per key and hands the full set to late joiners via <code>joinRoom</code>'s
+							<code>state</code>
+							, plus live-pushes it to everyone else already there via <code>onState</code>. Must be
+							joined to the room first. Resolves: <code>{'{'} room, key {'}'}</code>
+						</li>
+						<li>
+							<code>DavidnetSDK.realtime.joinQueue(queue, groupSize, metadata?)</code>
+							 — matchmaking: join a named queue. Everyone joining the same <code>queue</code> name
+							should agree on the same <code>groupSize</code>; once that many are waiting, the server
+							pops them off FIFO and auto-creates a room — listen with <code>onMatched</code>.
+							<code>metadata</code> (e.g. a skill rating) is yours to use for your own matching logic on
+							top of this — the server itself just does plain FIFO grouping. Resolves:
+							<code>{'{'} queue, position {'}'}</code>
+						</li>
+						<li>
+							<code>DavidnetSDK.realtime.leaveQueue(queue)</code>
+							 — Resolves: <code>{'{'} queue {'}'}</code>
+						</li>
+						<li>
+							<code>DavidnetSDK.realtime.getQueueInfo(queue)</code>
+							 — check how many are waiting WITHOUT joining (e.g. "waiting for 2 more players").
+							Resolves: <code>{'{'} queue, waiting {'}'}</code>
+						</li>
+						<li>
+							<code>DavidnetSDK.realtime.announce(data, options?)</code>
+							 — broadcasts to EVERY player currently connected to this game's lobby, not just one
+							room (e.g. "Player X just beat the boss!"). Pass <code>{'{'} echo: true {'}'}</code>
+							 to also get your own announcement back. Fire-and-forget. Resolves:
+							<code>{'{'}{'}'}</code>
+						</li>
+						<li>
+							<code>DavidnetSDK.realtime.onMessage(callback)</code>
+							 — fires for every message sent to any room you're in:
+							<code>{'{'} room, data, from, ts {'}'}</code>
+							. Returns an unsubscribe function.
+						</li>
+						<li>
+							<code>DavidnetSDK.realtime.onPresence(callback)</code>
+							 — fires when someone joins/leaves a room you're in:
+							<code>{'{'} room, event: "join" | "leave", member {'}'}</code>
+							.
+						</li>
+						<li>
+							<code>DavidnetSDK.realtime.onState(callback)</code>
+							 — fires when anyone (including you) calls <code>setState</code> in a room you're in:
+							<code>{'{'} room, key, value, from {'}'}</code>
+							.
+						</li>
+						<li>
+							<code>DavidnetSDK.realtime.onMatched(callback)</code>
+							 — fires once your queue found a full group:
+							<code>{'{'} queue, room, members {'}'}</code>
+							. You're already joined to <code>room</code> at this point.
+						</li>
+						<li>
+							<code>DavidnetSDK.realtime.onAnnouncement(callback)</code>
+							 — fires for every lobby-wide announcement from any connected player:
+							<code>{'{'} data, from, ts {'}'}</code>
+							.
+						</li>
+						<li>
+							<code>DavidnetSDK.realtime.onDisconnect(callback)</code>
+							 /
+							<code>onReconnect(callback)</code>
+							 /
+							<code>onError(callback)</code>
+							 — the connection reconnects automatically in the background and silently rejoins your
+							rooms. <code>onDisconnect</code> fires when it drops, <code>onReconnect</code> fires once
+							restored (with the rooms that were rejoined, so you can resync state), and
+							<code>onError</code>
+							 fires for server-side errors not tied to one call (e.g. you're sending too fast).
+						</li>
+					</ul>
+					<p style="color: {token.theme.color.text.secondary}">
+						<strong>Realtime has its own separate rate limit</strong>
+						 — 200 messages per second per connection, enforced over the WebSocket itself (unrelated to
+						the per-player-per-game budget in "Rate limits" above, which only covers
+						highscores/saves/achievements/levels — <code>getRateLimitStatus()</code> does NOT reflect
+						this). 200/s is far more than any browser game needs for input sync — most games are fine
+						sending whenever game state actually changes (e.g. 10-30 times a second), not on every
+						animation frame.
+					</p>
+					<p style="color: {token.theme.color.text.secondary}">
+						<strong>The server does not validate anything you send</strong>
+						 — it is a dumb relay, not an authority on move legality, game rules, or physics. If your
+						game needs to be cheat-resistant, have one client (e.g. whoever created the room) act as an
+						authoritative host and treat other players' messages as input suggestions, not trusted
+						state — the same tradeoff the highscore anti-cheat model makes.
+					</p>
+					<CodeSnippet
+						code={sdkRealtimeStarterSnippet}
+						language="javascript"
+						filename="davidnet-sdk-realtime-starter.js" />
+
+					<h4 style="margin: 0;">Rate limits</h4>
+					<p style="color: {token.theme.color.text.secondary}">
+						Every function above (except <code>realtime.*</code>, which has its own separate limit)
+						shares one budget per player per game: 60 calls every 10 seconds. That comfortably covers
+						normal use — score/save/achievement calls on game events, polling a leaderboard every few
+						seconds — but will start rejecting calls once something loops every animation frame. Two
+						ways to stay under it:
+					</p>
+					<ul style="margin: 0; padding-left: 20px; color: {token.theme.color.text.secondary}">
+						<li>
+							Trigger calls from game <strong>events</strong> (level-complete, boss-defeated, checkpoint),
+							never from the render loop itself.
+						</li>
+						<li>
+							Every successful call's result also carries
+							<code>rateLimit: {'{'} limit, remaining, resetAt {'}'}</code>
+							, and
+							<code>DavidnetSDK.getRateLimitStatus()</code>
+							 returns that same shape instantly (no network call, <code>null</code> until your first SDK
+							call resolves) — check <code>remaining</code> if you're doing something call-heavy, like a
+							live leaderboard widget on a timer.
+						</li>
+					</ul>
+
 					<h4 style="margin: 0;">What the sandbox actually blocks</h4>
 					<p style="color: {token.theme.color.text.secondary}">
 						Your game runs inside a locked-down frame, but that does <strong>not</strong>
@@ -712,6 +1117,33 @@ async function playLevel(levelId) {
 							<code>window.DavidnetSDK</code>
 							, never a direct network call — that's how it gets through even though direct outbound
 							requests are blocked.
+						</li>
+					</ul>
+
+					<h4 style="margin: 0;">Common mistakes</h4>
+					<ul style="margin: 0; padding-left: 20px; color: {token.theme.color.text.secondary}">
+						<li>
+							<strong>Forgetting try/catch.</strong>
+							Every SDK call rejects on a network hiccup, a timeout (10s), or a rate limit — an
+							unhandled rejection will usually just silently stop your game's logic at that point.
+						</li>
+						<li>
+							<strong>Calling a score/save/achievement function every frame.</strong>
+							Trigger from game events (game-over, checkpoint, boss-defeated), not the render loop — see
+							"Rate limits", above.
+						</li>
+						<li>
+							<strong>Trying to <code>fetch()</code> your own API, or reading/writing
+							<code>localStorage</code>.</strong>
+							Neither works in here — use <code>saveJsonBlob</code>/<code>getJsonBlob</code> for
+							anything that needs to persist.
+						</li>
+						<li>
+							<strong><code>index.html</code> not at the root of the .zip.</strong>
+							A zip containing a single top-level folder (e.g. from "Compress" on macOS, or a build tool
+							that wraps output in <code>dist/</code>) will fail to upload — re-zip so
+							<code>index.html</code>
+							 is directly at the top level, not nested one level in.
 						</li>
 					</ul>
 				</Flex>

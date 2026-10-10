@@ -412,6 +412,81 @@ async function playLevel(levelId) {
   loadLevel(data);
 }
 \`\`\`
+
+## Using the SDK from Godot (HTML5/WebAssembly export), or any non-JS engine
+
+\`window.DavidnetSDK\` is injected into the \`index.html\` file itself, at the HTML level - it works
+identically no matter what produced that \`index.html\`. A Godot project exported to HTML5, a Unity
+WebGL build, or a plain hand-written game all get the exact same \`window.DavidnetSDK\` object. The
+only engine-specific part is bridging into it, since its functions are plain JS and return Promises,
+which a non-JS language can't \`await\` directly.
+
+For **Godot 4.x**, use the built-in \`JavaScriptBridge\` singleton (present only in the HTML5 export,
+not the editor or other export targets): \`JavaScriptBridge.eval(code, true)\` to define a JS helper
+once, \`JavaScriptBridge.create_callback(callable)\` to let JS call back into a GDScript \`Callable\`
+(e.g. from a Promise's \`.then()\`/\`.catch()\`), and \`JavaScriptBridge.get_interface("window")\` to get
+a GDScript-callable handle to \`window\`. The pattern below routes every call through one small JS
+helper and passes everything as JSON strings both ways, so GDScript only ever deals with normal
+\`Dictionary\`/\`Array\` values via its own \`JSON.parse_string()\`/\`JSON.stringify()\` - no manual
+JS-object property walking needed. Drop this in as an autoload (or anywhere that runs once on boot):
+
+\`\`\`gdscript
+extends Node
+
+func _ready() -> void:
+	if not OS.has_feature("web"):
+		return  # this bridge only exists in the HTML5 export, not when running in the editor
+
+	JavaScriptBridge.eval("""
+		window.__dnCall = function(method, argsJson, onResolve, onReject) {
+			var args = JSON.parse(argsJson);
+			var path = method.split(".");
+			var target = window.DavidnetSDK;
+			for (var i = 0; i < path.length - 1; i++) target = target[path[i]];
+			var fn = target[path[path.length - 1]];
+			Promise.resolve(fn.apply(target, args)).then(function(result) {
+				onResolve(JSON.stringify(result === undefined ? null : result));
+			}).catch(function(err) {
+				onReject(String(err && err.message ? err.message : err));
+			});
+		};
+	""", true)
+
+# Call any window.DavidnetSDK method - dot-path for nested ones, e.g. "realtime.send" with
+# args = [room, data]. on_success receives a parsed Dictionary/Array/primitive, on_error a String.
+func call_sdk(method: String, args: Array, on_success: Callable, on_error: Callable) -> void:
+	var resolve_cb := JavaScriptBridge.create_callback(func(cb_args):
+		on_success.call(JSON.parse_string(cb_args[0]))
+	)
+	var reject_cb := JavaScriptBridge.create_callback(func(cb_args):
+		on_error.call(cb_args[0])
+	)
+	var window_obj := JavaScriptBridge.get_interface("window")
+	window_obj.__dnCall(method, JSON.stringify(args), resolve_cb, reject_cb)
+\`\`\`
+
+Usage from anywhere in the project once the above is autoloaded:
+
+\`\`\`gdscript
+func _on_game_over(final_score: int) -> void:
+	call_sdk("applyHighscore", [final_score], _on_highscore_submitted, _on_sdk_error)
+
+func _on_highscore_submitted(result: Dictionary) -> void:
+	if result.get("isNewGlobalBest", false):
+		show_message("New world record!")
+	elif result.get("isNewPersonalBest", false):
+		show_message("New personal best!")
+
+func _on_sdk_error(message: String) -> void:
+	print("DavidnetSDK call failed: ", message)
+\`\`\`
+
+By the time a game's own code starts running, \`window.DavidnetSDK\` is already defined - the
+engine's own boot/loading sequence always takes longer than the SDK's setup, so there is no race
+condition to guard against. On Godot 3.x the equivalent singleton is the older \`JavaScript\` (not
+\`JavaScriptBridge\`) with a slightly different API (e.g. \`JSON.parse(text).result\` instead of
+\`JSON.parse_string(text)\`) - the same JSON-bridge idea still works, but verify exact method names
+against the 3.x docs, or upgrade to 4.x.
 `;
 
 	// A trimmed-down, copy-pasteable starting point shown on the "For humans" tab - unlike
@@ -516,6 +591,62 @@ async function joinArena(room) {
 function onMyPositionChanged(room, myUserId, position) {
   window.DavidnetSDK.realtime.setState(room, myUserId, position);
 }`;
+
+	// Godot (4.x) HTML5 export bridge. window.DavidnetSDK is plain JS and its methods return
+	// Promises - GDScript can't await a Promise directly, so this routes every call through one
+	// small JS helper (defined once via JavaScriptBridge.eval) and gets the result back as a JSON
+	// string, which GDScript's own JSON.parse_string() turns into a normal Dictionary/Array. Shown
+	// as "python" above the snippet for syntax coloring - the file itself is GDScript (.gd).
+	const sdkGodotSnippet = `extends Node
+
+# --- Davidnet SDK bridge for Godot HTML5 exports ---
+# Call this once (e.g. from an autoload's _ready) before using call_sdk() anywhere else.
+func _ready() -> void:
+	if not OS.has_feature("web"):
+		return  # this bridge only exists in the HTML5 export, not when running in the editor
+
+	JavaScriptBridge.eval("""
+		window.__dnCall = function(method, argsJson, onResolve, onReject) {
+			var args = JSON.parse(argsJson);
+			var path = method.split(".");
+			var target = window.DavidnetSDK;
+			for (var i = 0; i < path.length - 1; i++) target = target[path[i]];
+			var fn = target[path[path.length - 1]];
+			Promise.resolve(fn.apply(target, args)).then(function(result) {
+				onResolve(JSON.stringify(result === undefined ? null : result));
+			}).catch(function(err) {
+				onReject(String(err && err.message ? err.message : err));
+			});
+		};
+	""", true)
+
+
+# Calls any window.DavidnetSDK method - use a dot-path for nested ones, e.g. "realtime.send".
+# on_success receives a parsed Dictionary/Array/primitive, on_error receives an error String.
+func call_sdk(method: String, args: Array, on_success: Callable, on_error: Callable) -> void:
+	var resolve_cb := JavaScriptBridge.create_callback(func(cb_args):
+		on_success.call(JSON.parse_string(cb_args[0]))
+	)
+	var reject_cb := JavaScriptBridge.create_callback(func(cb_args):
+		on_error.call(cb_args[0])
+	)
+	var window_obj := JavaScriptBridge.get_interface("window")
+	window_obj.__dnCall(method, JSON.stringify(args), resolve_cb, reject_cb)
+
+
+# --- Usage ---
+
+func _on_game_over(final_score: int) -> void:
+	call_sdk("applyHighscore", [final_score], _on_highscore_submitted, _on_sdk_error)
+
+func _on_highscore_submitted(result: Dictionary) -> void:
+	if result.get("isNewGlobalBest", false):
+		show_message("New world record!")
+	elif result.get("isNewPersonalBest", false):
+		show_message("New personal best!")
+
+func _on_sdk_error(message: String) -> void:
+	print("DavidnetSDK call failed: ", message)`;
 
 	$effect(() => {
 		(async () => {
@@ -1059,6 +1190,64 @@ function onMyPositionChanged(room, myUserId, position) {
 						code={sdkRealtimeStarterSnippet}
 						language="javascript"
 						filename="davidnet-sdk-realtime-starter.js" />
+
+					<h4 style="margin: 0;">Not writing plain JavaScript? (Godot, Unity, etc.)</h4>
+					<p style="color: {token.theme.color.text.secondary}">
+						Everything above works no matter what built your game — <code>window.DavidnetSDK</code> is
+						injected into the <code>index.html</code> file itself, at the HTML level, not tied to any
+						particular engine or language. A Godot project exported to HTML5/WebAssembly, a Unity WebGL
+						build, or anything else that ends up as an <code>index.html</code> + JS/WASM bundle gets the
+						exact same <code>window.DavidnetSDK</code> object. By the time your game's own code starts
+						running, the SDK is already defined — the engine's own boot/loading sequence always takes
+						longer than that.
+					</p>
+					<p style="color: {token.theme.color.text.secondary}">
+						The only catch: <code>window.DavidnetSDK</code>'s functions are plain JavaScript and return
+						JS Promises, so a non-JS language needs its own engine-specific bridge to call them and get
+						the result back. For <strong>Godot 4.x</strong>, that bridge is the built-in
+						<code>JavaScriptBridge</code>
+						 singleton (only present in the HTML5 export, not in the editor or other export targets):
+					</p>
+					<ul style="margin: 0; padding-left: 20px; color: {token.theme.color.text.secondary}">
+						<li>
+							<code>JavaScriptBridge.eval(code, true)</code>
+							 runs a string of JS once — used below to define one small reusable helper function on
+							the JS side.
+						</li>
+						<li>
+							<code>JavaScriptBridge.create_callback(callable)</code>
+							 wraps a GDScript <code>Callable</code> so JavaScript can call it (e.g. from a Promise's
+							<code>.then()</code>
+							/
+							<code>.catch()</code>
+							).
+						</li>
+						<li>
+							<code>JavaScriptBridge.get_interface("window")</code>
+							 gets a GDScript-callable handle to the page's <code>window</code> object.
+						</li>
+					</ul>
+					<p style="color: {token.theme.color.text.secondary}">
+						Rather than wrestling with JS objects from GDScript directly, the helper below passes
+						everything as JSON strings both ways — arguments out, results back in — so GDScript only
+						ever deals with normal <code>Dictionary</code>
+						/
+						<code>Array</code>
+						 values via its own built-in <code>JSON.parse_string()</code>/<code>JSON.stringify()</code>.
+						Drop this in as an autoload (or anywhere that runs once on boot), then call
+						<code>call_sdk(method, args, on_success, on_error)</code>
+						 from anywhere in your project — the method name can be a dot-path for nested ones, e.g.
+						<code>"realtime.send"</code>
+						with <code>args = [room, data]</code>.
+					</p>
+					<CodeSnippet code={sdkGodotSnippet} language="python" filename="davidnet_sdk_bridge.gd" />
+					<p style="color: {token.theme.color.text.secondary}">
+						On Godot 3.x, the equivalent singleton is the older <code>JavaScript</code> (not
+						<code>JavaScriptBridge</code>) with a slightly different API (e.g.
+						<code>JSON.parse(text).result</code>
+						 instead of <code>JSON.parse_string(text)</code>) — the same JSON-bridge idea still works,
+						but double-check the exact method names against the 3.x docs, or upgrade to 4.x.
+					</p>
 
 					<h4 style="margin: 0;">Rate limits</h4>
 					<p style="color: {token.theme.color.text.secondary}">

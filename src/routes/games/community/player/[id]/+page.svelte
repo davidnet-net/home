@@ -25,7 +25,7 @@
 	} from "@davidnet-net/svelte-ui";
 	import { ReportModal } from "@davidnet-net/svelte-ui";
 	import { token } from "@davidnet-net/svelte-ui/tokens";
-	import { onDestroy, onMount } from "svelte";
+	import { onDestroy, onMount, tick } from "svelte";
 
 	import { goto } from "$app/navigation";
 	import { page } from "$app/state";
@@ -221,7 +221,14 @@
 		stopPlaytimeTracking();
 	});
 
-	function resetGame() {
+	async function resetGame() {
+		// Refresh gameData first, not just the iframe src - the embed token the src depends on
+		// (see below) expires after a while, and reassigning the exact same src string would
+		// just replay a possibly-stale token instead of actually getting a fresh one. tick()
+		// waits for Svelte to actually apply the new gameData to the iframe's src attribute
+		// before we read it back below.
+		await refreshGameData();
+		await tick();
 		if (iframeRef) {
 			iframeRef.src = iframeRef.src;
 		}
@@ -1949,6 +1956,8 @@
 					.theme.color.border.default}; border-radius: {token.global.radius.huge};"
 				src="{PUBLIC_BACKEND_URL}/social/community-games/{gameId}/file/index.html?v={encodeURIComponent(
 					new Date(gameData.updatedAt).getTime()
+				)}&token={encodeURIComponent(gameData.embedToken)}&expires={encodeURIComponent(
+					gameData.embedTokenExpiresAt
 				)}"
 				title={gameData.title}>
 			</iframe>

@@ -49,7 +49,9 @@
 	<Flex width="90%" marginTop="giant" direction="column" gap="small">
 		<Flex justifyContent="spaceBetween" height="fit-content">
 			<h2>{m.common_apps_heading()}</h2>
-			<LinkButton href="/" appearance="primary" iconbefore="arrow_back">{m.common_back()}</LinkButton>
+			<LinkButton href="/" appearance="primary" iconbefore="arrow_back">
+				{m.common_back()}
+			</LinkButton>
 		</Flex>
 		<Flex gap="medium" height="fit-content" marginBottom="giant" flexWrap="wrap">
 			<HorizontalCard
@@ -91,7 +93,10 @@
 				title={m.page_apps_card_help_title()}
 				icon="contact_support"
 				href="https://davidnet.net/help" />
-			<HorizontalCard title={m.page_apps_card_davidnet_title()} icon="globe" href="https://davidnet.net" />
+			<HorizontalCard
+				title={m.page_apps_card_davidnet_title()}
+				icon="globe"
+				href="https://davidnet.net" />
 		</Flex>
 		{#if internalAccessResult}
 			<Flex justifyContent="spaceBetween" height="fit-content">
@@ -103,6 +108,11 @@
 					description=""
 					icon="monitor_heart"
 					href="https://grafana.davidnet.internal" />
+				<HorizontalCard
+					title="Git"
+					description=""
+					icon="rebase_edit"
+					href="https://git.davidnet.net" />
 				<HorizontalCard
 					title={m.page_apps_card_traefik_title()}
 					icon="globe_book"
